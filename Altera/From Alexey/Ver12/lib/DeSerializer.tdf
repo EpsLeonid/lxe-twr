@@ -1,0 +1,161 @@
+TITLE "DeSerializer";
+
+INCLUDE "lpm_counter.inc" ;
+INCLUDE "lpm_shiftreg.inc";
+INCLUDE "Edge_Sensing.inc";
+INCLUDE "lpm_mux.inc" ;
+INCLUDE "FORs_RAM.inc";
+
+CONSTANT WORD_WIDTH       = 16; -- размер слова данных
+CONSTANT PrescalerModule6  = 6;  -- делим входную частоту в 6 раз
+CONSTANT PrescalerModule3  = 3;  -- делим входную частоту в 3 раза
+
+
+SUBDESIGN DeSerializer
+(
+--
+  Event                       : input;
+  Clock           			  : input;  -- входная частота 150 МГц, частота работы модуля
+  DS_Sample_Enable            : input;  -- частота появления слов в DeSerializer-е 
+  FLK_Clock                   : input;  -- рабочая частота быстрых линков 37.5 МГц
+  Reset						  : input = GND;  -- Common FPGA Reset
+-- Module specific signals
+  DataIn_R[23..0]  		 	  : input; 
+  DataIn_W[23..0]	   		  : input;
+
+  SerDataOutR[7..0]           : output; -- данные для Serializer-а 1 канал R
+  SerDataOutW[7..0]           : output; -- данные для Serializer-а 2 канал W
+  NumberWord[1..0]            : output; -- номер слова
+ 
+  DataBus_In[15..0]			  : input;  -- отправляемые с Внутренней Шины в Линк данные
+  DataBusOut[15..0]     	  : output; -- выдаваемые на Внутреннюю Шину из Модуля данные (младшие 16бит шины R)
+  
+  Bus_Clock                   : input;  -- частота шины проекта 100 МГц
+  DataBusStrobe 			  : input;  -- строб приема/передачи данных наружу (высокий уровень, защелкиваем по заднему фронту)
+  Select					  : input;  -- Выбор Модуля для работы с памятью Командного Листа в режиме Slave (с КАМАК-ом)
+  DirectIn					  : input;  -- направление передачи данных, Если =GND, то данный Модуль читается, если =VCC, то пишется.
+  AddrBus_In[9..0]			  : input;  -- адрес при операциях доступа чтения/записи Командного Листа с КАМАК-а
+)
+
+VARIABLE
+
+  Data_Reg_R                  : lpm_shiftreg with (LPM_WIDTH=24,LPM_DIRECTION="unused"); -- регистр данных
+  Data_Reg_W                  : lpm_shiftreg with (LPM_WIDTH=24,LPM_DIRECTION="unused"); -- регистр данных
+  MUX_W                       : LPM_MUX with ( lpm_size=3, lpm_width=8,lpm_widths=2 );  -- мультиплексор 24->8 разбиение 24 бит на 3 слова по 8 бит
+  MUX_R                       : LPM_MUX with ( lpm_size=3, lpm_width=8,lpm_widths=2 );  -- мультиплексор 24->8 разбиение 24 бит на 3 слова по 8 бит
+  NofB_Counter    	          : LPM_COUNTER with ( lpm_width=2, lpm_direction="up" );   -- счетчик-указатель управление номером слова (байта) 
+
+  RAM[2..0]					  : FORs_RAM;
+  RAM_Addr_Cnt_a   	          : LPM_COUNTER with ( lpm_width=8, lpm_direction="down" );  
+  RAMAddrBus[7..0]            : node;
+  SaveRAM_0                   : node;
+  SaveRAM_1                   : node;
+  SaveRAM_2                   : node;
+
+  Status_Reg                  : lpm_shiftreg with (LPM_WIDTH=8,LPM_DIRECTION="unused"); -- управляющий/статусный регистр 
+  RAM_Enable                  : node; -- остановить/запустить цикл записи FOR-ов в память
+  SaveSReg                    : node; 
+  
+  CLK37                       : node;
+BEGIN
+
+DEFAULTS
+	DataBusOut[] = GND;
+END DEFAULTS;
+
+
+CLK37 = FLK_Clock;
+
+--******************** Входные регистры ********************
+Data_Reg_W.data[23..0] = DataIn_W[23..0];
+Data_Reg_W.clock       = Clock;   -- по такту защелкиваем состояние шины W
+Data_Reg_W.load        = VCC;     -- регистры всегда в параллельной загрузке
+Data_Reg_W.enable      = FOR_Sample_Enable;  -- разрешаем защелкнуть состояние шины W
+-- разбиение 24 бит шины W на 3 слова по 8 бит 
+FOR i IN 0 TO 3 GENERATE
+  MUX_W.data[0][2*i]    = Data_Reg_W.q[2*i];
+  MUX_W.data[0][2*i+1]  = !Data_Reg_W.q[2*i+1];
+
+  MUX_W.data[1][2*i]    = Data_Reg_W.q[2*i+8];
+  MUX_W.data[1][2*i+1]  = !Data_Reg_W.q[2*i+1+8];
+
+  MUX_W.data[2][2*i]    = Data_Reg_W.q[2*i+16];
+  MUX_W.data[2][2*i+1]  = !Data_Reg_W.q[2*i+1+16];
+END GENERATE;
+MUX_W.sel[1..0]        = NofB_Counter.q[1..0]-1; 
+  
+Data_Reg_R.data[23..0] = DataIn_R[23..0];
+Data_Reg_R.clock       = Clock;   -- по такту защелкиваем состояние шины R
+Data_Reg_R.load        = VCC;     -- регистры всегда в параллельной загрузке
+Data_Reg_R.enable      = FOR_Sample_Enable;  -- разрешаем защелкнуть состояние шины R 
+-- разбиение 24 бит шины R на 3 слова по 8 бит 
+FOR i IN 0 TO 3 GENERATE
+  MUX_R.data[0][2*i]    = Data_Reg_R.q[2*i];
+  MUX_R.data[0][2*i+1]  = !Data_Reg_R.q[2*i+1];
+
+  MUX_R.data[1][2*i]    = Data_Reg_R.q[2*i+8];
+  MUX_R.data[1][2*i+1]  = !Data_Reg_R.q[2*i+1+8];
+
+  MUX_R.data[2][2*i]    = Data_Reg_R.q[2*i+16];
+  MUX_R.data[2][2*i+1]  = !Data_Reg_R.q[2*i+1+16];
+END GENERATE;
+MUX_R.sel[1..0]         = NofB_Counter.q[1..0]-1; 
+
+-- Счетчик-указатель номера слова (8 бит) NofB_Counter
+NofB_Counter.data[1..0]= B"01";
+NofB_Counter.clock	   = CLK37;
+NofB_Counter.sload	   = (NofB_Counter.q[0] AND NofB_Counter.q[1]);
+NofB_Counter.aload     = Reset; 
+-- *********** Здесь описана структура соединений шин данных *************
+SerDataOutR[7..0]      = MUX_R.result[7..0]; 
+SerDataOutW[7..0]      = MUX_W.result[7..0]; 
+NumberWord[1..0]       = NofB_Counter.q[1..0]; -- дополнительные 2 бита номера слова для Serializer
+
+--*************** Память истории ***************************
+RAM[0].(address_a[7..0]       , clock_a, data_a[15..0]   , wren_a) =
+       (RAM_Addr_Cnt_a.q[7..0], Clock  , DataIn_R[15..0] , FOR_Sample_Enable); 
+RAM[1].(address_a[7..0]       , clock_a, data_a[15..0]   , wren_a) =
+       (RAM_Addr_Cnt_a.q[7..0], Clock  , DataIn_W[15..0] , FOR_Sample_Enable); 
+RAM[2].(address_a[7..0]       , clock_a, data_a[7..0]    , data_a[15..8]   , wren_a) =
+       (RAM_Addr_Cnt_a.q[7..0], Clock  , DataIn_R[23..16], DataIn_W[23..16], FOR_Sample_Enable); 
+
+RAM_Addr_Cnt_a.clock   = Clock;
+RAM_Addr_Cnt_a.clk_en  = RAM_Enable AND !Event;
+RAM_Addr_Cnt_a.sclr    = Status_Reg.q[1];
+
+
+-- 256 адрес пишем в статусный регистр
+IF(AddrBus_In[] == 768)  THEN SaveSReg     = DataBusStrobe and  DirectIn AND Select;
+                              DataBusOut[7..0] = Status_Reg.q[7..0];
+                         ELSE SaveSReg     = GND; 
+END IF;
+-- с 0..255 адрес пишем в память
+IF(AddrBus_In[] >= 0 AND AddrBus_In[] <= 255) THEN SaveRAM_0 = DataBusStrobe and  DirectIn AND Select;
+                                                   DataBusOut[] = RAM[0].q_b[15..0];
+                                              ELSE SaveRAM_0 = GND; 
+END IF;
+IF(AddrBus_In[] >= 256 AND AddrBus_In[] <= 511) THEN SaveRAM_1    = DataBusStrobe and  DirectIn AND Select; 
+                                                     DataBusOut[] = RAM[1].q_b[15..0];
+                                                ELSE SaveRAM_1 = GND; 
+END IF;
+IF(AddrBus_In[] >= 512 AND AddrBus_In[] <= 767) THEN SaveRAM_2 = DataBusStrobe and  DirectIn AND Select;
+                                                     DataBusOut[] = RAM[2].q_b[15..0];
+                                                ELSE SaveRAM_2 = GND; 
+END IF;
+
+
+RAMAddrBus[7..0] = AddrBus_In[7..0] + RAM_Addr_Cnt_a.q[7..0]; -- выставление адреса в 0 для текущего набора FOR-ов
+RAM[0].(address_b[7..0] , clock_b  , data_b[15..0], wren_b) =
+       (RAMAddrBus[7..0], Bus_Clock, DataBus_In[] , SaveRAM_0); 
+RAM[1].(address_b[7..0] , clock_b  , data_b[15..0], wren_b) =
+       (RAMAddrBus[7..0], Bus_Clock, DataBus_In[] , SaveRAM_1); 
+RAM[2].(address_b[7..0] , clock_b  , data_b[15..0], wren_b) =
+       (RAMAddrBus[7..0], Bus_Clock, DataBus_In[] , SaveRAM_2); 
+
+
+Status_Reg.(data[],clock,enable,load) = (DataBus_In[7..0],Bus_Clock,SaveSReg,VCC);
+RAM_Enable   = Status_Reg.q[0];
+
+
+
+END; -- End design

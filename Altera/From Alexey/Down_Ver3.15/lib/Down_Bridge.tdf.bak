@@ -1,0 +1,72 @@
+TITLE "Brige" ;
+
+INCLUDE "lpm_shiftreg.inc" ;
+INCLUDE "lpm_counter.inc" ;
+INCLUDE "Edge_Sensing.inc";
+
+CONSTANT WORD_WIDTH        = 16;
+
+SUBDESIGN Down_Bridge
+(
+   Clock                         : input;   -- частота проекта 100МГц
+   SyncClk                       : input;   -- чаcтота обращения пучка (12.5 МГц)
+
+   DataStrobeIn                  : input;   -- сигнал от Арбитра для защелкивания данных из внутренней шины проекта
+   DataStrobe_Alt                : output;  -- сигнал от Арбитра для защелкивания данных для передачи в другую Альтеру
+
+   Target_Ready_Out              : output;  -- выход этого сигнала на внутреннюю шину
+   
+   Alt_Data_Bus_In[15..0]        : input;   -- шина между Альтерами
+   Alt_Data_Bus_Out[15..0]       : output;  -- шина между Альтерами
+
+   Alt_Direct                    : output;  -- направление передачи двунапраленной шины
+   RW_Cycle                      : input;   -- сигнал о том какая операция сечас будет производиться (чтение или запись) 
+
+   Data_Bus_Out[15..0]           : output; -- щина внутрь проекта. Возвращаются запрошенные данные.
+   Addr_Bus_In[15..0]            : input;  -- щина внутри проекта. Поступает адрес запрашиваемого устройства
+   Data_Bus_In[15..0]            : input;  -- щина внутри проекта. Поступают отправляемые данные.
+   FOR_Bus_In[7..0]             : input;  -- сигналы временных отметок (результат работы алгоритма) 	
+   Esum_Bus_In[7..0]            : input;  -- суммарное энерговыделение по 8 каналам (результат работы алгоритма)
+   
+ 
+   Alt_Target_Ready              : input;
+   Sync                          : output;
+)
+
+VARIABLE
+
+   Cycle_Counter                 : LPM_COUNTER  with (lpm_width=4, lpm_direction="up" ); --4
+   
+   Direct                        : node;
+   --WaitDataTime                  : node;
+  
+BEGIN -- начало проекта
+
+   Cycle_Counter.(Clock, sclr) = (Clock, SyncClk);
+  
+   IF(Cycle_Counter.q[] == 0) THEN Alt_Data_Bus_Out[7..0] = FOR_Bus_In[]; Alt_Data_Bus_Out[15..8] = Esum_Bus_In[]; END IF;  
+   IF(Cycle_Counter.q[] == 1) THEN Alt_Data_Bus_Out[] = Addr_Bus_In[]; END IF;     
+  
+ --  IF(Cycle_Counter.q[] == 8) THEN Alt_Data_Bus_Out[] = FOR_Bus_In[] ; END IF;  
+ --  IF(Cycle_Counter.q[] == 9) THEN Alt_Data_Bus_Out[] = Esum_Bus_In[]; END IF;  
+   
+
+   DataStrobe_Alt = DataStrobeIn;
+
+   IF(Cycle_Counter.q[] >= 2 AND Cycle_Counter.q[] <= 7) THEN Alt_Data_Bus_Out[] = Data_Bus_In[];
+   END IF; 
+   IF(Cycle_Counter.q[] >= 0 AND Cycle_Counter.q[] <= 1) THEN Direct = VCC;
+                                                         ELSE Direct = GND;
+   END IF; 
+   
+   Alt_Direct = Direct OR RW_Cycle;
+   Target_Ready_Out  = Alt_Target_Ready;
+   Data_Bus_Out[]    = Alt_Data_Bus_In[];
+   
+   IF(Cycle_Counter.q[] == 7) THEN Sync = VCC; 
+                              ELSE Sync = GND;
+   END IF; 
+  
+--********************************** test *****************************************
+ 
+END; -- конец проекта

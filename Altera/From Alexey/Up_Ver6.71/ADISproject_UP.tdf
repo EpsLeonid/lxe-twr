@@ -1,0 +1,658 @@
+TITLE " Project ADIS" ;
+
+INCLUDE "lpm_counter.inc" ;
+INCLUDE "lpm_shiftreg.inc" ;
+INCLUDE "LightPulser.inc";
+INCLUDE "100PLL150.inc";
+INCLUDE "Edge_Sensing.inc";
+INCLUDE "Bunch_Crossing_adjust.inc";
+INCLUDE "ADIS.inc";
+INCLUDE "Basic_Trig.inc";
+INCLUDE "Ref_Freq_Gen.inc";
+INCLUDE "Test_RAM.inc";
+INCLUDE "BUS_Mux_Main.inc";
+INCLUDE "Fast_Link.inc";
+INCLUDE "ADDER8_16.inc";
+INCLUDE "ADDER2_8.inc";
+INCLUDE "NCH_Scalers.inc";
+INCLUDE "CMD3_FOR_Lines_Simulator.inc";
+INCLUDE "FORs_History_RAM.inc";
+INCLUDE "ErrorCounters.inc";
+
+Constant Test_MEM_Offset   	            = H"2200" ; -- 8704
+Constant Test_MEM_Size                  = 256;
+ 
+Constant BasicTrigger_Offset            = H"8000" ; -- 32768
+Constant BasicTrigger_Size              = 2;
+
+Constant Bunch_Crossing_25_Offset       = H"4000";  -- 16384
+Constant Bunch_Crossing_12_5_DS_Offset  = H"4008";  -- 16392
+Constant Bunch_Crossing_12_5_FLS_Offset = H"4010";  -- 16400
+--Constant Bunch_Crossing_37_5_Offset     = H"4012";
+
+Constant Channel_Enable1_Offset         = H"4500";  -- 17664
+Constant Channel_Enable2_Offset         = H"4501";  -- 17665
+
+Constant ADIS_Offset                    = H"6000" ; -- 24576 25088 25600 26112 26624 27136 27648 28160
+Constant ADIS_CH_Offset                 = H"200" ;
+Constant ADIS_Size                      = 270;
+
+Constant Sum_Ctrl_Reg_Offset            = H"7201";  -- 29185
+
+Constant Scalers_Offset  	            = H"7500" ; -- 29952
+Constant Scalers_Size                   = 128 ;     -- 8 значащих
+
+Constant RAM_Simulator_Offset           = H"2400";  -- 9216
+Constant RAM_Simulator_Size             = 771;
+Constant RAM_Simulator_Start            = H"3200";
+Constant RAM_Simulator_Stop             = H"3201";
+
+Constant ESumL_Reg_Offset               = H"3002"; -- 12290
+Constant ESumH_Reg_Offset               = H"3003"; -- 12291
+Constant ESum_Total_Offset              = H"3004"; -- 12292
+
+Constant History_RAM_Offset             = H"8400"; -- 33792
+Constant History_RAM_Size               = 771;
+
+Constant FIR_Control_Reg_Offset         = H"1901" ; -- 6401
+
+Constant ErrorCounters_Offset           = H"1500" ;
+Constant ErrorCounters_Size	            = 1;
+
+CONSTANT ADC_Bits             = 10;  -- разрядность АЦП
+CONSTANT NUM_CH_ADIS          = 8;
+CONSTANT DeviceNumber         = 2 + NUM_CH_ADIS;   -- число устройст доступных для чтения/записи
+CONSTANT WORD_WIDTH           = 16;
+
+SUBDESIGN ADISProject_UP
+(
+  -- Clock                             : input;
+   PLL_Input                         : input;
+   
+--   Init_Set                          : input; -- вход для установки в начальное состояние
+
+-- идикаторы
+   ChipLedR,ChipLedG                 : output;--bidir ; 
+   LedR,LedG,LedB                    : bidir ;
+   LedErr,LedPhase	                 : input ;
+
+-- сигналы линка
+   Link_TxRx                         : output; -- сигнал направления передачи
+   Link_TxRx_In                      : input;  
+   Link_Data                         : bidir;  -- последовательный вход/выход данных линка
+   Link_Data_In                      : bidir;
+   Phase0Direct                      : output; -- направление передачи фазы у приемопередатчика
+ 
+   ChannelEn[32..1]                  : output; -- управлени суммированием каналов
+   LinkMessage                       : input;  -- сигнал о работе CLink-а (общий стоп)
+   
+-- сигналы Bridge
+   Data_Bus[WORD_WIDTH-1..0]         : bidir;  -- двунапраленная шина данных
+   Direct                            : input;  -- направление передачи двунапраленной шины
+   Data_Strobe                       : input;  -- сигнал для защелкивания адреса, данных
+   Target_Select                     : output; -- сигнал о выборе этих устройств
+
+   Sync								 : input;  -- сигнал синхронизации начала работы счетчиков brige-ей
+
+-- Входные данные с АЦП
+   ADC_In_Data[NUM_CH_ADIS-1..0][ADC_Bits-1..0] : input;
+   
+-- Быстрый линк
+   3PH_CLK                           : output; -- тактовый сигнал Serializer-а
+   PWRDN                             : output; -- вкл/выкл Serializer-а
+   FSync                             : input;  
+   SerDataOut[7..0]                  : output; -- данные для передачи с помощью Serializer-а
+   NWord[1..0]                       : output; -- номер слова в данных для передачи с помощью Serializer-а
+        
+ -- тестовые сигналы
+   SyncPulse                         : input;
+   Test1,Test2                       : output;
+   BasicTrigResult                   : output;
+ -- пробные сигналы  
+   CLK150_ 							 : output;
+   CLK37_5_ 			    		 : output;
+   CLK12_5_ 						 : output;
+   CLK25_    						 : output;
+
+)
+
+VARIABLE
+
+-- 1. Тактовые частоты и управление частотами   
+   CLK100                        : node; -- внутреннии частоты
+   CLK25                         : node;
+   PLL                           : 100PLL150; 
+   CLK150                        : node;
+
+   Bunch_Crossing_25             : Bunch_Crossing_adjust with (Cavity_to_Bunch_Ratio = 4, Number_of_Channel=1); -- частота 100МГц
+   Bunch_Crossing_12_5_DS        : Bunch_Crossing_adjust with (Cavity_to_Bunch_Ratio = 12, Number_of_Channel=1);
+   Bunch_Crossing_12_5_FLS       : Bunch_Crossing_adjust with (Cavity_to_Bunch_Ratio = 12, Number_of_Channel=1);
+  -- Bunch_Crossing_37_5           : Bunch_Crossing_adjust with (Cavity_to_Bunch_Ratio = 4, Number_of_Channel=1);
+   BC_Sample_Enable              : node;
+   BC_Fast_Link_Start            : node;
+   --3PH_CLK_Int                   : node;
+
+   Bunch_Crossing_12_5_DS_CS     : node;
+   Bunch_Crossing_12_5_FLS_CS    : node;    
+   Bunch_Crossing_25_CS          : node;
+   --Bunch_Crossing_37_5_CS        : node;
+  -- Bunch_Crossing_CS             : node;
+   
+   -- 2. Индикаторы (Duration в mc, RefClock в kHz)
+   LightR, LightB                : LightPulser with (Duration = 20, RefClock = 1); 
+   Ref_Clk_Gen                   : Ref_Freq_Gen with (GlobalClockFreq = 100, RefClockOut = 1);
+   Green_LED                     : node;
+   LightCounter                  : LPM_COUNTER  with (lpm_width=28, lpm_direction="up" ); 
+   
+-- 3. Bridge
+  -- Data_Bus_In_Buff              : lpm_shiftreg with (LPM_WIDTH = 16);
+  -- Data_Bus_Out_Buff             : lpm_shiftreg with (LPM_WIDTH = 16);
+  -- Sync_DFF                      : DFF;
+   Cycle_Counter                 : LPM_COUNTER  with (lpm_width=3, lpm_direction="up" ); --4
+   AddrReg                       : lpm_shiftreg with (LPM_WIDTH = 16);
+  -- Data_Strobe_DFF               : DFF;
+   Data_Strobe_                  : node;
+  -- Direct_DFF                    : DFF;
+      
+   SaveData                      : node;
+   
+   Data_Bus_[15..0]              : node;
+   
+   FOR_Bus_In[7..0]              : node;
+   Esum_Bus_In[7..0]             : node;
+   Addr_Bus_In[15..0]            : node;
+   Data_Bus_In[15..0]            : node;
+ 
+   Addr_Strobe                   : node;
+   Dir                           : node;
+   Data_AG                       : node;
+
+-- 4. общий СТОП
+  -- LinkMessage_DFF               : DFF;
+
+   Event_ES_Beg                  : Edge_Sensing;
+   Event_ES_End                  : Edge_Sensing; 
+   Event_Trig                    : SRFF;
+   LinkMsg_Trig                  : DFF;
+   
+   Event_ES_Beg_                 : Edge_Sensing;
+   Event_ES_End_                 : Edge_Sensing; 
+   Event_Trig_                   : SRFF;
+   LinkMsg_Trig_                 : DFF;
+
+-- 5. Входные данные с АЦП
+   ADISChannel[NUM_CH_ADIS-1..0] : ADIS;
+   ADIS_CS[NUM_CH_ADIS-1..0]     : node;
+   ADIS_CS_OR[NUM_CH_ADIS..0]    : node;
+   FOR_RTime                     : lpm_shiftreg with (LPM_WIDTH = 8);
+   FOR_Strobe                    : node;
+   ESum_Reg                      : lpm_shiftreg with (LPM_WIDTH = 8);
+   -- управление суммированием сигналов с УФО
+   Channel1_En_Reg               : lpm_shiftreg with (LPM_WIDTH = 16);
+   Ch_En_Reg1_CS                 : node;
+   Channel2_En_Reg               : lpm_shiftreg with (LPM_WIDTH = 16);
+   Ch_En_Reg2_CS                 : node;
+   -- суммирование групп внутри АДИСа
+   Energy                        : ADDER8_16;
+   Energy_Reg                    : lpm_shiftreg with (LPM_WIDTH = 13);  
+   Total_Energy                  : ADDER2_8;
+   Total_Energy_Reg              : lpm_shiftreg with (LPM_WIDTH = 9);
+   Sum_Data_BUS[7..0]            : node;
+   Sum_Ctrl_Reg_CS               : node;
+   Sum_Ctrl_Reg                  : lpm_shiftreg with (LPM_WIDTH = 5);
+   Total_Energy_BUS[7..0]        : node;
+       
+-- 6. Память
+   RAMData                       : Test_RAM;
+   Test_MEM_CS                   : node;
+
+-- 7. Fast Link
+   FLink                         : Fast_Link;
+   SerDataOut_Out_Pin_Buffer     : lpm_shiftreg with (LPM_WIDTH=8,LPM_DIRECTION="unused");
+   NWord_Out_Pin_Buffer          : lpm_shiftreg with (LPM_WIDTH=2,LPM_DIRECTION="unused");
+   3PH_CLK_Out_Pin_Buffer        : DFF;
+ 
+    
+   History_RAM                   : FORs_History_RAM;
+   History_RAM_CS                : node;
+   
+-- 8.Симулятор данных для быстрого линка 
+   Lines_Simulator			     : CMD3_FOR_Lines_Simulator;
+   Lines_Simulator_CS            : node;
+   FLink_Data_BUS[23..0]         : node;
+   RAM_Simulator_Start_CS        : node;
+   RAM_Simulator_Stop_CS         : node;
+
+-------    
+   ESumL_Reg_CS, ESumH_Reg_CS    : node;
+   ESum_Total_CS                 : node;
+   
+ -- 9. Пересчетка
+   Scalers                       : NCH_Scalers with (Number_of_Channel = 16); -- 16 временных отметок с модулей ADIS в нижней альтере и верхней альтеры
+   Scalers_CS                    : node;
+   
+-- 10. Error counter
+   ErrorCounters_IFace		     : ErrorCounters with (Width = 3);
+   ErrorCounters_IFace_CS	     : NODE;
+   Sync_ES                       : Edge_Sensing;   
+
+-- 12. Basic Trigger
+   BTrigger                      : Basic_Trig with (NUM_CH = 16);-- (NUM_CH = 16);
+   B_Trig_CS                     : node;
+   
+-- 16. Управление КИХ фильтром
+   FIR_Control_Reg               : lpm_shiftreg with (LPM_WIDTH = 16, LPM_DIRECTION="unused"); 
+   FIR_Control_Reg_CS            : node;
+
+
+-- тестовый пины
+   SyncPulse_DFF                 : DFF;
+  
+BEGIN -- Начало описания проекта
+  DEFAULTS
+     Data_Bus_[] = GND;
+  END DEFAULTS;
+--******************************* Тактовые частоты ************************************
+--************************** PLL section ***************************
+   PLL.inclk0 = PLL_Input ;
+   CLK150 = Global(PLL.c0);  -- 150 MHz
+   CLK100 = Global(PLL.c1);  -- 100 MHz
+   
+--***************************** Bunch_Crossing adjust *********************************	
+   Bunch_Crossing_25.(Cavity_Clock, BusClock, Bunch_Crossing, DataBus_In[15..0], DataBusStrobe    , AddrBus_In[0]) =
+                     (CLK100      , CLK100  , Event_ES_Beg.q,   Data_Bus_In[]  , Data_Strobe_, AddrReg.q[0] );
+   Bunch_Crossing_25.DirectIn		= Direct;
+   Bunch_Crossing_25.Select		    = Bunch_Crossing_25_CS;
+   
+   Bunch_Crossing_12_5_DS.(Cavity_Clock, BusClock, Bunch_Crossing , DataBus_In[15..0], DataBusStrobe    , AddrBus_In[0]) =
+                          (CLK150      , CLK100  , Event_ES_Beg_.q,   Data_Bus_In[]  , Data_Strobe_, AddrReg.q[0]);
+   Bunch_Crossing_12_5_DS.DirectIn		= Direct;
+   Bunch_Crossing_12_5_DS.Select		= Bunch_Crossing_12_5_DS_CS;
+   
+   Bunch_Crossing_12_5_FLS.(Cavity_Clock, BusClock, Bunch_Crossing , DataBus_In[15..0], DataBusStrobe    , AddrBus_In[0]) =
+                           (CLK150      , CLK100  , Event_ES_Beg_.q,   Data_Bus_In[]  , Data_Strobe_, AddrReg.q[0] );
+   Bunch_Crossing_12_5_FLS.DirectIn		= Direct;
+   Bunch_Crossing_12_5_FLS.Select		= Bunch_Crossing_12_5_FLS_CS;
+   
+ --  Bunch_Crossing_37_5.(Cavity_Clock, BusClock, Bunch_Crossing , DataBus_In[15..0], DataBusStrobe    , AddrBus_In[0]) =
+ --                      (CLK150      , CLK100  , Event_ES_Beg_.q,   Data_Bus_In[]  , Data_Strobe_, AddrReg.q[0]);
+ --  Bunch_Crossing_37_5.DirectIn		    = Direct;
+ --  Bunch_Crossing_37_5.Select		    = Bunch_Crossing_37_5_CS;
+
+   BC_Sample_Enable   = Bunch_Crossing_12_5_DS.Start_Enable[];  -- 12.5 МГц привязанные к стартовому биту	
+   BC_Fast_Link_Start = Bunch_Crossing_12_5_FLS.Start_Enable[];
+   CLK25              = Bunch_Crossing_25.Start_Enable[];--Bunch_Crossing_25.Sample_Enable;
+--   3PH_CLK_Int        = Bunch_Crossing_37_5.Refrence_Clock[];
+  
+--*************************** Индикаторы ***************************
+   LightCounter.clock   = CLK100;
+   Ref_Clk_Gen.Global_Clock = CLK100;
+   
+   LightR.(Global_Clock,event,Ref_Clock) = (CLK100, LedErr, Ref_Clk_Gen.Ref_Clock_Out); 
+   LightB.(Global_Clock,event,Ref_Clock) = (CLK100, Event_ES_Beg.q, Ref_Clk_Gen.Ref_Clock_Out); 
+   Green_LED = LedPhase OR LightCounter.q[27];
+
+   LedG = OPNDRN(!Green_LED);
+   LedR = OPNDRN(LightR.LightOut);
+   LedB = OPNDRN(LightB.LightOut);
+   
+   ChipLedR = ADISChannel[0].Start;--OPNDRN(!LightCounter.q[27]);
+   ChipLedG = ADISChannel[0].Test1;--OPNDRN(!LightCounter.q[26]);
+   
+
+--**********************Slow Link Interface I/O connection ***********************
+-- Соединение шин данных Link-а 
+   Link_TxRx	= Link_TxRx_In; -- направление передачи
+   Link_Data    = TRI(.in = Link_Data_In, .oe =  Link_TxRx_In); -- направление передачи
+   Link_Data_In = TRI(.in = Link_Data   , .oe = !Link_TxRx_In); -- направление передачи
+   Phase0Direct = GND; -- направление передачи фазы у приемопередатчика. 
+   FOR i IN 0 TO 15 GENERATE 
+      ChannelEn[2*i+1] = Channel1_En_Reg.q[i];
+      ChannelEn[2*i+2] = Channel2_En_Reg.q[i];
+   END GENERATE;
+  
+   Channel1_En_Reg.(data[],clock,enable,load) = (Data_Bus_In[],CLK100, SaveData and Ch_En_Reg1_CS,VCC);
+   Channel2_En_Reg.(data[],clock,enable,load) = (Data_Bus_In[],CLK100, SaveData and Ch_En_Reg2_CS,VCC);
+  
+--************************************* DDR ***************************************	
+    FOR i IN 0 TO WORD_WIDTH-1 GENERATE
+           Data_Bus[i] = TRI(.in = Data_Bus_[i], .oe = !(Direct OR Dir)); 
+    END GENERATE;  
+  
+--********************************** Общий СТОП ***********************************	
+    Event_ES_Beg.(d,clk)  = (!Link_Data_In AND !Event_Trig.q, CLK100); -- Определение стартового бита
+    LinkMsg_Trig.(d,clk)  = (!LinkMessage, CLK100);    
+    Event_ES_End.(d,clk)  = (LinkMsg_Trig.q, CLK100);
+    Event_Trig.(S,clk,R)  = (Event_ES_Beg.q, CLK100, Event_ES_End.q);
+
+    Event_ES_Beg_.(d,clk) = (!Link_Data_In AND !Event_Trig_.q, CLK150); -- Определение стартового бита
+    LinkMsg_Trig_.(d,clk) = (!LinkMessage, CLK150);    
+    Event_ES_End_.(d,clk) = (LinkMsg_Trig_.q, CLK150);
+    Event_Trig_.(S,clk,R) = (Event_ES_Beg_.q, CLK150, Event_ES_End_.q);
+
+--*********************************** Bridge **************************************
+  --  LinkMessage_DFF.(d,clk)    = (LinkMessage, CLK100);
+  --  Direct_DFF.(d,clk)         = (Direct, CLK100);
+    ---Data_Strobe_DFF.(d,clk)    = (Data_Strobe, CLK100);
+   -- Sync_DFF.(d,clk)           = (Sync, CLK100);
+    Data_Strobe_               = Data_Strobe;
+    Cycle_Counter.(Clock,sclr) = (CLK100, Sync);
+    
+    IF(Cycle_Counter.q[] == 0) THEN FOR_Strobe = VCC; 
+                               ELSE FOR_Strobe = GND;
+    END IF;
+    IF(Cycle_Counter.q[] == 1) THEN Addr_Strobe = VCC; 
+                               ELSE Addr_Strobe = GND;
+    END IF;
+    
+    IF(Cycle_Counter.q[] >= 0 AND Cycle_Counter.q[] <= 1) THEN Dir = VCC; 
+                                                          ELSE Dir = GND; 
+    END IF;
+    IF(Cycle_Counter.q[] >= 2 AND Cycle_Counter.q[] <= 7) THEN Data_AG = VCC; 
+                                                          ELSE Data_AG = GND; 
+    END IF;
+     
+    FOR_Bus_In[]  = Data_Bus[7..0];--Data_Bus_In_Buff.q[7..0];   --Data_Bus[7..0];  
+    Esum_Bus_In[] = Data_Bus[15..8];--Data_Bus_In_Buff.q[15..8]; --Data_Bus[15..8]; 
+    Addr_Bus_In[] = Data_Bus[];--Data_Bus_In_Buff.q[];       --Data_Bus[];
+    Data_Bus_In[] = Data_Bus[];--Data_Bus_In_Buff.q[];       --Data_Bus[];
+    
+-- Компаратор адреса
+    AddrReg.(data[],clock,enable,load) = (Addr_Bus_In[],CLK100, Addr_Strobe OR Data_Strobe_,VCC);
+    AddrReg.sclr = Data_Strobe_;
+    
+    IF (AddrReg.q[15..0] == Channel_Enable1_Offset) --Channel_Enable1_Offset
+         THEN Ch_En_Reg1_CS = VCC;  Data_Bus_[] = Channel1_En_Reg.q[];-- AddrMux[]  = 0;
+         ELSE Ch_En_Reg1_CS = GND;
+    END IF; 
+    IF (AddrReg.q[15..0] == Channel_Enable2_Offset)
+         THEN Ch_En_Reg2_CS = VCC; Data_Bus_[] = Channel2_En_Reg.q[]; --AddrMux[]  = 1; --Data_Bus_[] = Channel2_En_Reg.q[]; 
+         ELSE Ch_En_Reg2_CS = GND;
+    END IF; 
+    IF (AddrReg.q[15..0] == Bunch_Crossing_25_Offset)  
+         THEN Bunch_Crossing_25_CS = VCC;  Data_Bus_[] = Bunch_Crossing_25.DataBusOut[]; --AddrMux[]  = 2;
+         ELSE Bunch_Crossing_25_CS = GND;
+    END IF; 
+    IF (AddrReg.q[15..0] == Bunch_Crossing_12_5_DS_Offset)  
+         THEN Bunch_Crossing_12_5_DS_CS = VCC;  Data_Bus_[] = Bunch_Crossing_12_5_DS.DataBusOut[]; --AddrMux[]  = 2;
+         ELSE Bunch_Crossing_12_5_DS_CS = GND;
+    END IF; 
+    IF (AddrReg.q[15..0] == Bunch_Crossing_12_5_FLS_Offset)  
+         THEN Bunch_Crossing_12_5_FLS_CS = VCC;  Data_Bus_[] = Bunch_Crossing_12_5_FLS.DataBusOut[]; --AddrMux[]  = 2;
+         ELSE Bunch_Crossing_12_5_FLS_CS = GND;
+    END IF; 
+    -- ********************** Новое
+   -- IF (AddrReg.q[15..0] == Bunch_Crossing_37_5_Offset)  
+   --      THEN Bunch_Crossing_37_5_CS = VCC;  Data_Bus_[] = Bunch_Crossing_37_5.DataBusOut[]; --AddrMux[]  = 2;
+   --      ELSE Bunch_Crossing_37_5_CS = GND;
+   -- END IF; 
+   -- ************************ 
+    IF ( (AddrReg.q[15..0] >= BasicTrigger_Offset) AND (AddrReg.q[15..0] < BasicTrigger_Offset + BasicTrigger_Size) ) 
+         THEN B_Trig_CS = VCC; Data_Bus_[] = BTrigger.DataBusOut[]; --AddrMux[]  = 3; --Data_Bus_[] = BTrigger.DataBusOut[]; 
+         ELSE B_Trig_CS = GND;
+    END IF;
+    IF ( (AddrReg.q[15..0] >= Test_MEM_Offset) AND (AddrReg.q[15..0] < Test_MEM_Offset + Test_MEM_Size) ) 
+         THEN Test_MEM_CS = VCC; Data_Bus_[] = RAMData.q[];--AddrMux[]  = 4; --Data_Bus_[] = RAMData.q[];
+         ELSE Test_MEM_CS = GND;
+    END IF;
+    IF (AddrReg.q[15..0] == FIR_Control_Reg_Offset) 
+         THEN FIR_Control_Reg_CS = VCC; Data_Bus_[] = FIR_Control_Reg.q[]; 
+         ELSE FIR_Control_Reg_CS = GND;
+    END IF; 
+    FOR i IN 0 TO (NUM_CH_ADIS-1) GENERATE
+       IF ( (AddrReg.q[15..0] >= ADIS_Offset + ADIS_CH_Offset*i) AND (AddrReg.q[15..0] < ADIS_Offset + ADIS_CH_Offset*i + ADIS_Size) ) 
+            THEN ADIS_CS[i] = VCC; Data_Bus_[] = ADISChannel[i].DataBusOut[];--AddrMux[]  = i+5;--Data_Bus_[] = ADISChannel[i].DataBusOut[];
+            ELSE ADIS_CS[i] = GND;
+       END IF;
+    END GENERATE;
+    IF ( (AddrReg.q[15..0] >= RAM_Simulator_Offset) AND (AddrReg.q[15..0] < (RAM_Simulator_Offset + RAM_Simulator_Size)) ) 
+         THEN 	Lines_Simulator_CS   = VCC;  Data_Bus_[] = Lines_Simulator.DataBusOut[];
+         ELSE 	Lines_Simulator_CS   = GND;
+    END IF;
+    IF (AddrReg.q[15..0] == Sum_Ctrl_Reg_Offset) 
+         THEN Sum_Ctrl_Reg_CS = VCC; Data_Bus_[4..0] = Sum_Ctrl_Reg.q[]; Data_Bus_[15..5] = GND; 
+         ELSE Sum_Ctrl_Reg_CS = GND;
+    END IF; 
+
+    IF (AddrReg.q[15..0] == ESumL_Reg_Offset) 
+         THEN ESumL_Reg_CS = VCC; Data_Bus_[7..0] = ESum_Reg.q[]; Data_Bus_[15..8] = GND; 
+         ELSE ESumL_Reg_CS = GND;
+    END IF; 
+    IF (AddrReg.q[15..0] == ESumH_Reg_Offset) 
+         THEN ESumH_Reg_CS = VCC; Data_Bus_[12..0] = Energy_Reg.q[]; Data_Bus_[15..13] = GND; 
+         ELSE ESumH_Reg_CS = GND;
+    END IF; 
+    IF (AddrReg.q[15..0] == ESum_Total_Offset) 
+         THEN ESum_Total_CS = VCC; Data_Bus_[8..0] = Total_Energy_Reg.q[]; Data_Bus_[15..9] = GND; 
+         ELSE ESum_Total_CS = GND;
+    END IF; 
+    IF ((AddrReg.q[15..0] >= Scalers_Offset) AND ( AddrReg.q[15..0] <(Scalers_Offset + Scalers_Size) )) 
+         THEN Scalers_CS = VCC ; Data_Bus_[] = Scalers.DataBusOut[];
+         ELSE Scalers_CS = GND ; 
+    END IF ;
+    IF ((AddrReg.q[15..0] >= History_RAM_Offset) AND ( AddrReg.q[15..0] <(History_RAM_Offset + History_RAM_Size) )) 
+         THEN History_RAM_CS = VCC ; Data_Bus_[] = History_RAM.DataBusOut[];
+         ELSE History_RAM_CS = GND ; 
+    END IF ;
+    IF (AddrReg.q[15..0] == RAM_Simulator_Start)
+		 THEN 	RAM_Simulator_Start_CS   = VCC;
+		 ELSE 	RAM_Simulator_Start_CS   = GND;
+	END IF;
+	IF (AddrReg.q[15..0] == RAM_Simulator_Stop)
+		 THEN 	RAM_Simulator_Stop_CS   = VCC;
+		 ELSE 	RAM_Simulator_Stop_CS   = GND;
+	END IF;
+	IF ((AddrReg.q[15..0] >= ErrorCounters_Offset) AND ( AddrReg.q[15..0] <(ErrorCounters_Offset + ErrorCounters_Size) )) 
+		 THEN 	ErrorCounters_IFace_CS   = VCC;
+		 ELSE 	ErrorCounters_IFace_CS   = GND;
+	END IF;
+
+    SaveData      = Data_Strobe_ AND Direct;
+
+	Target_Select = (ADIS_CS_OR[NUM_CH_ADIS] OR 
+					 B_Trig_CS          	 OR 
+					 FIR_Control_Reg_CS      OR
+					 Test_MEM_CS        	 OR 
+					 Bunch_Crossing_25_CS  	 OR 
+					 Bunch_Crossing_12_5_DS_CS  	 OR 
+					 Bunch_Crossing_12_5_FLS_CS  	 OR 
+					-- Bunch_Crossing_37_5_CS          OR
+					 Ch_En_Reg1_CS      	 OR 
+					 Ch_En_Reg2_CS      	 OR 
+					 Sum_Ctrl_Reg_CS    	 OR 
+					 ESumL_Reg_CS       	 OR 
+					 ESumH_Reg_CS       	 OR 
+					 ESum_Total_CS      	 OR 
+					 Lines_Simulator_CS 	 OR 
+					 Scalers_CS              OR 
+					 History_RAM_CS          OR
+					 RAM_Simulator_Start_CS  OR
+					 RAM_Simulator_Stop_CS   OR
+					 ErrorCounters_IFace_CS ) AND Data_AG;
+       
+--********************** ADIS Interface I/O connection ***********************
+    FOR i IN 0 TO (NUM_CH_ADIS-1) GENERATE
+      ADISChannel[i].(Clock, Event) = (CLK100, CLK25); 
+      FOR j IN 0 TO (ADC_Bits-1) GENERATE
+        ADISChannel[i].In_Data[j] = !ADC_In_Data[i][j];
+      END GENERATE;
+      ADISChannel[i].LinkMsg   = Event_Trig.q ;
+      ADISChannel[i].FIR_Control[1..0] = FIR_Control_Reg.q[1..0];
+      ADISChannel[i].Speed_Control     = FIR_Control_Reg.q[2];
+
+      ADISChannel[i].(DataBus_In[15..0], DataBusStrobe) =
+                     (Data_Bus_In[]    , Data_Strobe_ );
+      ADISChannel[i].DirectIn		  = Direct;
+      ADISChannel[i].AddrBus_In[8..0] = AddrReg.q[8..0];
+      ADISChannel[i].Select			  = ADIS_CS[i];
+      ADIS_CS_OR[i+1] = ADIS_CS_OR[i] OR ADIS_CS[i]; 
+      
+      ADISChannel[i].SyncPulse        = SyncPulse_DFF.q;
+    END GENERATE;
+    ADIS_CS_OR[0] = GND;
+       
+    SyncPulse_DFF.(d,clk) = (SyncPulse, CLK100); --тестовый вход
+
+    FOR_RTime.(data[],clock,enable,load) = (FOR_Bus_In[] ,CLK100, FOR_Strobe,VCC);
+    ESum_Reg.(data[],clock,enable,load)  = (Esum_Bus_In[],CLK100, FOR_Strobe,VCC);
+       
+   --------------------------------- Energy sum --------------------------------
+    Sum_Ctrl_Reg.(data[],clock,enable,load) = (Data_Bus_In[4..0],CLK100, SaveData and Sum_Ctrl_Reg_CS,VCC);
+    CASE Sum_Ctrl_Reg.q[4..0] IS
+	    WHEN b"00000"  => Sum_Data_BUS[7..0] = Energy_Reg.q[7..0]; 
+	    WHEN b"00001"  => Sum_Data_BUS[7..0] = Energy_Reg.q[8..1]; 
+	    WHEN b"00010"  => Sum_Data_BUS[7..0] = Energy_Reg.q[9..2]; 
+	    WHEN b"00100"  => Sum_Data_BUS[7..0] = Energy_Reg.q[10..3]; 
+	    WHEN b"01000"  => Sum_Data_BUS[7..0] = Energy_Reg.q[11..4]; 
+	    WHEN b"10000"  => Sum_Data_BUS[7..0] = Energy_Reg.q[12..5]; 
+        WHEN OTHERS    => Sum_Data_BUS[7..0] = Energy_Reg.q[12..5];	
+    END CASE;
+   
+   
+    Energy.clock    = CLK100;
+    Energy.data0x[] = ADISChannel[0].Amp[];
+    Energy.data1x[] = ADISChannel[1].Amp[];
+    Energy.data2x[] = ADISChannel[2].Amp[];
+    Energy.data3x[] = ADISChannel[3].Amp[];
+    Energy.data4x[] = ADISChannel[4].Amp[];
+    Energy.data5x[] = ADISChannel[5].Amp[];
+    Energy.data6x[] = ADISChannel[6].Amp[];
+    Energy.data7x[] = ADISChannel[7].Amp[];
+    
+    Energy_Reg.data[] = Energy.result[]; -- 13 bits
+    Energy_Reg.(clock,enable,load) = (CLK100,!Event_Trig.q,VCC); 
+    
+    Total_Energy.clock          = CLK100;
+    Total_Energy.data0x[7..0]   = ESum_Reg.q[7..0];
+    Total_Energy.data1x[7..0]   = Sum_Data_BUS[];--Energy_Reg.q[12..5]; 
+    Total_Energy_Reg.data[]     = Total_Energy.result[]; -- 9 bits
+    Total_Energy_Reg.(clock,enable,load) = (CLK100,!Event_Trig.q,VCC);
+    
+    IF(Total_Energy_Reg.q[8] == 1) THEN Total_Energy_BUS[7..0] = 255;
+                                   ELSE Total_Energy_BUS[7..0] = Total_Energy_Reg.q[7..0];
+    END IF;
+    
+ --------------------------------- Пересчетка ---------------------------------	  
+-----------------------------------------------------------------------    
+ 
+   Scalers.DataBusStrobe    = Data_Strobe_;
+  -- Scalers.Direct_In	    = Direct ;
+   Scalers.AddrBus_In[7..0] = AddrReg.q[7..0];
+   Scalers.Select		    = Scalers_CS;
+   Scalers.(Clock , Read_Cycle  ) = (CLK100, Event_Trig.q);  
+      
+   Scalers.Calc_Value[7..0]  = FOR_RTime.q[7..0];   
+   Scalers.Calc_Value[15..8] = ADISChannel[].Start;
+          
+--****************************** Basic Trigger *********************************
+    --BTrigger.(Clock, Sample_Enable) = (CLK100, CLK25);
+    BTrigger.(Clock, Sample_Enable) = (CLK100, BC_Sample_Enable);
+    BTrigger.(DataBus_In[15..0], DataBusStrobe) = (Data_Bus_In[], Data_Strobe_);
+    BTrigger.DirectIn		  = Direct;
+    BTrigger.AddrBus_In[7..0] = AddrReg.q[7..0];
+    BTrigger.Select			  = B_Trig_CS;
+           
+    FOR i IN 0 TO (NUM_CH_ADIS-1) GENERATE
+       BTrigger.DataIn[i] = FOR_RTime.q[i];
+    END GENERATE;
+    FOR i IN NUM_CH_ADIS TO 15 GENERATE
+      BTrigger.DataIn[i] = ADISChannel[i-NUM_CH_ADIS].Start;
+    END GENERATE;  
+    --  Trigger_Out = BTrigger.Result;
+  
+ --***************************** Fast Link Interface *********************************
+    CLK150_  = CLK150;				
+    CLK37_5_ = BC_Sample_Enable;			   
+    CLK12_5_ = BC_Fast_Link_Start;	
+    CLK25_   = CLK25;			
+   
+    FLink.Data_To_Ser[23..0] = FLink_Data_BUS[23..0]; --CAMAC_R_In_Pin_Buffer.q[];
+    FLink.(Clock , Bunch_Crossing_Data_Sample, Bunch_Crossing_Fast_Link_Start) = 
+		  (CLK150,     BC_Sample_Enable      ,       BC_Fast_Link_Start      );
+            
+-- Inferring of Fast output Buffers
+    SerDataOut[7..0]  = SerDataOut_Out_Pin_Buffer.q[];
+    NWord[1..0]       = NWord_Out_Pin_Buffer.q[];  
+  
+    SerDataOut_Out_Pin_Buffer.(data[],clock,enable,load) = (FLink.SerDataOut[7..0],CLK150,VCC,VCC);
+    NWord_Out_Pin_Buffer.(data[],clock,enable,load)      = (FLink.NumberWord[1..0],CLK150,VCC,VCC);
+    
+    3PH_CLK_Out_Pin_Buffer.(d,clk) = (FLink.3xPH_Clk, CLK150);
+ --3PH_CLK_Out_Pin_Buffer.(d,clk) = (3PH_CLK_Int, CLK150);
+   -- 3PH_CLK_Out_Pin_Buffer.(d,clk) = (DFF(.d=FLink.3xPH_Clk,.clk=CLK150), CLK150);
+  ------------------      
+ 
+-- сигналы управления для Serializer/Deserializer
+    3PH_CLK = 3PH_CLK_Out_Pin_Buffer.q;
+    PWRDN   = VCC;  -- включить Serializer/Deserializer 
+ 
+ 
+ --************************** Память истории FOR-ов*****************************
+    History_RAM.(Clock, FOR_Sample_Enable, LinkMessage) = (CLK150, BC_Sample_Enable, Event_Trig_.q);
+    History_RAM.Data_To_Ser[]    = FLink_Data_BUS[23..0];--CAMAC_R_In_Pin_Buffer.q[];
+   
+    History_RAM.Bus_Clock        = CLK100;
+    History_RAM.DataBus_In[]     = Data_Bus_In[];
+    History_RAM.AddrBus_In[9..0] = AddrReg.q[9..0];
+    
+-- ************************* Тестовая память данных *******************************
+    RAMData.(address[7..0]  , clock , data[15..0]  , wren) =
+            (AddrReg.q[7..0], CLK100, Data_Bus_In[], SaveData and Test_MEM_CS); 
+ 
+    FIR_Control_Reg.(data[], clock, enable, load) = (Data_Bus_In[], CLK100, SaveData and FIR_Control_Reg_CS, VCC);  
+ 
+-- ************************* Память эмуляции данных быстрого линка ******************************* 
+   
+   --FLink_Data_BUS[7..0]   = FOR_RTime.q[7..0];
+   --FLink_Data_BUS[15..8]  = ADISChannel[7..0].Start;
+   --FLink_Data_BUS[23..16] = Total_Energy_BUS[7..0];	
+                
+                
+    Lines_Simulator.(Fast_Link_Clock, Bus_Clock)	=	(CLK150, CLK100);
+    Lines_Simulator.DirectIn			   = Direct;
+    Lines_Simulator.AddrBus_In[9..0]	   = AddrReg.q[9..0];
+    Lines_Simulator.Select			       = Lines_Simulator_CS;
+    Lines_Simulator.DataBus_In[]		   = Data_Bus_In[];
+    Lines_Simulator.DataBusStrobe		   = Data_Strobe_;
+
+-- Data_Path connections
+    Lines_Simulator.Next_Slice		   = BC_Sample_Enable;	--Increment of RAM_Addr_CNT
+  
+    IF Lines_Simulator.Add_nReplace 
+        THEN	FLink_Data_BUS[23..0]  = Lines_Simulator.q[23..0];  								-- Data Path Test mode
+        ELSE    FLink_Data_BUS[7..0]   = FOR_RTime.q[7..0] 			OR	Lines_Simulator.q[7..0];	-- Trigger efficiency check
+                FLink_Data_BUS[15..8]  = ADISChannel[7..0].Start 	OR  Lines_Simulator.q[15..8];
+                FLink_Data_BUS[23..16] = Total_Energy_BUS[7..0] 	OR  Lines_Simulator.q[23..16];	 
+    END IF;
+    
+    
+    Lines_Simulator.Parallel_Start	   = SaveData AND RAM_Simulator_Start_CS;
+    Lines_Simulator.Parallel_Stop      = SaveData AND RAM_Simulator_Stop_CS;  
+    --Lines_Simulator.Parallel_Start	=	GND;
+  --Pattern_Generating_is_Active	    =	DFF(.clk=CLK150, .d=(R_Lines_Simulator.Pattern_Active);
+-- End Simulator Section
+
+-- ******************************** Error counter ************************************************ 
+	ErrorCounters_IFace.clock 			=	CLK100;
+	ErrorCounters_IFace.AddrBusIn[1..0]	=	AddrReg.q[1..0];
+	ErrorCounters_IFace.DataBusStrobe	=	Data_Strobe_;
+-- Project Bus Port, Slave
+	--ErrorCounters_IFace.DirectIn		= 	Address_Line[17] ;
+	ErrorCounters_IFace.Select			= 	ErrorCounters_IFace_CS;
+    
+	ErrorCounters_IFace.ErrorInputs[0]	=	Sync_ES.q;
+	ErrorCounters_IFace.ErrorInputs[1]	=	Bunch_Crossing_12_5_DS.Error;
+    ErrorCounters_IFace.ErrorInputs[2]	=	Bunch_Crossing_12_5_FLS.Error;
+
+
+    Sync_ES.(d,clk)  = (FSync, CLK100);
+
+
+--***************************** Тестовые выходы **************************************************   
+    Test1 = ADISChannel[0].Start OR ADISChannel[1].Start OR ADISChannel[2].Start OR ADISChannel[3].Start OR ADISChannel[4].Start OR ADISChannel[5].Start OR ADISChannel[6].Start OR ADISChannel[7].Start; 
+    Test2 = Sum_Ctrl_Reg_CS;
+    BasicTrigResult = BTrigger.Result;
+
+ 
+END;  -- Конец описания проекта
+

@@ -1,0 +1,141 @@
+TITLE "LOADER"; --ads5281"
+
+INCLUDE "iniRAMGUNI";        
+
+SUBDESIGN LOADER   -- ads5281 
+
+(
+	End_P_reset                :INPUT;
+	RX_CLK                     :INPUT;
+	reset                      :INPUT; 
+	TXclk                      :INPUT;
+	AdrWrRAM[5..0]             :INPUT;  -- внешний адрес
+	enWiniRAM                  :INPUT;  -- разрешение записи в IniRAM
+	RgDAP_RAM[23..0]           :INPUT;  -- ЗАПИСЫВАЕМЫЕ ДАННЫЕ
+	RadrRAM[5..0]              :INPUT;  -- АДРЕС ЧТЕНИЯ 
+	enRiniRAM                  :INPUT;  -- ЗАПУСК ЧТЕНИЯ 
+	
+	dataRAMini[23..0]          : OUTPUT;
+    SDATA,S_CLK,CS             : OUTPUT;
+    CS_PLL,SCLK_PLL,SDATA_PLL  : output;
+    enINI,endIni               : output;
+    WrIniRAM                   : input ;
+    
+    radrIni[11..0]             : output;
+--    LoadADCdata
+--    ShiftADCdata
+                  
+	
+)
+
+VARIABLE
+
+StIni,enINI,S_CLK,SDATA,CS             : dffe;
+CS_PLL,SCLK_PLL,SDATA_PLL              : dffe;
+RAMini	                               : IniRAMGUNI;
+dataRAMini[23..0],endIni               : node;
+radrIni[11..0]                         : dffe;
+LoadADCdata,ShiftADCdata,ADCreg[23..0] : dffe;
+LoadGUNdata,ShiftGUNdata,GUNreg[23..0] : dffe;    
+           
+BEGIN
+
+-- enINI - флаг инициализации  (загрузка АЦП и ФАПЧ) - /- по заднему фронту Reset_ADC, \ - (number_ch[] = 31)
+----------------------------------------------------------------------------------------------------------
+-- привязка запуска процедуры
+
+   StIni.d    = vcc;
+   StIni.ena  = End_P_reset;
+   StIni.clk  = RX_CLK;
+   StIni.clrn = reset & !enINI;
+
+   enINI.d    = !endIni;
+   enINI.ena  = StIni
+              # endIni;
+   enINI.clk  = TXclk;
+   enINI.clrn = reset;
+
+-- флешка со счетчиками портов записи и чтения
+
+   RAMini.wren            = WrIniRAM & enWiniRAM;  
+   RAMini.wrclock         = RX_CLK;
+   RAMini.rdclock         = TXclk;
+   RAMini.wraddress[5..0] = AdrWrRAM[5..0];
+   RAMini.rdaddress[5..0] = radrIni[11..6] & enINI
+                          # RadrRAM[5..0]  & enRiniRAM;                   
+--   RAMini.rden            = vcc;                              
+   RAMini.data[23..0]     = RgDAP_RAM[23..0];
+
+   dataRAMini[]           = RAMini.q[];
+
+-- формирователь диаграммы процедуры инициализации
+
+   radrIni[].d       = radrIni[].q + 1;
+   radrIni[].clk     = TXclk;
+   radrIni[].clrn    = enINI;
+   
+   endIni = (radrIni[] == 4095);
+   
+-- Триггера управления загрузкой и сдвигом регистров АЦП   
+   
+   LoadADCdata.d     = (radrIni[11..6] < 6) & (radrIni[5..1] == 1);                -- (radrIni[11..6] < 11) & (radrIni[5..1] == 1);                 -- < 6
+   LoadADCdata.ena   = radrIni[0];
+   LoadADCdata.clk   = TXclk;
+   LoadADCdata.clrn  = enINI;
+   
+   ShiftADCdata.d    = (radrIni[11..6] < 6) & (radrIni[5..1] == 3);                --(radrIni[11..6] < 11) & (radrIni[5..1] == 3);                 -- < 6
+   ShiftADCdata.ena  = (radrIni[11..6] < 6) & (radrIni[5..1] == 3)  & radrIni[0]   --(radrIni[11..6] < 11) & (radrIni[5..1] == 3)  & radrIni[0]    -- < 6
+                     # (radrIni[11..6] < 6) & (radrIni[5..1] == 27) & radrIni[0];  --(radrIni[11..6] < 11) & (radrIni[5..1] == 27) & radrIni[0];   -- < 6
+   ShiftADCdata.clk  = TXclk;
+   ShiftADCdata.clrn = enINI; 
+   
+-- регистр данных АЦП, загрузка и сдвиг (посылка длиной 24 бита: (a[7..0],d[15..0]) 
+
+   ADCreg[23..0].d   = dataRAMini[23..0]   & LoadADCdata
+                     # (ADCreg[22..0],gnd) & ShiftADCdata;
+   ADCreg[23..0].ena = LoadADCdata  & radrIni[0]
+                     # ShiftADCdata & radrIni[0];
+   ADCreg[23..0].clk = TXclk;                                          
+                     
+-- сигналы передатчика
+
+  CS.d       = !ShiftADCdata;
+  CS.clk     = TXclk;
+  
+  S_CLK.d    = !S_CLK # !ShiftADCdata;
+  S_CLK.clk  = TXclk;
+  
+  SDATA.d    = ADCreg[23];
+  SDATA.clk  = TXclk;
+  
+-- Триггера управления загрузкой и сдвигом регистров GUN   
+
+   LoadGUNdata.d     = (radrIni[11..6] > 7) & (radrIni[11..6] < 36) & (radrIni[5..1] == 1); --(radrIni[11..6] > 15) & (radrIni[11..6] < 54) & (radrIni[5..1] == 1);
+   LoadGUNdata.ena   = radrIni[0];
+   LoadGUNdata.clk   = TXclk;
+   LoadGUNdata.clrn  = enINI;
+   
+   ShiftGUNdata.d    = (radrIni[11..6] > 7) & (radrIni[11..6] < 36) & (radrIni[5..1] == 3); --(radrIni[11..6] > 15) & (radrIni[11..6] < 54) & (radrIni[5..1] == 3);
+   ShiftGUNdata.ena  = (radrIni[11..6] > 7) & (radrIni[11..6] < 36) & (radrIni[5..1] == 3)  & radrIni[0]   -- (radrIni[11..6] > 15) & (radrIni[11..6] < 54) & (radrIni[5..1] == 3)  & radrIni[0]
+                     # (radrIni[11..6] > 7) & (radrIni[11..6] < 36) & (radrIni[5..1] == 27) & radrIni[0]; --(radrIni[11..6] > 15) & (radrIni[11..6] < 54) & (radrIni[5..1] == 27) & radrIni[0];
+   ShiftGUNdata.clk  = TXclk;
+   ShiftGUNdata.clrn = enINI;         
+
+-- регистр данных GUN, загрузка и сдвиг (посылка длиной 24 бита: (a[7..0],d[15..0]) 
+
+   GUNreg[23..0].d   = dataRAMini[23..0]   & LoadGUNdata
+                     # (GUNreg[22..0],gnd) & ShiftGUNdata;
+   GUNreg[23..0].ena = LoadGUNdata  & radrIni[0]
+                     # ShiftGUNdata & radrIni[0];
+   GUNreg[23..0].clk = TXclk;                       
+
+CS_PLL.d      = !ShiftGUNdata; 
+CS_PLL.clk    = TXclk;
+
+SCLK_PLL.d    = !SCLK_PLL # !ShiftGUNdata;
+SCLK_PLL.clk  = TXclk; 
+
+SDATA_PLL.d   = GUNreg[23];
+SDATA_PLL.clk = TXclk;
+
+END;

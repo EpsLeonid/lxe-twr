@@ -1,0 +1,79 @@
+TITLE "Delay Line";
+-- Файл содержит фукцию формирователь задержки импульса и формирователь длительности импульса. 
+-- Формирователь имеет минимальную задержку 3 такт входной частоты и 1 такта минимальную длительность
+
+INCLUDE "Edge_Sensing.inc";
+INCLUDE "lpm_counter.inc" ;
+
+PARAMETERS
+(
+  SHAPING_TIME = 32 -- максимальная задержка/длительность в тактах
+);
+
+CONSTANT COUNTER_SIZE  = CEIL (LOG2(SHAPING_TIME)); -- определение размера счетчика
+ 
+Subdesign Delay_Line
+(
+    Clock                           : input;   -- Clock
+    Reset                           : input = GND;   
+    InputPulse                      : input;   
+    DelayTime[COUNTER_SIZE-1..0]    : input;
+    DurationTime[COUNTER_SIZE-1..0] : input; 
+
+    DelayedPulse                    : output;  
+   
+)
+
+Variable
+
+    StartSensing   				 : Edge_Sensing;
+ 
+    WorkCycle         			 : SRFF;
+
+	DelayCounter				 : LPM_COUNTER with ( lpm_width=COUNTER_SIZE, lpm_direction="up" );   
+	DurCounter				 : LPM_COUNTER with ( lpm_width=COUNTER_SIZE, lpm_direction="up" );   
+    StartPulse      			 : SRFF;
+    EndDelay        			 : node;
+	EndPulse         			 : node;
+	
+	DL_Time[COUNTER_SIZE-1..0]   : node;
+	DUR_Time[COUNTER_SIZE-1..0]  : node;
+	
+
+Begin
+
+StartSensing.(d,clk,clr) = (InputPulse,Clock,GND);
+
+
+WorkCycle.(S,clk,R) = (StartSensing.q,Clock,EndPulse OR Reset);
+StartPulse.(S,clk,R) = (EndDelay,Clock,EndPulse OR Reset);
+
+
+DelayCounter.(clock,cnt_en,sclr) = (Clock,WorkCycle.q,EndPulse OR Reset);
+IF(DelayCounter.q[] == (DL_Time[]) ) THEN 
+    EndDelay = VCC;
+  ELSE
+    EndDelay = GND;
+END IF;
+DurCounter.(clock,cnt_en,sclr) = (Clock,StartPulse.q,EndPulse OR Reset);
+IF(DurCounter.q[] == DUR_Time[]) THEN 
+    EndPulse = VCC;
+  ELSE
+    EndPulse = GND;
+END IF;
+
+DelayedPulse = StartPulse.q;
+
+IF ((DelayTime[] == 0) OR (DelayTime[] == 1)) THEN 
+      DL_Time[] = 1;
+   ELSE
+      DL_Time[] = DelayTime[]-1;
+END IF;
+IF ( DurationTime[] == 0 OR (DelayTime[] == 1)) THEN 
+      DUR_Time[] = 1;
+   ELSE
+      DUR_Time[] = DurationTime[]-1;
+END IF;
+
+
+end;

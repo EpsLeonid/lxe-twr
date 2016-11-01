@@ -1,0 +1,945 @@
+TITLE "TEST_DRS4";                         -- DAC - AD9754
+
+INCLUDE "test_tr_eth";
+INCLUDE "receiver_eth";
+INCLUDE "trans_eth";
+INCLUDE "iobuf";
+INCLUDE "lmk04906";
+INCLUDE "pll_test";
+
+SUBDESIGN TEST_DRS4  
+
+(
+
+test_signal[27..0]						  : output;
+
+Data_drs[7..0]                            : bidir ;  --IO[20..13]
+Addr_drs[9..0]                            : output;  --IO[12..3]
+n_b[2..0]                                 : output;	 --IO[2..1]
+dir                                       : output;  --IO[0] 22 линии!
+clk_bus                                   : output;  --i_clk0
+
+I_CLK[3..0]                               : input;
+
+RXD[3..0]                                 : input;
+RXDV                                      : input;
+RXCLK                                     : input;
+--READY                                     : input; --
+
+RXER                                      : input;
+TXER                                      : output;
+TXclk                                     : input;
+TXEN                                      : output;
+TXD[3..0]                                 : output;
+COL                                       : input;
+CRS                                       : input;
+
+CLK25                                     : input;
+ETH_R                                     : output;
+
+SYNC_S                                    : output;
+S/H                                       : input;
+STAT                                      : input;
+CS_S                                      : output;
+SCLK_S                                    : output;
+DATA_S                                    : output;
+
+--TEST[27..0]                               : input;
+
+-------------------------------------------------------
+--reset                                     : input;
+St_tx_test                                : input;
+kop[3..0]                                 : input;
+dev_number[3..0]                          : input;
+data_DACA[15..0]                          : input;
+data_DACB[15..0]                          : input;
+data_DACC[15..0]                          : input;
+data_DACD[15..0]                          : input;
+data_DACE[15..0]                          : input;
+data_DACF[15..0]                          : input;
+data_DACG[15..0]                          : input;
+data_DACH[15..0]                          : input;
+calibr                                    : input;
+pachka                                    : input;
+stat_cor                                  : input;
+number_n[15..0]                           : input;
+number_p[15..0]                           : input;
+zap_delay[15..0]                          : input;
+--Fp[3..0]                                  : input;
+COR_DATA[15..0]                           : input;   
+COR_DATB[15..0]                           : input;   
+COR_DATC[15..0]                           : input;  
+COR_DATD[15..0]                           : input;   
+COR_DATE[15..0]                           : input;  
+COR_DATF[15..0]                           : input;   
+COR_DATG[15..0]                           : input;   
+COR_DATH[15..0]                           : input;      
+
+t_TXDout[3..0]                            : output;
+t_TXena                                   : output;
+t_DataField                               : output;
+t_Lenght[15..0]                           : output;
+t_couTransmit[15..0]                      : output;
+t_FrameCheck                              : output;
+t_EndTrans                                : output;
+
+Rkop[3..0],Rdev_number[3..0]              : output;
+Rstat_cor,Rpachka,Rcalibr                 : output;
+Rnumber_n[15..0],Rnumber_p[15..0]         : output; 
+Rzap_delay[15..0]                         : output;
+Daddr[47..0]                              : output;
+CheckDes                                  : output;
+Rcheck                                    : output;
+Rok                                       : output;
+Rdestination                              : output;
+Raddr[15..0]                              : output; 
+Rdata[3..0]                               : output;
+rg_DACA[15..0]                            : output; 
+rg_DACB[15..0]                            : output;
+rg_DACC[15..0]                            : output; 
+rg_DACD[15..0]                            : output;  
+rg_DACE[15..0]                            : output; 
+rg_DACF[15..0]                            : output;         
+rg_DACG[15..0]                            : output;   
+rg_DACH[15..0]                            : output; 
+
+start_reply                               : output;
+
+EndTrans                                  : output;
+DestinationAddr                           : output;
+SourceAddr                                : output;
+PacketLenth                               : output;
+DataField                                 : output;
+couTransmit[15..0]                        : output;
+
+load_c_d                                  : output;
+cou_load[4..0]                            : output;
+end_load_c_d                              : output;
+
+data_ou_eth[31..0]                        : output;
+data_in_eth[27..0]                        : output;
+waddr_eth[7..0]                           : output;
+wren                                      : output; 
+
+load_data                                 : output ;                                  
+cou_rd_data[9..0]                         : output ;
+en_cou_rd[1..0]                           : output ; 
+
+load_md                                   : output ;
+load_cd                                   : output ; 
+
+read_md                                   : output ;
+read_m[1..0]                              : output ;
+start_rmd                                 : output ;
+p_n[1..0]                                 : output ;
+en_read_dm                                : output ;
+
+
+--load_sd                                   : output ;
+--cou_l_sd[4..0]                            : output ;
+
+)
+
+VARIABLE
+
+reset				 : node;
+
+test_tr              :test_tr_eth; 
+
+t_TXDout[3..0]       : node;
+t_TXena              : node;
+t_DataField          : node;
+t_Lenght[15..0]      : node;
+t_couTransmit[15..0] : node;
+t_FrameCheck         : node;
+t_EndTrans           : node;
+
+rec_eth              : receiver_eth;
+
+Saddr[47..0]         : node;
+READY                : node;
+
+Daddr[47..0]         : node;
+CheckDes             : node;
+Rcheck               : node;
+Rok                  : node;
+Rdestination         : node;
+Raddr[15..0]         : node; 
+Rdata[3..0]          : node;
+rg_DACA[15..0]       : node; 
+rg_DACB[15..0]       : node;
+rg_DACC[15..0]       : node; 
+rg_DACD[15..0]       : node;  
+rg_DACE[15..0]       : node; 
+rg_DACF[15..0]       : node;         
+rg_DACG[15..0]       : node;   
+rg_DACH[15..0]       : node;
+
+rg_DAC_ROFS[15..0]   : node;
+rg_DAC_BIAS[15..0]   : node;
+
+en_reply             : dffe;
+cou_reply[10..0]     : dffe;
+end_cou_reply        : node;
+start_reply          : dffe; 
+
+Fp[3..0]             : node;    
+
+--RXD[3..0]            : node;
+--RXDV                 : node;
+
+tr_eth               : trans_eth;
+EndTrans             : node;
+DestinationAddr      : node;
+SourceAddr           : node;
+PacketLenth          : node;
+DataField            : node;
+couTransmit[15..0]   : node;
+
+load_c_d             : dffe;
+load_cd              : dffe;
+cou_load[4..0]       : dffe;
+end_load_c_d         : dffe;
+Addr_drs[9..0]       : node;
+n_b[2..0]            : node;
+dir                  : node;
+
+data_ou_eth[31..0]   : node;
+data_in_eth[27..0]   : node;
+waddr_eth[7..0]      : node;
+wren                 : node;
+
+load_data            : dffe;
+load_md              : dffe; 
+cou_rd_data[9..0]    : dffe;
+en_cou_rd[1..0]      : dffe;
+end_load_data        : node; 
+rg_cou_rd_data[9..0] : dffe;
+iob                  : iobuf;
+ 
+Data_b[7..0]         : node ;
+data_bus_in[7..0]    : node ;
+
+read_md              : dffe ;
+read_m[1..0]         : dffe ;
+start_rmd            : dffe ;
+p_n[1..0]            : dffe ;
+wait                 : dffe ;
+cou_wait[7..0]       : dffe ;
+end_wait             : node ;
+en_read_dm           : node ;
+cou_rdm[12..0]       : dffe ;
+
+sync_load			 : lmk04906;
+
+load_s               : dffe ;
+--load_sd              : dffe ;
+--cou_l_sd[4..0]       : dffe ;    
+end_l_sd             : node ;
+
+cou_rds[6..0]		 : dffe ; 
+cou_rd_adr[2..0]	 : dffe ; 
+
+foto_DACA[15..0]	 : node ; 
+foto_DACB[15..0] 	 : node ;
+foto_DACC[15..0] 	 : node ;
+foto_DACD[15..0] 	 : node ;
+foto_DACE[15..0] 	 : node ;
+foto_DACF[15..0]	 : node ;    
+foto_DACG[15..0] 	 : node ;
+foto_DACH[15..0] 	 : node ;
+
+en_read_slow		 : node ;
+en_read_adr			 : node ;
+
+adr_ini_a[9..0]		 : node ;
+enTransmit			 : node ;
+StStream, StFrame	 : node ;
+sm_t[2..0]			 : node ;
+CRC_ok				 : node ;
+n_burst[1..0]		 : node ; 
+
+load_cd_eth			 : dffe ;
+load_cd_need		 : dffe ;
+
+load_eth_sh, load_eth, load_eth_pr, load_pr : dffe;
+
+test_data[7..0]		 : dffe;
+
+pll_t				 : pll_test;
+
+locked				 : node;
+locked_sh[1..0]		 : dffe;
+clk_50				 : node;
+l_test				 : dffe;  
+
+BEGIN
+					   --27--------26--25----24-23-22-21-20-19-18-17-16-15--------14-13-12-11-10-9-8-7----6-5-4--3-----2---1------0---
+test_signal[27..0]	= ( read_md, p_n[1..0], Addr_drs[9..0]                       ,    Data_drs[7..0]   , Rkop[3..0], n_b[1..0], en_read_dm);	
+
+              
+    
+        
+       
+
+
+clk_bus = TXclk;--CLK25;---
+
+reset 		= vcc;
+ETH_R		= vcc;
+TXER 		= gnd;		
+
+--RXD[3..0] = t_TXDout[3..0];
+--RXDV      = t_TXena;
+
+-- kop[3..0],dev_number[3..0],data[] - структура пакета:
+
+-- kop[3..0] = 0, dev_number[3..0] = X  - NOP
+-- kop[3..0] = 1, dev_number[3..0] = X  - Pr_reset                  - команда
+-- kop[3..0] = 2, dev_number[3..0] = X  - P_stop                    - команда
+-- kop[3..0] = 3, dev_number[3..0] = X  - ADC_fast                  - команда
+-- kop[3..0] = 4, dev_number[3..0] = X  - Start_s                   - команда
+-- kop[3..0] = 5, dev_number[3..0] = X  - ADC_slow                  - команда  
+-- kop[3..0] = 6, dev_number[3..0] = X  - ADC_slow_stop             - команда
+-- kop[3..0] = 7, dev_number[3..0] = X  - En_Work                   - команда
+-- kop[3..0] = 8, dev_number[3..0] = X  - calibr, pachka, stat_cor
+-- kop[3..0] = 8, dev_number[3..0] = X  - number_n[]                ???
+-- kop[3..0] = 8, dev_number[3..0] = X  - number_p[]                ???
+-- kop[3..0] = 8, dev_number[3..0] = X  - zap_delay[]
+
+-- kop[3..0] = 8, dev_number[3..0] = X  - DACA_load        data_DACA[15..0]
+-- kop[3..0] = 8, dev_number[3..0] = X  - DACB_load        data_DACB[15..0]
+-- kop[3..0] = 8, dev_number[3..0] = X  - DACC_load        data_DACC[15..0]
+-- kop[3..0] = 8, dev_number[3..0] = X  - DACD_load        data_DACD[15..0]
+-- kop[3..0] = 8, dev_number[3..0] = X  - DACE_load        data_DACE[15..0]
+-- kop[3..0] = 8, dev_number[3..0] = X  - DACF_load        data_DACF[15..0]
+-- kop[3..0] = 8, dev_number[3..0] = X  - DACG_load        data_DACG[15..0]
+-- kop[3..0] = 8, dev_number[3..0] = X  - DACH_load        data_DACH[15..0]
+
+-- kop[3..0] = 8, dev_number[3..0] = X  - DACG_load        data_DAC_ROFS[15..0]
+-- kop[3..0] = 8, dev_number[3..0] = X  - DACH_load        data_DAC_BIAS[15..0]
+
+-- kop[3..0] = 9, dev_number[3..0] = 0  - COR_DATA_load    COR_DATA[15..0]
+-- kop[3..0] = 9, dev_number[3..0] = 1  - COR_DATB_load    COR_DATB[15..0]
+-- kop[3..0] = 9, dev_number[3..0] = 2  - COR_DATC_load    COR_DATC[15..0]
+-- kop[3..0] = 9, dev_number[3..0] = 3  - COR_DATD_load    COR_DATD[15..0]
+-- kop[3..0] = 9, dev_number[3..0] = 4  - COR_DATE_load    COR_DATE[15..0]
+-- kop[3..0] = 9, dev_number[3..0] = 5  - COR_DATF_load    COR_DATF[15..0]
+-- kop[3..0] = 9, dev_number[3..0] = 6  - COR_DATG_load    COR_DATG[15..0]
+-- kop[3..0] = 9, dev_number[3..0] = 7  - COR_DATH_load    COR_DATH[15..0]
+
+-- kop[3..0] = 10,dev_number[3..0] = 0  - outdata_adc_slow[23..0]
+
+-- kop[3..0] = 11,dev_number[3..0] = 0  - datA_ou[31..0] + указатель номера пакета: 0, 1, 2, 3
+-- kop[3..0] = 11,dev_number[3..0] = 1  - datB_ou[31..0] 
+-- kop[3..0] = 11,dev_number[3..0] = 2  - datC_ou[31..0]
+-- kop[3..0] = 11,dev_number[3..0] = 3  - datD_ou[31..0]
+-- kop[3..0] = 11,dev_number[3..0] = 4  - datE_ou[31..0]
+-- kop[3..0] = 11,dev_number[3..0] = 5  - datF_ou[31..0]
+-- kop[3..0] = 11,dev_number[3..0] = 6  - datG_ou[31..0]
+-- kop[3..0] = 11,dev_number[3..0] = 7  - datH_ou[31..0]
+
+-- kop[3..0] = 12,dev_number[3..0] = X  - adr_ini_a[9..0],
+-- kop[3..0] = 13, dev_number[3..0] = X - en_dac загрузка ЦАП
+
+-- kop[] = 13..15, dev_number[] = 0..15 - РЕЗЕРВ!
+
+Fp[3..0]	 = h"1";
+
+Saddr[47..0] = (H"1a1a1a1a1a1",Fp[3..0]);--H"1a1a1a1a1a11";--
+READY        = vcc;
+
+-- ПЕРЕДАТЧИК ТЕСТОВЫХ ПОСЫЛОК
+
+test_tr.reset                   = reset;
+test_tr.TXclk                   = TXclk; 
+test_tr.St_tx_test              = St_tx_test;
+test_tr.Fp[3..0]                = Fp[3..0];
+test_tr.kop[3..0]               = kop[3..0];     
+test_tr.dev_number[3..0]        = dev_number[3..0];
+test_tr.data_DACA[15..0]        = data_DACA[15..0];
+test_tr.data_DACB[15..0]        = data_DACB[15..0];
+test_tr.data_DACC[15..0]        = data_DACC[15..0];
+test_tr.data_DACD[15..0]        = data_DACD[15..0];
+test_tr.data_DACE[15..0]        = data_DACE[15..0];
+test_tr.data_DACF[15..0]        = data_DACF[15..0];
+test_tr.data_DACG[15..0]        = data_DACG[15..0];
+test_tr.data_DACH[15..0]        = data_DACH[15..0];
+test_tr.calibr                  = calibr; 
+test_tr.pachka                  = pachka;
+test_tr.stat_cor                = stat_cor;
+test_tr.number_n[15..0]         = number_n[15..0];
+test_tr.number_p[15..0]         = number_p[15..0];
+test_tr.zap_delay[15..0]        = zap_delay[15..0];
+test_tr.COR_DATA[15..0]         = COR_DATA[15..0];   
+test_tr.COR_DATB[15..0]         = COR_DATA[15..0];   
+test_tr.COR_DATC[15..0]         = COR_DATC[15..0];  
+test_tr.COR_DATD[15..0]         = COR_DATD[15..0];   
+test_tr.COR_DATE[15..0]         = COR_DATE[15..0];  
+test_tr.COR_DATF[15..0]         = COR_DATF[15..0];   
+test_tr.COR_DATG[15..0]         = COR_DATG[15..0];   
+test_tr.COR_DATH[15..0]         = COR_DATH[15..0]; 
+
+t_TXDout[3..0]       = test_tr.t_TXDout[3..0];
+t_TXena              = test_tr.t_TXena;
+t_DataField          = test_tr.t_DataField;
+t_Lenght[15..0]      = test_tr.t_Lenght[15..0];
+t_couTransmit[15..0] = test_tr.t_couTransmit[15..0];
+t_FrameCheck         = test_tr.t_FrameCheck;
+t_EndTrans           = test_tr.t_EndTrans;
+
+-------------------------------------------------------------------------------------------
+-- приемник канала связи 
+
+rec_eth.RXD[3..0]     = RXD[3..0];
+rec_eth.RX_DV         = RXDV;
+rec_eth.RX_CLK        = RXCLK;
+rec_eth.COL           = COL;
+rec_eth.CRS           = CRS;
+rec_eth.reset         = reset;
+rec_eth.TXclk         = TXclk;
+
+rec_eth.READY         = READY;
+rec_eth.Saddr[47..0]  = Saddr[47..0];
+rec_eth.p[3..0]       = Fp[3..0];
+Rkop[3..0]            = rec_eth.Rkop[3..0];
+Rdev_number[3..0]     = rec_eth.Rdev_number[3..0];             
+Rstat_cor             = rec_eth.Rstat_cor;
+Rpachka               = rec_eth.Rpachka;
+Rcalibr               = rec_eth.Rcalibr;      
+Rnumber_n[15..0]      = rec_eth.Rnumber_n[15..0];
+Rnumber_p[15..0]      = rec_eth.Rnumber_p[15..0];        
+Rzap_delay[15..0]     = rec_eth.Rzap_delay[15..0];                        
+Daddr[47..0]          = rec_eth.Daddr[47..0];
+CheckDes              = rec_eth.CheckDes;
+Rcheck                = rec_eth.Rcheck;
+Rok                   = rec_eth.Rok;
+Rdestination          = rec_eth.Rdestination;
+Raddr[15..0]          = rec_eth.Raddr[15..0]; 
+Rdata[3..0]           = rec_eth.Rdata[3..0];
+rg_DACA[15..0]        = rec_eth.rg_DACA[15..0];
+rg_DACB[15..0]        = rec_eth.rg_DACB[15..0];
+rg_DACC[15..0]        = rec_eth.rg_DACC[15..0];
+rg_DACD[15..0]        = rec_eth.rg_DACD[15..0];
+rg_DACE[15..0]        = rec_eth.rg_DACE[15..0];
+rg_DACF[15..0]        = rec_eth.rg_DACF[15..0];      
+rg_DACG[15..0]        = rec_eth.rg_DACG[15..0];
+rg_DACH[15..0]        = rec_eth.rg_DACH[15..0];
+
+foto_DACA[15..0]        = rec_eth.foto_DACA[15..0];
+foto_DACB[15..0]        = rec_eth.foto_DACB[15..0];
+foto_DACC[15..0]        = rec_eth.foto_DACC[15..0];
+foto_DACD[15..0]        = rec_eth.foto_DACD[15..0];
+foto_DACE[15..0]        = rec_eth.foto_DACE[15..0];
+foto_DACF[15..0]        = rec_eth.foto_DACF[15..0];      
+foto_DACG[15..0]        = rec_eth.foto_DACG[15..0];
+foto_DACH[15..0]        = rec_eth.foto_DACH[15..0];
+
+rg_DAC_ROFS[15..0]	  = rec_eth.rg_DAC_ROFS[15..0];
+rg_DAC_BIAS[15..0]	  = rec_eth.rg_DAC_BIAS[15..0];
+
+
+rec_eth.cou_rd_data[9..0]  = cou_rd_data[9..0];
+
+data_ou_eth[31..0] = rec_eth.data_ou_eth[31..0];
+data_in_eth[27..0] = rec_eth.data_in_eth[27..0];
+waddr_eth[7..0]    = rec_eth.waddr_eth[7..0];
+n_burst[1..0]	   = rec_eth.n_burst[1..0];
+wren               = rec_eth.wren;
+
+-- формирование запуска ответной передачи
+
+en_reply.d    = CheckDes & !start_reply;
+en_reply.ena  = Rcheck & Rok & ((Rkop[3..0] <= 8) #  (Rkop[3..0] == 13))                 			-- прием команды + данных для регистров
+              # Rcheck & Rok & (Rkop[3..0] == 9) & (n_burst[1..0]==3) 		-- прием массива данных
+              # end_cou_reply;
+en_reply.clk  = RXCLK; 
+en_reply.clrn = reset;
+
+cou_reply[].d    = cou_reply[].q + 1; 
+cou_reply[].clk  = RXCLK;
+cou_reply[].clrn = en_reply; 
+
+end_cou_reply    = (cou_reply[] == 15)   & ((Rkop[3..0] <= 8) #  (Rkop[3..0] == 13))
+                 # (cou_reply[] == 2047) & (Rkop[3..0] == 9);
+
+start_reply.d    = (cou_reply[] > 7)     & ((Rkop[3..0] <= 8) #  (Rkop[3..0] == 13))
+                 # (cou_reply[] > 2040)  & (Rkop[3..0] == 9);
+start_reply.clk  = RXCLK;
+start_reply.clrn = en_reply;                  
+
+----------------------------------------------------------------------------------------
+-- ответная передача или чтение данных 
+tr_eth.p_n[1..0]		 = p_n[1..0];
+tr_eth.reset             = reset;
+tr_eth.TXclk             = TXclk; 
+tr_eth.start_reply       = start_reply # start_rmd;
+tr_eth.Saddr[47..0]      = Saddr[47..0];
+tr_eth.Daddr[47..0]      = Daddr[47..0];   
+tr_eth.Rkop[3..0]        = Rkop[3..0];
+tr_eth.Rdev_number[3..0] = Rdev_number[3..0];
+tr_eth.Rstat_cor         = Rstat_cor;
+tr_eth.Rpachka           = Rpachka;
+tr_eth.Rcalibr           = Rcalibr;
+tr_eth.Rnumber_n[15..0]  = Rnumber_n[15..0];
+tr_eth.Rnumber_p[15..0]  = Rnumber_p[15..0];
+tr_eth.Rzap_delay[15..0] = Rzap_delay[15..0];
+tr_eth.rg_DACA[15..0]    = rg_DACA[15..0];
+tr_eth.rg_DACB[15..0]    = rg_DACB[15..0];
+tr_eth.rg_DACC[15..0]    = rg_DACC[15..0];
+tr_eth.rg_DACD[15..0]    = rg_DACD[15..0];
+tr_eth.rg_DACE[15..0]    = rg_DACE[15..0];
+tr_eth.rg_DACF[15..0]    = rg_DACF[15..0];
+tr_eth.rg_DACG[15..0]    = rg_DACG[15..0];
+tr_eth.rg_DACH[15..0]    = rg_DACH[15..0];
+
+tr_eth.foto_DACA[15..0]    = foto_DACA[15..0];
+tr_eth.foto_DACB[15..0]    = foto_DACB[15..0];
+tr_eth.foto_DACC[15..0]    = foto_DACC[15..0];
+tr_eth.foto_DACD[15..0]    = foto_DACD[15..0];
+tr_eth.foto_DACE[15..0]    = foto_DACE[15..0];
+tr_eth.foto_DACF[15..0]    = foto_DACF[15..0];
+tr_eth.foto_DACG[15..0]    = foto_DACG[15..0];
+tr_eth.foto_DACH[15..0]    = foto_DACH[15..0];
+
+tr_eth.rg_DAC_BIAS[15..0] = rg_DAC_BIAS[15..0];
+tr_eth.rg_DAC_ROFS[15..0] = rg_DAC_ROFS[15..0];
+
+tr_eth.send_md[7..0]     = data_bus_in[7..0];--test_data[];--Addr_drs[7..0];--cou_rdm[10..3];-- h"ff";
+
+TXD[3..0]          = tr_eth.TXD[3..0];           
+TXEN               = tr_eth.TXEN; 
+EndTrans           = tr_eth.EndTrans; 
+DestinationAddr    = tr_eth.DestinationAddr;
+SourceAddr         = tr_eth.SourceAddr;
+PacketLenth        = tr_eth.PacketLenth;
+DataField          = tr_eth.DataField;
+--enTransmit		   = tr_eth.enTransmit;
+couTransmit[15..0] = tr_eth.couTransmit[15..0];
+--StStream		   = tr_eth.StStream;
+--StFrame			   = tr_eth.StFrame;
+en_read_dm         = tr_eth.en_read_dm; 
+--sm_t[2..0]		   = tr_eth.sm_t[2..0];
+--CRC_ok			   = tr_eth.CRC_ok;
+en_read_slow	   = tr_eth.en_read_slow;
+en_read_adr		   = tr_eth.en_read_adr;	
+
+--en_read_slow	   = gnd;
+--en_read_adr		   = gnd;
+
+------------------------------------------------------------------------------------- 
+-- УЗЕЛ ИНФОРМАЦИОННОГО ОБМЕНА С МАТРИЦЕЙ ПЛАТЫ РЕГИСТРАТОРА НА ОСНОВЕ КРИСТАЛЛА DRS4
+
+-- загрузка регистров  -- нужно записать первые 64 байта при команде чтения!
+
+load_c_d.d      = CheckDes & !load_cd_eth;--!load_cd; 
+load_c_d.ena    = Rcheck & Rok & ((Rkop[3..0] <= 8) # (Rkop[3..0] == 13))
+                # Rcheck & Rok & ((Rkop[3..0] == 11) # (Rkop[3..0] == 12) #(Rkop[3..0] == 10))
+                # load_cd_eth;--load_cd;
+load_c_d.clk    = RXCLK;                            -- перепривязать к txclk!
+load_c_d.clrn   = reset;
+
+load_cd_eth		= load_c_d;
+load_cd_eth.ena	= load_c_d # load_cd_need;
+load_cd_eth.clk	= RXCLK;
+
+load_cd_need		= load_cd_eth;
+load_cd_need.clk	= clk_bus;
+
+load_cd.d       = !end_load_c_d;
+load_cd.ena     = load_cd_need--load_c_d
+                # end_load_c_d;
+load_cd.clk     = clk_bus;
+load_cd.clrn    = reset;
+
+cou_load[].d    = cou_load[].q + 1;
+cou_load[].clk  = clk_bus;                           -- перепривязать к txclk!
+cou_load[].clrn = load_cd;
+
+
+end_load_c_d    	= (cou_load[4..0] == 28); 
+end_load_c_d.clk	= clk_bus;
+
+-- запись принятого массива данных
+
+load_data.d    = CheckDes & !load_md;
+load_data.ena  = Rcheck & Rok & (Rkop[3..0] == 9) & (n_burst[1..0] == 3)
+               # load_md;
+load_data.clk  = RXCLK;                              -- перепривязать к txclk!                  
+load_data.clrn = reset;
+
+load_md.d      = !end_load_data;
+load_md.ena    = load_data
+               # end_load_data;
+load_md.clk    = clk_bus;
+load_md.clrn   = reset;
+
+en_cou_rd[1..0].d    = (en_cou_rd+1); 
+en_cou_rd[1..0].clk  = clk_bus;                            -- перепривязать к txclk!
+en_cou_rd[1..0].clrn = load_md;
+
+
+cou_rd_data[9..0].d    = cou_rd_data[9..0].q + 1;
+cou_rd_data[9..0].ena  = (en_cou_rd [1..0] == 3);
+cou_rd_data[9..0].clk  = clk_bus;                   -- перепривязать к txclk!  
+cou_rd_data[9..0].clrn = load_md;
+
+rg_cou_rd_data[9..0].d    = cou_rd_data[9..0];
+rg_cou_rd_data[9..0].ena  = (en_cou_rd == 3);
+rg_cou_rd_data[9..0].clk  = clk_bus;
+rg_cou_rd_data[9..0].clrn = load_md;
+
+end_load_data = (rg_cou_rd_data[9..0] == 1023) & (en_cou_rd[1..0] == 3);
+
+dir = load_cd # load_md;             --  при чтении данных надо загрузить в матрицу код операции и т.д.   
+
+-- чтение массива данных
+
+read_md.d    = !EndTrans;
+read_md.ena  = end_load_c_d & ((Rkop[3..0] == 11) # (Rkop[3..0] == 10) # (Rkop[3..0] == 12)) 
+             # EndTrans & (p_n[] == 3);
+read_md.clk  = clk_bus;
+read_md.clrn = reset;
+
+read_m[0].d  = read_md;
+read_m[1].d  = read_m[0];
+read_m[].clk = clk_bus;
+
+start_rmd.d    = read_md  & !read_m[1]
+               # end_wait & !(p_n[] == 3);  -- нужно сформировать межпакетную паузу 
+start_rmd.clk  = clk_bus;
+start_rmd.clrn = read_md;
+
+p_n[].d    = p_n[].q + 1; 
+p_n[].ena  = end_wait;
+p_n[].clk  = clk_bus;
+p_n[].clrn = read_md;
+
+wait.d    = !end_wait;
+wait.ena  = EndTrans & !(p_n[] == 3)
+          # end_wait;
+wait.clk  = clk_bus;
+wait.clrn = read_md; 
+
+cou_wait[].d    = cou_wait[].q + 1;
+cou_wait[].clk  = clk_bus;
+cou_wait[].clrn = wait;
+
+end_wait = (cou_wait[] == 127);
+
+-- формирователь выходных сигналов управления и информационных посылок
+
+IF load_cd THEN
+   CASE cou_load[4..0] IS
+	 WHEN 1  => Data_b[7..0]   = (Rdev_number[3..0],Rkop[3..0]);
+	            Addr_drs[9..0] = 0;
+	            n_b[2..0]      = 4;
+	 WHEN 2  => Data_b[7..0]   = (gnd,gnd,gnd,gnd,gnd,Rcalibr,Rpachka,Rstat_cor);
+	            Addr_drs[9..0] = 1;
+	            n_b[2..0]      = 1;
+	      --      n_b[2..0].ena  = (Rkop[3..0] == 8);
+	 WHEN 3  => Data_b[7..0]   = Rnumber_n[7..0];
+	            Addr_drs[9..0] = 2;
+	            n_b[2..0]      = 0;
+	 WHEN 4  => Data_b[7..0]   = Rnumber_n[15..8];
+	            Addr_drs[9..0] = 2;
+	            n_b[2..0]      = 1;
+	           -- n_b[2..0]      = (Rkop[3..0] == 8);
+	 WHEN 5  => Data_b[7..0]   = Rnumber_p[7..0];
+	            Addr_drs[9..0] = 3;
+	            n_b[2..0]      = 0;
+	 WHEN 6  => Data_b[7..0]   = Rnumber_p[15..8];
+	            Addr_drs[9..0] = 3;
+	            n_b[2..0]      = 1;
+	            --n_b[2..0]      = (Rkop[3..0] == 8);
+	 WHEN 7  => Data_b[7..0]   = Rzap_delay[7..0];
+	            Addr_drs[9..0] = 4;
+	            n_b[2..0]      = 0;
+	 WHEN 8  => Data_b[7..0]   = Rzap_delay[15..8];
+	            Addr_drs[9..0] = 4;
+	            n_b[2..0]      = 1;
+	            --n_b[2..0]      = (Rkop[3..0] == 8);
+	 WHEN 9  => Data_b[7..0]   =  	rg_DACA[7..0] & (Rdev_number[3..0] == 0) 
+								# foto_DACA[7..0] & (Rdev_number[3..0] == 1) ;
+	            Addr_drs[9..0] = 5;
+	            n_b[2..0]      = 0;
+	 WHEN 10 => Data_b[7..0]   = 	rg_DACA[15..8] & (Rdev_number[3..0] == 0) 
+								# foto_DACA[15..8] & (Rdev_number[3..0] == 1);
+	            Addr_drs[9..0] = 5;
+	            n_b[2..0]      = 1;
+	            --n_b[2..0]      = (Rkop[3..0] == 8);
+	 WHEN 11 => Data_b[7..0]   = 	rg_DACB[7..0] & (Rdev_number[3..0] == 0) 
+								# foto_DACB[7..0] & (Rdev_number[3..0] == 1);
+	            Addr_drs[9..0] = 6;
+	            n_b[2..0]      = 0;
+	 WHEN 12 => Data_b[7..0]   = 	rg_DACB[15..8] & (Rdev_number[3..0] == 0) 
+								# foto_DACB[15..8] & (Rdev_number[3..0] == 1);
+	            Addr_drs[9..0] = 6;
+	            n_b[2..0]      = 1;
+	            --n_b[2..0]      = (Rkop[3..0] == 8);
+	 WHEN 13 => Data_b[7..0]   = 	rg_DACC[7..0] & (Rdev_number[3..0] == 0) 
+								# foto_DACC[7..0] & (Rdev_number[3..0] == 1); 
+	            Addr_drs[9..0] = 7;
+	            n_b[2..0]      = 0;
+	 WHEN 14 => Data_b[7..0]   = 	rg_DACC[15..8] & (Rdev_number[3..0] == 0) 
+								# foto_DACC[15..8] & (Rdev_number[3..0] == 1);
+	            Addr_drs[9..0] = 7;
+	            n_b[2..0]      = 1;
+	           -- n_b[2..0]      = (Rkop[3..0] == 8);
+	 WHEN 15 => Data_b[7..0]   = 	rg_DACD[7..0] & (Rdev_number[3..0] == 0) 
+								# foto_DACD[7..0] & (Rdev_number[3..0] == 1);
+	            Addr_drs[9..0] = 8;
+	            n_b[2..0]      = 0;
+	 WHEN 16 => Data_b[7..0]   = 	rg_DACD[15..8] & (Rdev_number[3..0] == 0) 
+								# foto_DACD[15..8] & (Rdev_number[3..0] == 1);
+	            Addr_drs[9..0] = 8;
+	            n_b[2..0]      = 1;
+	            --n_b[2..0]      = (Rkop[3..0] == 8);
+	 WHEN 17 => Data_b[7..0]   = 	rg_DACE[7..0] & (Rdev_number[3..0] == 0) 
+								# foto_DACE[7..0] & (Rdev_number[3..0] == 1);
+	            Addr_drs[9..0] = 9;
+	            n_b[2..0]      = 0;
+	 WHEN 18 => Data_b[7..0]   = 	rg_DACE[15..8] & (Rdev_number[3..0] == 0) 
+								# foto_DACE[15..8] & (Rdev_number[3..0] == 1);
+	            Addr_drs[9..0] = 9;
+	            n_b[2..0]      = 1;
+	            --n_b[2..0]      = (Rkop[3..0] == 8);
+	 WHEN 19 => Data_b[7..0]   = 	rg_DACF[7..0] & (Rdev_number[3..0] == 0) 
+								# foto_DACF[7..0] & (Rdev_number[3..0] == 1);
+	            Addr_drs[9..0] = 10;
+	            n_b[2..0]      = 0;
+	 WHEN 20 => Data_b[7..0]   = 	rg_DACF[15..8] & (Rdev_number[3..0] == 0) 
+								# foto_DACF[15..8] & (Rdev_number[3..0] == 1);
+	            Addr_drs[9..0] = 10;
+	            n_b[2..0]      = 1;
+	           -- n_b[2..0]      = (Rkop[3..0] == 8);
+	 WHEN 21 => Data_b[7..0]   = 	rg_DACG[7..0] & (Rdev_number[3..0] == 0) 
+								# foto_DACG[7..0] & (Rdev_number[3..0] == 1);
+	            Addr_drs[9..0] = 11;
+	            n_b[2..0]      = 0;
+	 WHEN 22 => Data_b[7..0]   = 	rg_DACG[15..8] & (Rdev_number[3..0] == 0) 
+								# foto_DACG[15..8] & (Rdev_number[3..0] == 1);
+	            Addr_drs[9..0] = 11;
+	            n_b[2..0]      = 1;
+	           -- n_b[2..0]      = (Rkop[3..0] == 8);
+	 WHEN 23 => Data_b[7..0]   = 	rg_DACH[7..0] & (Rdev_number[3..0] == 0) 
+								# foto_DACH[7..0] & (Rdev_number[3..0] == 1);
+	            Addr_drs[9..0] = 12;
+	            n_b[2..0]      = 0;
+	 WHEN 24 => Data_b[7..0]   = 	rg_DACH[15..8] & (Rdev_number[3..0] == 0) 
+								# foto_DACH[15..8] & (Rdev_number[3..0] == 1);
+	            Addr_drs[9..0] = 12;
+	            n_b[2..0]      = 1;
+	            --n_b[2..0]      = (Rkop[3..0] == 8);
+	 WHEN 25 => Data_b[7..0]   = rg_DAC_ROFS[7..0]; 
+				Addr_drs[9..0] = 13;
+	            n_b[2..0]      = 0;	
+	 WHEN 26 => Data_b[7..0]   = rg_DAC_ROFS[15..8];  
+				Addr_drs[9..0] = 13;
+				n_b[2..0]      = 1;
+	            --n_b[2..0]      = (Rkop[3..0] == 8);	 
+	 WHEN 27 => Data_b[7..0]   = rg_DAC_BIAS[7..0]; 
+				Addr_drs[9..0] = 14;
+	            n_b[2..0]      = 0;	
+	 WHEN 28 => Data_b[7..0]   = rg_DAC_BIAS[15..8];  
+				Addr_drs[9..0] = 14;
+				n_b[2..0]      = 1;
+	           -- n_b[2..0]      = (Rkop[3..0] == 8);	                       
+  END CASE;
+ELSIF load_md THEN          
+  CASE en_cou_rd[1..0] IS
+	 WHEN 0  => Data_b[7..0]   = data_ou_eth[7..0];
+	            Addr_drs[9..0] = rg_cou_rd_data[9..0];   
+	            n_b[2..0]      = 0; 
+	 WHEN 1  => Data_b[7..0]   = data_ou_eth[15..8];
+	            Addr_drs[9..0] = rg_cou_rd_data[9..0];   
+	            n_b[2..0]      = 1;
+	 WHEN 2  => Data_b[7..0]   = data_ou_eth[23..16];
+	            Addr_drs[9..0] = rg_cou_rd_data[9..0];   
+	            n_b[2..0]      = 2;
+	 WHEN 3  => Data_b[7..0]   = data_ou_eth[31..24];
+	            Addr_drs[9..0] = rg_cou_rd_data[9..0];   
+	            n_b[2..0]      = 3;                      
+  END CASE; 
+ELSIF  en_read_dm then  --read_md THEN
+      if ((Rkop[3..0] == 11) # (Rkop[3..0] == 10) # (Rkop[3..0] == 12)) then  
+				Addr_drs[9..0] = cou_rdm[12..3];   
+	            n_b[2..0]      = (gnd, cou_rdm[2..1]);
+	   %elsif (Rkop[3..0] == 10) then  
+				Addr_drs[3..0] = cou_rds[6..3];
+				n_b[2..0]      = (gnd, cou_rdm[2..1]);	--(gnd, cou_rds[2..1]);
+	  elsif (Rkop[3..0] == 12) then
+				Addr_drs[3..0] = 0;
+				n_b[2..0]      = (gnd, cou_rdm[2..1]);	--(gnd, cou_rd_adr[2..1]); %
+		end if;		
+END IF;
+
+
+-- двунаправленная шина данных
+test_data[].clk		= clk_bus;
+ 
+if (n_b[2..0] == 0) then
+test_data[]			= 0;
+elsif (n_b[2..0] == 1) then
+test_data[]			= 0;
+elsif (n_b[2..0] == 2) then
+test_data[]			= (gnd, gnd, gnd, gnd, gnd, gnd, Addr_drs[9..8]);
+elsif (n_b[2..0] == 3) then
+test_data[]			= Addr_drs[7..0];
+end if;
+
+iob.datain[7..0]	= Data_b[7..0];
+iob.oe[7..0]	    = dir;
+
+Data_drs[7..0]      = iob.dataio[7..0]; 			--test_data[]			= iob.dataio[7..0];--
+data_bus_in[7..0]   = iob.dataout[7..0];
+
+-- чтение массива данных: опорный счетчик-формирователь временной диаграммы
+
+cou_rdm[].d    = cou_rdm[].q + 1;
+cou_rdm[].ena  = en_read_dm;
+cou_rdm[].clk  = clk_bus;
+cou_rdm[].clrn = read_md;
+
+
+cou_rds[].d    = cou_rds[].q + 1;
+cou_rds[].ena  = en_read_slow;
+cou_rds[].clk  = clk_bus;
+cou_rds[].clrn = read_md;
+
+cou_rd_adr[].d    = cou_rd_adr[].q + 1;
+cou_rd_adr[].ena  = en_read_adr;
+cou_rd_adr[].clk  = clk_bus;
+cou_rd_adr[].clrn = read_md;
+
+-----------------------------------------------------------------------------------------
+-- ЗАГРУЗЧИК синхронизатора
+
+-- kop[3..0] = 4, dev_number[3..0] = X                       Start_s  (команда)
+
+load_eth.d      = CheckDes & !load_eth;
+load_eth.ena    = Rcheck & Rok & (Rkop[3..0] == 4);
+              --# load_s;
+load_eth.clk    = RXCLK;                            
+load_eth.clrn   = reset;
+
+load_eth_sh		= load_eth;
+load_eth_sh.clk = RXCLK;
+
+load_eth_pr		= load_eth & !load_eth_sh;
+load_eth_pr.clk = RXCLK;
+
+load_pr			= load_eth_pr;
+load_pr.ena		= load_eth_pr # load_s;
+load_pr.clk		= RXCLK;
+
+load_s			= load_pr;
+load_s.clk		= clk_bus;
+
+
+%load_s.d      = CheckDes & !load_sd;
+load_s.ena    = Rcheck & Rok & (Rkop[3..0] == 4)
+              # load_sd;
+load_s.clk    = RXCLK;                            
+load_s.clrn   = reset;
+
+load_sd.d       = !end_l_sd;
+load_sd.ena     = load_s
+                # end_l_sd;
+load_sd.clk     = clk_bus;
+load_sd.clrn    = reset;
+
+cou_l_sd[].d    = cou_l_sd[].q + 1;
+cou_l_sd[].clk  = clk_bus;                           
+cou_l_sd[].clrn = load_sd;
+
+end_l_sd    = (cou_l_sd[4..0] == 2); 
+
+%
+
+sync_load.clk_in		= clk_bus;
+sync_load.reset			= reset;
+sync_load.ReadDATA		= S/H; 
+sync_load.start			= l_test;--load_s;
+
+DATA_S					= sync_load.DATAuWire;
+SCLK_S					= sync_load.CLKuWire;
+CS_S					= sync_load.LEuWire;
+SYNC_S					= sync_load.sync_s;
+
+
+pll_t.areset			= !reset;
+pll_t.inclk0			= clk_bus;
+locked					= pll_t.locked;
+clk_50					= pll_t.c0;
+
+
+locked_sh[0]		= locked;
+locked_sh[1]		= locked_sh[0];
+locked_sh[].clk		= clk_bus;
+
+l_test				= !locked_sh[1] & locked_sh[0];
+l_test.clk			= clk_bus;
+
+-----------------------------------------------------------------------------------------
+
+-- ADDR  w_data - единичное состояние 
+--  0      [0]       - программный сброс                     Pr_reset
+--  0      [1]       - программный стоп цикла записи         P_stop
+--  1      [0]       - старт загрузки регистров быстрого АЦП ADC_fast
+--  2      [0]       - старт загрузки ЦАП                    DAC_load
+--  2      [3..1]    - номер ЦАП                             number_DAC
+--  3      [15..0]   - данные для ЦАП первого канала         data_DACA[]
+--  4      [15..0]   - данные для ЦАП второго канала         data_DACB[]
+--  5      [15..0]   - данные для ЦАП третьего канала        data_DACC[]
+--  6      [15..0]   - данные для ЦАП четвертого канала      data_DACD[]
+--  7      [15..0]   - данные для ЦАП пятого канала          data_DACE[]
+--  8      [15..0]   - данные для ЦАП шестого канала         data_DACF[]
+--  9      [15..0]   - данные для ЦАП седьмого канала        data_DACG[]
+--  10     [15..0]   - данные для ЦАП восьмого канала        data_DACH[] 
+--  11     [0]       - загрузка синхронизатора               Start_s
+--  12     [0]       - загрузка медленного АЦП               ADC_slow
+--  12     [1]       - остановка циклического опроса         ADC_slow_stop
+--  13     [0]       - разрешение работы DRS4                En_Work
+--  13     [1]       - режим калибровки                      calibr
+--  13     [2]       - режим регистрации                     pachka
+--  13     [3]       - статическая калибровка                stat_cor
+--  14     [15..0]   - указатель количества отсчетов 
+--                     в обычном режиме регистрации          number_n[]  
+--  15     [15..0]   - указатель количества отсчетов
+--                     в режиме пачки                        number_p[]
+--  16     [15..0]   - задержка остановки цикла регистрации  zap_delay[]
+--  17     [15..0]   - запись данных в корректирующее RAM
+--                     первого канала                        COR_DATA[]   
+--  18     [15..0]   - запись данных в корректирующее RAM
+--                     второго канала                        COR_DATB[] 
+--  19     [15..0]   - запись данных в корректирующее RAM
+--                     третьего канала                       COR_DATC[] 
+--  20     [15..0]   - запись данных в корректирующее RAM
+--                     четвертого канала                     COR_DATD[] 
+--  21     [15..0]   - запись данных в корректирующее RAM
+--                     пятого канала                         COR_DATE[] 
+--  22     [15..0]   - запись данных в корректирующее RAM
+--                     шестого канала                        COR_DATF[] 
+--  23     [15..0]   - запись данных в корректирующее RAM
+--                     седьмого канала                       COR_DATG[] 
+--  24     [15..0]   - запись данных в корректирующее RAM
+--                     восьмого канала                       COR_DATH[]                       
+----------------------------------------------------------------------------------
+--  32     [23..0]   - чтение данных медленного АЦП          outdata_adc_slow
+----------------------------------------------------------------------------------
+--  33     [31..0]   - чтение результатов измерений          data_ou[]  
+
+-- ОТСУТСТВУЮТ: ДВУХКАНАЛЬНЫЙ DAC, ЦИФРОВЫЕ ПОРТЫ ВВОДА/ВЫВОДА И ТАК ДАЛЕЕ - ДОПОЛНИТЬ!        
+
+
+--==================================================================================
+-- address n_b[] data[]   w/r          -- 17 бит!  
+-- [5..0]  [1..0][7..0] + write/read   -- формат шины информационного обмена                      
+--==================================================================================
+
+
+-- ЗАГРУЗЧИК РЕГИСТРОВ ГЕНЕРАТОРА ОПОРНЫХ СИНХРОСИГНАЛОВ
+
+
+END;

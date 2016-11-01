@@ -1,0 +1,123 @@
+Restore Archived Project report for desat_comm_board_hw_v1_0_fw_v_1_0
+Mon Jan 27 11:18:38 2014
+Quartus II Version 9.1 Build 350 03/24/2010 Service Pack 2 SJ Full Version
+
+
+---------------------
+; Table of Contents ;
+---------------------
+  1. Legal Notice
+  2. Restore Archived Project Summary
+  3. Restore Archived Project Messages
+  4. Files Restored
+  5. Files Not Restored
+
+
+
+----------------
+; Legal Notice ;
+----------------
+Copyright (C) 1991-2010 Altera Corporation
+Your use of Altera Corporation's design tools, logic functions 
+and other software and tools, and its AMPP partner logic 
+functions, and any output files from any of the foregoing 
+(including device programming or simulation files), and any 
+associated documentation or information are expressly subject 
+to the terms and conditions of the Altera Program License 
+Subscription Agreement, Altera MegaCore Function License 
+Agreement, or other applicable license agreement, including, 
+without limitation, that your use is for the sole purpose of 
+programming logic devices manufactured by Altera and sold by 
+Altera or its authorized distributors.  Please refer to the 
+applicable agreement for further details.
+
+
+
++-------------------------------------------------------------------------+
+; Restore Archived Project Summary                                        ;
++---------------------------------+---------------------------------------+
+; Restore Archived Project Status ; Successful - Mon Jan 27 11:18:38 2014 ;
+; Revision Name                   ; desat_comm_board_hw_v1_0_fw_v_1_0     ;
+; Top-level Entity Name           ; top                                   ;
+; Family                          ; Cyclone III                           ;
++---------------------------------+---------------------------------------+
+
+
++-----------------------------------+
+; Restore Archived Project Messages ;
++-----------------------------------+
+Info: Successfully restored 'D:/Users/Leon/Work/CMD-3/el_lxe/Altera/20120601_desat_comm_board_hw_v1_0_0_fw_v0_1_1.qar' into the 'D:/Users/Leon/Work/CMD-3/el_lxe/Altera/Ethernet/' directory
+Info: Generated report 'desat_comm_board_hw_v1_0_fw_v_1_0.restore.rpt'
+Error: Evaluation of Tcl script c:/altera/91/quartus/common/tcl/apps/qpm/qar.tcl unsuccessful
+Error: Quartus II Shell was unsuccessful. 5 errors, 0 warnings
+    Error: Peak virtual memory: 94 megabytes
+    Error: Processing ended: Mon Jan 27 11:18:38 2014
+    Error: Elapsed time: 00:00:03
+    Error: Total CPU time (on all processors): 00:00:01
+
+
++------------------------------------------------------------------------------+
+; Files Restored                                                               ;
++------------------------------------------------------------------------------+
+; File Name                                                                    ;
++------------------------------------------------------------------------------+
+; ThermoSensor.vhd                                                             ;
+; VoltageMeasure.vhd                                                           ;
+; VoltageMeasureRom.vhd                                                        ;
+; VoltageMeasureRomContents.mif                                                ;
+; ab_ifc_ram.cmp                                                               ;
+; ab_ifc_ram.qip                                                               ;
+; ab_ifc_ram.vhd                                                               ;
+; adc_brd_ifc.vhd                                                              ;
+; assignment_defaults.qdf                                                      ;
+; constants.vhd                                                                ;
+; crc32nibble.vhd                                                              ;
+; desat_comm_board_hw_v1_0_fw_v_1_0.qpf                                        ;
+; desat_comm_board_hw_v1_0_fw_v_1_0.qsf                                        ;
+; desat_comm_board_hw_v1_0_fw_v_1_0_assignment_defaults.qdf                    ;
+; eth_pins.vhd                                                                 ;
+; eth_rx.vhd                                                                   ;
+; eth_rx_buf.cmp                                                               ;
+; eth_rx_buf.qip                                                               ;
+; eth_rx_buf.vhd                                                               ;
+; eth_rx_ram.vhd                                                               ;
+; eth_top.vhd                                                                  ;
+; eth_tx.vhd                                                                   ;
+; eth_tx_buf.cmp                                                               ;
+; eth_tx_buf.qip                                                               ;
+; eth_tx_buf.vhd                                                               ;
+; eth_tx_ram.mif                                                               ;
+; eth_tx_ram.vhd                                                               ;
+; flash_ifc.vhd                                                                ;
+; id_ifc.vhd                                                                   ;
+; incremental_db/compiled_partitions/desat_comm_board_hw_v1_0_fw_v_1_0.db_info ;
+; infrastructure_top.vhd                                                       ;
+; io_utils.vhd                                                                 ;
+; mem_file.vhd                                                                 ;
+; net_proc.vhd                                                                 ;
+; reg_file.vhd                                                                 ;
+; reg_map.vhd                                                                  ;
+; reg_s.vhd                                                                    ;
+; reg_x.vhd                                                                    ;
+; spi_master.vhd                                                               ;
+; system_clock_pll.cmp                                                         ;
+; system_clock_pll.ppf                                                         ;
+; system_clock_pll.qip                                                         ;
+; system_clock_pll.vhd                                                         ;
+; tb_adc_brd.vhd                                                               ;
+; tb_eth_rx.vhd                                                                ;
+; tb_eth_tx.vhd                                                                ;
+; tb_top.vhd                                                                   ;
+; top.sdc                                                                      ;
+; top.vhd                                                                      ;
+; types.vhd                                                                    ;
++------------------------------------------------------------------------------+
+
+
++--------------------+
+; Files Not Restored ;
++--------------------+
+; File Name          ;
++--------------------+
+
+

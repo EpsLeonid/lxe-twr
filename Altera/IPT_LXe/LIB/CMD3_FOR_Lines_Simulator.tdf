@@ -1,0 +1,159 @@
+Title "CMD3_FOR_Lines_Simulator";
+
+INCLUDE "lpm_shiftreg.inc" ;
+INCLUDE "lpm_counter.inc" ;
+--INCLUDE "Dual_Port_RAM_256x16.inc";
+INCLUDE "Simulator_RAM_256x16.inc";-- Special RAM module with simulation MIF included
+INCLUDE "Edge_Sensing.inc";
+
+Constant Mode_Reg_Address	                 	=   768;
+Constant Reset_Address_Counter_Address			=	770;
+Constant Timer_Value_Reg_Address 				=	771;
+
+Subdesign CMD3_FOR_Lines_Simulator
+(
+-- Specific Module Signals
+     Fast_Link_Clock		: input; -- Global FPGA Clock, assumed 150MHz for Trigger-Related project
+     Next_Slice				: input; -- Enable to change data Bunch_Crossing pulses
+     Parallel_Start			: input; 
+     Parallel_Stop          : input;
+     Started				: output;
+     Add_nReplace			: output;-- Mode
+     Pattern_Active			: output;-- Synchro Output for Test
+     q[23..0]				: output;-- Data output
+
+-- Standard Bus signaling for Master/Slave connection
+  -- General Signals
+	 Bus_Clock				: input; -- Global FPGA Clock, assumed 100MHz for T2Q project 
+	 Reset					: input ;  -- Common FPGA Reset
+	 DataBus_In[15..0]		: input;  -- отправляемые с Внутренней Шины в Линк данные
+	 DataBusOut[15..0]		: output; -- выдаваемые на Внутреннюю Шину из Линка данные
+	 DataBusStrobe			: input;  -- строб приема/передачи данных наружу (высокий уровень, используя его как Enable, "защелкиваем" по заднему фронту
+	 Error					: output; -- сигнал ошибки (неверная команда)
+  -- Slave Mode Signals	-- используется при работе данного Модуля в режиме Slave
+	 Select					: input;  -- Выбор Модуля для работы с памятью Командного Листа в режиме Slave (с КАМАК-ом)
+	 DirectIn				: input;  -- направление передачи данных, Если =GND, то данный Модуль читается, если =VCC, то пишется.
+	 AddrBus_In[9..0]		: input;  -- адрес при операциях доступа чтения/записи Командного Листа с КАМАК-а
+
+ 
+)
+
+VARIABLE
+  Timer					    :	LPM_COUNTER with ( lpm_width=16);
+  Timer_Value_Reg			:	LPM_SHIFTREG with (lpm_width=16);
+  Timer_Value_Reg_WE_Addr	:	NODE;
+  Start_Timer				:	NODE;
+  Timer_Active	 		    :	NODE;
+  Timer_Done				:	Edge_Sensing;
+  Start_Timer_DFF           :   DFF;
+
+  RAM_Addr_Counter		    :	LPM_COUNTER with ( lpm_width=8);
+  Pattern_is_Active		        : NODE	;
+  Pattern_Done, Pattern_Done_	: NODE	;
+
+  RAM_Block[1..0]   		    : Simulator_RAM_256x16;--Dual_Port_RAM_256x16;
+  RAM_Block_WE_Addr[1..0]	    : NODE	;
+
+  Reset_Address_Counter         : node;
+  Reset_Address_DFF             : DFF;
+  
+  Reset_Address_Counter_Addr    : node;
+  
+  Mode_Reg                  :	LPM_SHIFTREG with (lpm_width=2);
+  Mode_Reg_CS               : node;
+  
+
+BEGIN 
+
+-- Timer Operation
+------------------------------------------------
+
+  Start_Timer_DFF.(d,clk) = (Parallel_Start, Fast_Link_Clock);
+  Start_Timer	          =	DFF(.clk=Fast_Link_Clock, .d= Start_Timer_DFF.q);
+------------------------------------------------
+  Started	=	Pattern_is_Active;--Timer_Active;--Start_Timer;
+ -- Timer.(Clock, cnt_en, sclr)	=	(Fast_Link_Clock, Timer_Active, Reset_Address_Counter);
+
+  Timer.(Clock, cnt_en, sclr)	=	(Fast_Link_Clock, VCC, (!Timer_Active)); -- , Reset_Address_Counter);
+
+  Timer_Active	=	SRFF(.clk=Fast_Link_Clock, .S=Start_Timer, .R=(Timer.q[]==Timer_Value_Reg.q[]));
+  --Timer_Active	=	SRFF(.clk=Fast_Link_Clock, .S=Start_Timer, .R=(Timer.q[]==B"0000000111000010"));
+  Timer_Done.(d,clk) = ((!Timer_Active), Fast_Link_Clock); -- вырабатываем одиночный Fast_Link_Clock импульс, 
+                                                           -- если счетчик задержки досчитал до заданного значения
+ 
+-- Timer REG (Регистр времени задержки старта)
+  Timer_Value_Reg.(Clock, data[], load)	=	(Fast_Link_Clock, DataBus_In[15..0], VCC);
+  Timer_Value_Reg.enable	=	DataBusStrobe and  DFF(.d=(DirectIn and Select AND Timer_Value_Reg_WE_Addr), .clk=Bus_Clock) ;
+
+
+-- Page and Slice counter control
+--------------------------------------------------
+  Reset_Address_DFF.(d,clk)    = (Reset_Address_Counter_Addr, Fast_Link_Clock);
+  Reset_Address_Counter	       = DFF(.clk=Fast_Link_Clock, .d= (Reset_Address_DFF.q));
+--------------------------------------------------
+  --RAM_Addr_Counter.(Clock, cnt_en, sclr)	=	(Fast_Link_Clock, Pattern_is_Active and Next_Slice, Reset_Address_Counter);
+  RAM_Addr_Counter.(Clock, cnt_en, sclr)	=	(Fast_Link_Clock, Pattern_is_Active and Next_Slice, Reset_Address_Counter);
+  Pattern_is_Active	=	SRFFE(.clk=Fast_Link_Clock, .S=Timer_Done.q, .R=Pattern_Done, .ena =VCC);
+
+
+
+ -- IF (RAM_Addr_Counter.q[4..0] == VCC) THEN END_Send_Slice = VCC;
+ --                                      ELSE END_Send_Slice = GND;
+ -- END IF;
+  
+  Pattern_Done_	= Mode_Reg.q[1] AND	(!(RAM_Addr_Counter.q[4..0] == VCC)) and DFF(.clk=Fast_Link_Clock, .d=(RAM_Addr_Counter.q[4..0] == VCC)); -- вырабатываем одиночный Fast_Link_Clock импульс, если счетчик досчитал до 32
+  Pattern_Done	= Parallel_Stop OR Pattern_Done_;	  
+ 
+-- Mode Control
+  --Mode_Reg.(data[0],clock,enable,load,sclr) = (VCC,Bus_Clock,DataBusStrobe and  DirectIn and Select,StartTimer_with_Adding_Mode, StartTimer_with_Replace_Mode);
+  --Add_nReplace=SRFFE(.clk=Bus_Clock, .S=StartTimer_with_Adding_Mode, .R=StartTimer_with_Replace_Mode, .ena=(DataBusStrobe and  DFF(.d=(DirectIn and Select), .clk=Bus_Clock)));
+  Add_nReplace   = Mode_Reg.q[0];
+  Pattern_Active =	Pattern_is_Active;
+
+--RAM Blocks connection---------------------
+  FOR i IN 0 TO 1 GENERATE
+    RAM_Block[i].(clock_a, clock_b)	=	(Fast_Link_Clock, Bus_Clock);
+    RAM_Block[i].wren_b = DataBusStrobe and  DFF(.d=(DirectIn and Select AND RAM_Block_WE_Addr[i]), .clk=Bus_Clock) ;
+    RAM_Block[i].wren_a = GND;
+    RAM_Block[i].address_b[7..0]	= AddrBus_In[7..0];
+    RAM_Block[i].address_a[7..0] 	= RAM_Addr_Counter.q[7..0];
+    RAM_Block[i].data_b[]	=	DataBus_In[15..0]; 
+    RAM_Block[i].data_a[]	=	VCC;
+  END GENERATE;
+
+  q[15..0]	=	RAM_Block[0].q_a[15..0] and Pattern_is_Active;
+  q[23..16]	=	RAM_Block[1].q_a[7..0]  and Pattern_is_Active;
+ 
+  
+-- Read output selector
+-- Address Map
+  FOR i IN 0 TO 1 GENERATE 
+     IF(AddrBus_In[9..0] >= 0+256*i   AND AddrBus_In[9..0] <= 255+256*i) THEN DataBusOut[15..0]    = RAM_Block[i].q_b[];
+                                                                              RAM_Block_WE_Addr[i] = VCC; 
+                                                                         ELSE RAM_Block_WE_Addr[i] = GND;
+     END IF;  
+  END GENERATE;
+                                      
+                                      
+  Mode_Reg.(data[1..0],clock,enable,load) = (DataBus_In[1..0], Bus_Clock, DataBusStrobe and DirectIn and Mode_Reg_CS, VCC);                                             
+  
+  IF(AddrBus_In[9..0] == Timer_Value_Reg_Address) 
+           THEN DataBusOut[15..0] = Timer_Value_Reg.q[];
+                Timer_Value_Reg_WE_Addr = VCC;
+           ELSE Timer_Value_Reg_WE_Addr = GND;
+  END IF;                                                  
+    
+  IF(AddrBus_In[9..0] == Mode_Reg_Address AND Select) 
+           THEN Mode_Reg_CS = VCC;
+                DataBusOut[1..0] = Mode_Reg.q[];
+                DataBusOut[15..2] = GND;
+           ELSE Mode_Reg_CS = GND;
+  END IF;   
+  
+  IF(AddrBus_In[9..0] == Reset_Address_Counter_Address AND DirectIn and Select AND DataBusStrobe) 
+           THEN Reset_Address_Counter_Addr = VCC;
+           ELSE Reset_Address_Counter_Addr = GND;
+  END IF;  
+   
+ 
+END; 

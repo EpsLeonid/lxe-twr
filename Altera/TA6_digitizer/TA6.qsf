@@ -1,0 +1,247 @@
+# Copyright (C) 1991-2005 Altera Corporation
+# Any  megafunction  design,  and related netlist (encrypted  or  decrypted),
+# support information,  device programming or simulation file,  and any other
+# associated  documentation or information  provided by  Altera  or a partner
+# under  Altera's   Megafunction   Partnership   Program  may  be  used  only
+# to program  PLD  devices (but not masked  PLD  devices) from  Altera.   Any
+# other  use  of such  megafunction  design,  netlist,  support  information,
+# device programming or simulation file,  or any other  related documentation
+# or information  is prohibited  for  any  other purpose,  including, but not
+# limited to  modification,  reverse engineering,  de-compiling, or use  with
+# any other  silicon devices,  unless such use is  explicitly  licensed under
+# a separate agreement with  Altera  or a megafunction partner.  Title to the
+# intellectual property,  including patents,  copyrights,  trademarks,  trade
+# secrets,  or maskworks,  embodied in any such megafunction design, netlist,
+# support  information,  device programming or simulation file,  or any other
+# related documentation or information provided by  Altera  or a megafunction
+# partner, remains with Altera, the megafunction partner, or their respective
+# licensors. No other licenses, including any licenses needed under any third
+# party's intellectual property, are provided herein.
+
+
+# The default values for assignments are stored in the file
+#		TA6_assignment_defaults.qdf
+# If this file doesn't exist, and for assignments not listed, see file
+#		assignment_defaults.qdf
+
+# Altera recommends that you do not modify this file. This
+# file is updated automatically by the Quartus II software
+# and any changes you make may be lost or overwritten.
+
+
+# Project-Wide Assignments
+# ========================
+set_global_assignment -name SMART_RECOMPILE ON
+set_global_assignment -name ORIGINAL_QUARTUS_VERSION "4.2 SP1"
+set_global_assignment -name PROJECT_CREATION_TIME_DATE "13:45:33  APRIL 07, 2008"
+set_global_assignment -name LAST_QUARTUS_VERSION "9.1 SP2"
+
+# Pin & Location Assignments
+# ==========================
+set_location_assignment PIN_240 -to LedB
+set_location_assignment PIN_239 -to LedG
+set_location_assignment PIN_238 -to LedR
+set_location_assignment PIN_39 -to LinkClk
+set_location_assignment PIN_37 -to LinkData
+set_location_assignment PIN_38 -to LinkTxRx
+set_location_assignment PIN_4 -to PLL_ExtOut
+set_location_assignment PIN_31 -to PLL_in
+set_location_assignment PIN_49 -to Sw_LinkClk
+set_location_assignment PIN_45 -to Sw_Quartz
+set_location_assignment PIN_46 -to FQuartz
+set_location_assignment PIN_5 -to ExtReset
+set_location_assignment PIN_231 -to Test[1]
+set_location_assignment PIN_148 -to Test[10]
+set_location_assignment PIN_147 -to Test[9]
+set_location_assignment PIN_146 -to Test[8]
+set_location_assignment PIN_237 -to Test[7]
+set_location_assignment PIN_236 -to Test[6]
+set_location_assignment PIN_235 -to Test[5]
+set_location_assignment PIN_234 -to Test[4]
+set_location_assignment PIN_233 -to Test[3]
+set_location_assignment PIN_232 -to Test[2]
+
+# Timing Assignments
+# ==================
+set_global_assignment -name IGNORE_CLOCK_SETTINGS ON
+set_global_assignment -name TPD_REQUIREMENT "4 ns"
+set_global_assignment -name TSU_REQUIREMENT "0.5 ns"
+set_global_assignment -name FMAX_REQUIREMENT "100 MHz"
+
+# Analysis & Synthesis Assignments
+# ================================
+set_global_assignment -name FAMILY "Cyclone III"
+set_global_assignment -name CYCLONE_OPTIMIZATION_TECHNIQUE SPEED
+set_global_assignment -name TOP_LEVEL_ENTITY TA6
+
+# Fitter Assignments
+# ==================
+set_global_assignment -name DEVICE EP3C25Q240C8
+set_global_assignment -name RESERVE_ASDO_AFTER_CONFIGURATION "AS INPUT TRI-STATED"
+set_global_assignment -name ERROR_CHECK_FREQUENCY_DIVISOR 1
+set_global_assignment -name STRATIX_DEVICE_IO_STANDARD "3.3-V LVTTL"
+
+# Assembler Assignments
+# =====================
+
+# Simulator Assignments
+# =====================
+
+# LogicLock Region Assignments
+# ============================
+set_global_assignment -name LOGICLOCK_INCREMENTAL_COMPILE_ASSIGNMENT OFF
+
+set_global_assignment -name LL_ROOT_REGION ON -section_id "Root Region"
+set_global_assignment -name LL_MEMBER_STATE LOCKED -section_id "Root Region"
+set_global_assignment -name MIN_CORE_JUNCTION_TEMP 0
+set_global_assignment -name MAX_CORE_JUNCTION_TEMP 85
+set_global_assignment -name NOMINAL_CORE_SUPPLY_VOLTAGE 1.2V
+set_global_assignment -name DEVICE_FILTER_PACKAGE PQFP
+set_global_assignment -name USE_CONFIGURATION_DEVICE ON
+set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "23 MM HEAT SINK WITH 200 LFPM AIRFLOW"
+set_global_assignment -name POWER_BOARD_THERMAL_MODEL "NONE (CONSERVATIVE)"
+set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
+set_global_assignment -name PARTITION_COLOR 39423 -section_id "RAMcommd_TA6:CommandRAM"
+set_global_assignment -name INCREMENTAL_COMPILATION FULL_INCREMENTAL_COMPILATION
+set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
+set_global_assignment -name PARTITION_NETLIST_TYPE POST_SYNTH -section_id "RAMcommd_TA6:CommandRAM"
+set_global_assignment -name ENABLE_CLOCK_LATENCY ON
+set_global_assignment -name ASSIGNMENT_GROUP_MEMBER LinkClk -section_id Link
+set_global_assignment -name ASSIGNMENT_GROUP_MEMBER LinkData -section_id Link
+set_global_assignment -name ASSIGNMENT_GROUP_MEMBER LinkTxRx -section_id Link
+set_global_assignment -name ASSIGNMENT_GROUP_MEMBER Sw_LinkClk -section_id Switch
+set_global_assignment -name ASSIGNMENT_GROUP_MEMBER Sw_Quartz -section_id Switch
+set_global_assignment -name ASSIGNMENT_GROUP_MEMBER LedB -section_id LED
+set_global_assignment -name ASSIGNMENT_GROUP_MEMBER LedG -section_id LED
+set_global_assignment -name ASSIGNMENT_GROUP_MEMBER LedR -section_id LED
+set_global_assignment -name ENABLE_LOGIC_ANALYZER_INTERFACE OFF
+set_global_assignment -name OPTIMIZE_MULTI_CORNER_TIMING ON
+set_global_assignment -name PHYSICAL_SYNTHESIS_REGISTER_RETIMING ON
+set_instance_assignment -name MAX_FANOUT 100 -to "PLL_TA6:PLL|altpll:altpll_component|altpll_c022:auto_generated|clk[1]"
+set_global_assignment -name CYCLONEIII_CONFIGURATION_DEVICE EPCS4
+set_global_assignment -name FORCE_CONFIGURATION_VCCIO ON
+set_instance_assignment -name GLOBAL_SIGNAL ON -to ExtReset
+set_global_assignment -name END_TIME "5 us"
+set_location_assignment PIN_219 -to ADC_In_Data[5][9]
+set_location_assignment PIN_218 -to ADC_In_Data[5][8]
+set_location_assignment PIN_217 -to ADC_In_Data[5][7]
+set_location_assignment PIN_216 -to ADC_In_Data[5][6]
+set_location_assignment PIN_214 -to ADC_In_Data[5][5]
+set_location_assignment PIN_207 -to ADC_In_Data[5][4]
+set_location_assignment PIN_203 -to ADC_In_Data[5][3]
+set_location_assignment PIN_202 -to ADC_In_Data[5][2]
+set_location_assignment PIN_201 -to ADC_In_Data[5][1]
+set_location_assignment PIN_200 -to ADC_In_Data[5][0]
+set_location_assignment PIN_194 -to ADC_In_Data[4][9]
+set_location_assignment PIN_189 -to ADC_In_Data[4][8]
+set_location_assignment PIN_188 -to ADC_In_Data[4][7]
+set_location_assignment PIN_187 -to ADC_In_Data[4][6]
+set_location_assignment PIN_186 -to ADC_In_Data[4][5]
+set_location_assignment PIN_185 -to ADC_In_Data[4][4]
+set_location_assignment PIN_184 -to ADC_In_Data[4][3]
+set_location_assignment PIN_183 -to ADC_In_Data[4][2]
+set_location_assignment PIN_182 -to ADC_In_Data[4][1]
+set_location_assignment PIN_181 -to ADC_In_Data[4][0]
+set_location_assignment PIN_171 -to ADC_In_Data[3][9]
+set_location_assignment PIN_169 -to ADC_In_Data[3][8]
+set_location_assignment PIN_168 -to ADC_In_Data[3][7]
+set_location_assignment PIN_167 -to ADC_In_Data[3][6]
+set_location_assignment PIN_166 -to ADC_In_Data[3][5]
+set_location_assignment PIN_164 -to ADC_In_Data[3][4]
+set_location_assignment PIN_162 -to ADC_In_Data[3][3]
+set_location_assignment PIN_161 -to ADC_In_Data[3][2]
+set_location_assignment PIN_160 -to ADC_In_Data[3][1]
+set_location_assignment PIN_159 -to ADC_In_Data[3][0]
+set_location_assignment PIN_139 -to ADC_In_Data[2][9]
+set_location_assignment PIN_137 -to ADC_In_Data[2][8]
+set_location_assignment PIN_135 -to ADC_In_Data[2][7]
+set_location_assignment PIN_134 -to ADC_In_Data[2][6]
+set_location_assignment PIN_133 -to ADC_In_Data[2][5]
+set_location_assignment PIN_132 -to ADC_In_Data[2][4]
+set_location_assignment PIN_131 -to ADC_In_Data[2][3]
+set_location_assignment PIN_128 -to ADC_In_Data[2][2]
+set_location_assignment PIN_127 -to ADC_In_Data[2][1]
+set_location_assignment PIN_126 -to ADC_In_Data[2][0]
+set_location_assignment PIN_117 -to ADC_In_Data[1][9]
+set_location_assignment PIN_114 -to ADC_In_Data[1][8]
+set_location_assignment PIN_113 -to ADC_In_Data[1][7]
+set_location_assignment PIN_112 -to ADC_In_Data[1][6]
+set_location_assignment PIN_111 -to ADC_In_Data[1][5]
+set_location_assignment PIN_110 -to ADC_In_Data[1][4]
+set_location_assignment PIN_109 -to ADC_In_Data[1][3]
+set_location_assignment PIN_108 -to ADC_In_Data[1][2]
+set_location_assignment PIN_107 -to ADC_In_Data[1][1]
+set_location_assignment PIN_106 -to ADC_In_Data[1][0]
+set_location_assignment PIN_98 -to ADC_In_Data[0][9]
+set_location_assignment PIN_95 -to ADC_In_Data[0][8]
+set_location_assignment PIN_94 -to ADC_In_Data[0][7]
+set_location_assignment PIN_93 -to ADC_In_Data[0][6]
+set_location_assignment PIN_88 -to ADC_In_Data[0][5]
+set_location_assignment PIN_87 -to ADC_In_Data[0][4]
+set_location_assignment PIN_84 -to ADC_In_Data[0][3]
+set_location_assignment PIN_83 -to ADC_In_Data[0][2]
+set_location_assignment PIN_82 -to ADC_In_Data[0][1]
+set_location_assignment PIN_81 -to ADC_In_Data[0][0]
+set_global_assignment -name CYCLONEII_RESERVE_NCEO_AFTER_CONFIGURATION "USE AS REGULAR IO"
+set_instance_assignment -name MAX_FANOUT 20 -to "Digitizer_TA6:TA6Channel[0]|Working"
+set_instance_assignment -name MAX_FANOUT 20 -to "Digitizer_TA6:TA6Channel[1]|Working"
+set_instance_assignment -name MAX_FANOUT 20 -to "Digitizer_TA6:TA6Channel[2]|Working"
+set_instance_assignment -name MAX_FANOUT 20 -to "Digitizer_TA6:TA6Channel[3]|Working"
+set_instance_assignment -name MAX_FANOUT 20 -to "Digitizer_TA6:TA6Channel[4]|Working"
+set_instance_assignment -name MAX_FANOUT 20 -to "Digitizer_TA6:TA6Channel[5]|Working"
+set_instance_assignment -name AUTO_GLOBAL_CLOCK ON -to "PLL_TA6:PLL|altpll:altpll_component|altpll_c022:auto_generated|clk[1]"
+set_instance_assignment -name AUTO_GLOBAL_CLOCK_MAX ON -to "PLL_TA6:PLL|altpll:altpll_component|altpll_c022:auto_generated|clk[1]"
+set_global_assignment -name MISC_FILE TA6.dpf
+set_global_assignment -name MISC_FILE "D:/Users/Leon/Work/CMD-3/el_lxe/Altera/TA6_digitizer/TA6.dpf"
+set_location_assignment PIN_223 -to ADC_In_Data[5][11]
+set_location_assignment PIN_221 -to ADC_In_Data[5][10]
+set_location_assignment PIN_196 -to ADC_In_Data[4][11]
+set_location_assignment PIN_195 -to ADC_In_Data[4][10]
+set_location_assignment PIN_176 -to ADC_In_Data[3][11]
+set_location_assignment PIN_173 -to ADC_In_Data[3][10]
+set_location_assignment PIN_143 -to ADC_In_Data[2][11]
+set_location_assignment PIN_142 -to ADC_In_Data[2][10]
+set_location_assignment PIN_119 -to ADC_In_Data[1][11]
+set_location_assignment PIN_118 -to ADC_In_Data[1][10]
+set_location_assignment PIN_100 -to ADC_In_Data[0][11]
+set_location_assignment PIN_99 -to ADC_In_Data[0][10]
+set_location_assignment PIN_224 -to ADC_OR[5]
+set_location_assignment PIN_197 -to ADC_OR[4]
+set_location_assignment PIN_177 -to ADC_OR[3]
+set_location_assignment PIN_144 -to ADC_OR[2]
+set_location_assignment PIN_120 -to ADC_OR[1]
+set_location_assignment PIN_103 -to ADC_OR[0]
+set_location_assignment PIN_52 -to NWordFLink[1]
+set_location_assignment PIN_51 -to NWordFLink[0]
+set_location_assignment PIN_73 -to DEN
+set_location_assignment PIN_72 -to FLink_Sync
+set_location_assignment PIN_41 -to PLLinst_EN
+set_location_assignment PIN_44 -to PLLinst_S0
+set_location_assignment PIN_43 -to PLLinst_S1
+set_location_assignment PIN_78 -to REN
+set_location_assignment PIN_80 -to RPWDN
+set_location_assignment PIN_55 -to SerDataOut[9]
+set_location_assignment PIN_56 -to SerDataOut[8]
+set_location_assignment PIN_57 -to SerDataOut[7]
+set_location_assignment PIN_63 -to SerDataOut[6]
+set_location_assignment PIN_64 -to SerDataOut[5]
+set_location_assignment PIN_65 -to SerDataOut[4]
+set_location_assignment PIN_68 -to SerDataOut[3]
+set_location_assignment PIN_69 -to SerDataOut[2]
+set_location_assignment PIN_70 -to SerDataOut[1]
+set_location_assignment PIN_71 -to SerDataOut[0]
+set_location_assignment PIN_50 -to TPWDN
+set_global_assignment -name SEARCH_PATH LIB
+set_global_assignment -name INCREMENTAL_VECTOR_INPUT_SOURCE Digit.vwf
+set_global_assignment -name USE_TIMEQUEST_TIMING_ANALYZER OFF
+set_global_assignment -name TCO_REQUIREMENT "2 ns"
+set_global_assignment -name TH_REQUIREMENT "5 ns"
+set_location_assignment PIN_76 -to SerClk
+set_instance_assignment -name IO_STANDARD LVDS -to DataOutLVDS_TA
+set_global_assignment -name AHDL_FILE LIB/digitizer_ta6.tdf
+set_global_assignment -name SDC_FILE TA6.sdc
+set_global_assignment -name AHDL_FILE TA6.tdf
+set_global_assignment -name VECTOR_WAVEFORM_FILE Digit.vwf
+set_global_assignment -name MISC_FILE "E:/Work/CMD-3/Altera/TA6_digitizer/TA6.dpf"
+set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
+set_instance_assignment -name PARTITION_HIERARCHY comma_915926efcac656850ff39e11b5df6911 -to "RAMcommd_TA6:CommandRAM" -section_id "RAMcommd_TA6:CommandRAM"

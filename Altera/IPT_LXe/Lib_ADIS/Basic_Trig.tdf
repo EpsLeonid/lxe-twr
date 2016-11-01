@@ -1,0 +1,147 @@
+TITLE "Basic Trigger";
+
+INCLUDE "lpm_shiftreg.inc";
+INCLUDE "Pulse_Shaper.inc";
+--INCLUDE "Delay_Line.inc";
+
+
+PARAMETERS
+(
+	NUM_CH     = 8
+);
+
+SUBDESIGN Basic_Trig
+(
+  DataIn[NUM_CH-1..0]       	  : input; 
+  Sample_Enable             	  : input;  -- частота принятия решений 
+  Clock                			  : input;  -- входная частота 
+
+  Result                          : output; -- решение триггера
+
+--
+  DataBus_In[15..0]			      : input;  -- полученные с шины проекта данные
+  DataBusOut[15..0]     	  	  : output; -- отправляемые  на шину проекта данные
+  
+  DataBusStrobe 			 	  : input;  -- строб приема/передачи данных наружу (высокий уровень, защелкиваем по заднему фронту)
+  Select					 	  : input;  -- Выбор Модуля для работы с памятью Командного Листа в режиме Slave (с КАМАК-ом)
+  DirectIn					  	  : input;  -- направление передачи данных, Если =GND, то данный Модуль читается, если =VCC, то пишется.
+  AddrBus_In[7..0]			 	  : input;  -- адрес при операциях доступа чтения/записи Командного Листа с КАМАК-а
+
+  testOut                         : output;
+)
+
+VARIABLE
+  
+  In_Es[NUM_CH-1..0]           : Pulse_Shaper with (MAX_DURATION = 8);
+
+  Data_Reg                     : lpm_shiftreg with (LPM_WIDTH = NUM_CH, LPM_DIRECTION="unused"); -- регистр данных
+  OR_SHEME[NUM_CH..0]          : node; -- ИЛИ всех входов
+  AND_SHEME[NUM_CH..0]         : node; -- И всех входов
+  MASK_CH[NUM_CH-1..0]         : node; -- маскирование каналов, какие входы учавствуют в схеме совпадения
+  Result_Out                   : DFF; -- выход результата
+ 
+  Mask_Reg                     : lpm_shiftreg with (LPM_WIDTH = NUM_CH, LPM_DIRECTION="unused"); -- регистр данных
+  SaveMaskReg                  : node;
+  Control_Reg                  : lpm_shiftreg with (LPM_WIDTH = 2, LPM_DIRECTION="unused"); 
+  ChangeSheme                  : node;
+
+  D_S_Trig                     : DFF;
+  
+  BGO_SHEME                       : node;
+  Group1[2..0],Group3[2..0],Group5[2..0], Group7[1..0]     : node;
+  Group9[2..0],Group11[2..0],Group13[2..0],Group15[1..0]   : node;
+  Quarter1, Quarter2              : node;
+   
+    
+BEGIN
+
+FOR i in 0 to (NUM_CH-1) GENERATE
+   In_Es[i].(d,clk,Duration[]) = (DataIn[i],Clock,B"1111");
+END GENERATE;
+-- защелкиваем входные данные
+Data_Reg.data[NUM_CH-1..0] = In_Es[NUM_CH-1..0].q;--DataIn[NUM_CH-1..0];
+Data_Reg.clock             = Clock;   -- по такту защелкиваем состояние входов
+Data_Reg.load              = VCC;     -- регистр всегда в параллельной загрузке
+Data_Reg.enable            = Sample_Enable;  -- разрешаем защелкнуть состояние 
+-- формирование разрешающего времени
+
+
+-- поиск совпадений по ИЛИ и по И всех входов
+FOR i in 0 to (NUM_CH-1) GENERATE
+  --MASK_CH[i]  = Mask_Reg.q[i] AND Data_Reg.q[i];
+  MASK_CH[i]  = Data_Reg.q[i];
+    OR_SHEME[i+1]  = OR_SHEME[i] OR MASK_CH[i]; 
+       AND_SHEME[i+1]  = AND_SHEME[i] AND MASK_CH[i];
+          END GENERATE;
+            OR_SHEME[0] = GND;
+               AND_SHEME[0] = VCC;
+               
+ 
+    CASE Control_Reg.q[1..0] IS
+	    WHEN b"00"  => Result_Out.d = OR_SHEME[NUM_CH]; 
+	    WHEN b"01"  => Result_Out.d = AND_SHEME[NUM_CH]; 
+	    WHEN b"10"  => Result_Out.d = BGO_SHEME; 
+	    WHEN b"11"  => Result_Out.d = GND; 
+    END CASE;    
+    Result_Out.clk = Clock;                 
+-- поиск совпадений по И всех входов
+Result = Result_Out.q;
+
+-- поиск совпадений для калибровки кристаллов BGO
+-- первая внешняя четверть, торец 1
+Group1[0] = (Data_Reg.q[0] AND Data_Reg.q[1]); 
+Group1[1] = (Data_Reg.q[0] AND Data_Reg.q[3]); 
+Group1[2] = (Data_Reg.q[0] AND Data_Reg.q[9]);
+
+Group3[0] = (Data_Reg.q[2] AND Data_Reg.q[3]);
+Group3[1] = (Data_Reg.q[2] AND Data_Reg.q[5]); 
+Group3[2] = (Data_Reg.q[2] AND Data_Reg.q[1]);
+
+Group5[0] = (Data_Reg.q[4] AND Data_Reg.q[5]);
+Group5[1] = (Data_Reg.q[4] AND Data_Reg.q[7]); 
+Group5[2] = (Data_Reg.q[4] AND Data_Reg.q[3]);
+
+Group7[0] = (Data_Reg.q[6] AND Data_Reg.q[7]);
+Group7[1] = (Data_Reg.q[6] AND Data_Reg.q[5]); 
+
+Quarter1  = Group1[0] OR Group1[1] OR Group1[2] OR Group3[0] OR Group3[1] OR Group3[2] OR Group5[0] OR Group5[1] OR Group5[2] OR Group7[0] OR Group7[1];
+
+
+-- вторая внешняя четверть, торец 1
+Group9[0] = (Data_Reg.q[8] AND Data_Reg.q[9]); 
+Group9[1] = (Data_Reg.q[8] AND Data_Reg.q[11]); 
+Group9[2] = (Data_Reg.q[8] AND Data_Reg.q[1]);
+
+Group11[0] = (Data_Reg.q[10] AND Data_Reg.q[11]);
+Group11[1] = (Data_Reg.q[10] AND Data_Reg.q[13]); 
+Group11[2] = (Data_Reg.q[10] AND Data_Reg.q[9]);
+
+Group13[0] = (Data_Reg.q[12] AND Data_Reg.q[13]);
+Group13[1] = (Data_Reg.q[12] AND Data_Reg.q[15]); 
+Group13[2] = (Data_Reg.q[12] AND Data_Reg.q[11]);
+
+Group15[0] = (Data_Reg.q[14] AND Data_Reg.q[15]);
+Group15[1] = (Data_Reg.q[14] AND Data_Reg.q[13]); 
+
+Quarter2   = Group9[0] OR Group9[1] OR Group9[2] OR Group11[0] OR Group11[1] OR Group11[2] OR Group13[0] OR Group13[1] OR Group13[2] OR Group15[0] OR Group15[1];
+
+BGO_SHEME = DFF(.d=(Quarter1 OR Quarter2), .clk=Clock);
+
+
+D_S_Trig.(d,clk) = (DirectIn AND Select, Clock);
+Mask_Reg.(data[], clock, enable, load) = (DataBus_In[NUM_CH-1..0], Clock, SaveMaskReg , VCC);
+Control_Reg.(data[], clock, enable, load) = (DataBus_In[1..0], Clock, ChangeSheme , VCC);
+-- 0 адрес регистра маски каналов 
+IF(AddrBus_In[] == 0)  THEN SaveMaskReg              = DataBusStrobe and  D_S_Trig.q;
+                            DataBusOut[NUM_CH-1..0]  = Mask_Reg.q[]; 
+                       ELSE SaveMaskReg              = GND;
+END IF;
+IF(AddrBus_In[] == 1)  THEN ChangeSheme       = DataBusStrobe and D_S_Trig.q;
+                            DataBusOut[1..0]  = Control_Reg.q[]; 
+                            DataBusOut[15..2] = GND;
+                       ELSE ChangeSheme       = GND;
+END IF;
+
+testOut = OR_SHEME[NUM_CH];
+
+END; -- End design

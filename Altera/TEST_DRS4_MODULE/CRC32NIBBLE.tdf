@@ -1,0 +1,63 @@
+
+INCLUDE "lpm_COMPARE";
+
+SUBDESIGN crc32nibble
+(
+	clk			:	INPUT;
+	clk_en		:	INPUT;
+	sclr		:	INPUT;	-- active low asynchronous RESET
+	d[3..0]		:	INPUT;	-- input data
+	q[31..0]	:	OUTPUT;
+	CRC_ok		:	OUTPUT;
+)
+VARIABLE
+--    lpm_comp    : lpm_compare;
+	CRC[31..0]	:	DFFE;
+	m[3..0]		:	NODE;
+BEGIN
+	CRC[].clk=clk;
+	CRC[].ena=clk_en;
+	q[]=CRC[];	
+
+	m3=CRC0!$d0;
+	m2=CRC1!$d1;
+	m1=CRC2!$d2;
+	m0=CRC3!$d3;
+
+	CRC31.d = !sclr& (VCC $ m0);
+	CRC30.d = !sclr& (VCC $ m1 $ m0);
+	CRC29.d = !sclr& (VCC $ m2 $ m1 $ m0);
+	CRC28.d = !sclr& (VCC $ m3 $ m2 $ m1);
+	CRC27.d = !sclr& (CRC31$ m3 $ m2 $ m0);
+	CRC26.d = !sclr& (CRC30$ m3 $ m1 $ m0);
+	CRC25.d = !sclr& (CRC29$ m2 $ m1);
+	CRC24.d = !sclr& (CRC28$ m3 $ m2 $ m0);
+	CRC23.d = !sclr& (CRC27$ m3 $ m1 $ m0);
+	CRC22.d = !sclr& (CRC26$ m2 $ m1);
+	CRC21.d = !sclr& (CRC25$ m3 $ m2 $ m0);
+	CRC20.d = !sclr& (CRC24$ m3 $ m1 $ m0);
+	CRC19.d = !sclr& (CRC23$ m2 $ m1 $ m0);
+	CRC18.d = !sclr& (CRC22$ m3 $ m2 $ m1);
+	CRC17.d = !sclr& (CRC21$ m3 $ m2);
+	CRC16.d = !sclr& (CRC20$ m3);
+	CRC15.d = !sclr& (CRC19$ m0);
+	CRC14.d = !sclr& (CRC18$ m1);
+	CRC13.d = !sclr& (CRC17$ m2);
+	CRC12.d = !sclr& (CRC16$ m3);
+	CRC11.d = !sclr& (CRC15);
+	CRC10.d = !sclr& (CRC14);
+	CRC9 .d = !sclr& (CRC13$ m0);
+	CRC8 .d = !sclr& (CRC12$ m1 $ m0);
+	CRC7 .d = !sclr& (CRC11$ m2 $ m1);
+	CRC6 .d = !sclr& (CRC10$ m3 $ m2);
+	CRC5 .d = !sclr& (CRC9 $ m3 $ m0);
+	CRC4 .d = !sclr& (CRC8 $ m1);
+	CRC3 .d = !sclr& (CRC7 $ m2);
+	CRC2 .d = !sclr& (CRC6 $ m3);
+	CRC1 .d = !sclr& (CRC5);
+	CRC0 .d = !sclr& (CRC4);
+
+	crc_ok = LPM_COMPARE(.dataa[]=CRC[], .datab[]=H"2144DF1C")
+	         WITH (LPM_WIDTH = 32,ONE_INPUT_IS_CONSTANT="YES") 
+	         RETURNS (.aeb);	
+END;

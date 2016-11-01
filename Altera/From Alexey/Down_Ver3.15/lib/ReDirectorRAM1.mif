@@ -1,0 +1,154 @@
+-- Copyright (C) 1991-2007 Altera Corporation
+-- Your use of Altera Corporation's design tools, logic functions 
+-- and other software and tools, and its AMPP partner logic 
+-- functions, and any output files from any of the foregoing 
+-- (including device programming or simulation files), and any 
+-- associated documentation or information are expressly subject 
+-- to the terms and conditions of the Altera Program License 
+-- Subscription Agreement, Altera MegaCore Function License 
+-- Agreement, or other applicable license agreement, including, 
+-- without limitation, that your use is for the sole purpose of 
+-- programming logic devices manufactured by Altera and sold by 
+-- Altera or its authorized distributors.  Please refer to the 
+-- applicable agreement for further details.
+
+-- Quartus II generated Memory Initialization File (.mif)
+
+WIDTH=16;
+DEPTH=1024;
+
+ADDRESS_RADIX=UNS;
+DATA_RADIX=UNS;
+
+CONTENT BEGIN
+	0     :   8192;
+	1     :   8193;
+	2     :   8194;
+	3     :   8195;
+	4     :   8196;
+	5     :   8197;
+	6     :   8198;
+	7     :   8199;
+	8     :   8200;
+	9     :   8201;
+	10    :   8202;
+	11    :   8203;
+	12    :   8204;
+	13    :   8205;
+	14    :   8206;
+	15    :   8207;
+	16    :   8208;
+	17    :   8209;
+	18    :   8210;
+	19    :   8211;
+	20    :   8212;
+	21    :   8213;
+	22    :   8214;
+	23    :   8215;
+	24    :   8216;
+	25    :   8217;
+	26    :   8218;
+	27    :   8219;
+	28    :   8220;
+	29    :   8221;
+	30    :   8222;
+	31    :   8223;
+	32    :   8224;
+	33    :   8225;
+	34    :   8226;
+	35    :   8227;
+	36    :   8228;
+	37    :   8229;
+	38    :   8230;
+	39    :   8231;
+	40    :   8232;
+	41    :   8233;
+	42    :   8234;
+	43    :   8235;
+	44    :   8236;
+	45    :   8237;
+	46    :   8238;
+	47    :   8239;
+	48    :   8240;
+	49    :   8241;
+	50    :   8242;
+	51    :   8243;
+	52    :   8244;
+	53    :   8245;
+	54    :   8246;
+	55    :   8247;
+	56    :   8248;
+	57    :   8249;
+	58    :   8250;
+	59    :   8251;
+	60    :   8252;
+	61    :   8253;
+	62    :   8254;
+	63    :   8255;
+	64    :   8256;
+	65    :   8257;
+	66    :   8258;
+	67    :   8259;
+	68    :   8260;
+	69    :   8261;
+	70    :   8262;
+	71    :   8263;
+	72    :   8264;
+	73    :   8265;
+	74    :   8266;
+	75    :   8267;
+	76    :   8268;
+	77    :   8269;
+	78    :   8270;
+	79    :   8271;
+	80    :   8272;
+	81    :   8273;
+	82    :   8274;
+	83    :   8275;
+	84    :   8276;
+	85    :   8277;
+	86    :   8278;
+	87    :   8279;
+	88    :   8280;
+	89    :   8281;
+	90    :   8282;
+	91    :   8283;
+	92    :   8284;
+	93    :   8285;
+	94    :   8286;
+	95    :   8287;
+	96    :   8288;
+	97    :   8289;
+	98    :   8290;
+	99    :   8291;
+	100   :   8292;
+	101   :   8293;
+	102   :   8294;
+	103   :   8295;
+	104   :   8296;
+	105   :   8297;
+	106   :   8298;
+	107   :   8299;
+	108   :   8300;
+	109   :   8301;
+	110   :   8302;
+	111   :   8303;
+	112   :   8304;
+	113   :   8305;
+	114   :   8306;
+	115   :   8307;
+	116   :   8308;
+	117   :   8309;
+	118   :   8310;
+	119   :   8311;
+	120   :   8312;
+	121   :   8313;
+	122   :   8314;
+	123   :   8315;
+	124   :   8316;
+	125   :   8317;
+	126   :   8318;
+	127   :   8319;
+	128   :   8320;
+	[129..1023]  :   0;
+END;

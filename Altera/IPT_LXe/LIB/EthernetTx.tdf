@@ -1,0 +1,352 @@
+TITLE "EthernetTx";
+
+INCLUDE "crc32";
+
+INCLUDE "lpm_counter";
+INCLUDE "lpm_shiftreg.inc";
+
+SUBDESIGN  EthernetTx
+(
+
+TX_CLK              : INPUT;  -- ethernet clock (25 MHz) from Eth_Controller
+TXD[3..0]           : OUTPUT; -- выходы nibble-данных в Ethernet-controller
+TX_ENA              : OUTPUT; -- Enabling Transmission to Eth_Controller
+
+StTransmit          : input ; -- старт передачи пакета
+Daddr[47..0]        : input ; -- DestinationAddr (received before, at SourceAddr field)
+Saddr[47..0]        : input ; -- This_Device' address (to be sent at SourceAddr field)
+TxLength[15..0]     : input ; -- длина пакета данных (старший разряд всегда = 0)!
+TxData[3..0]        : INPUT;  -- входы nibble-данных, которые нужно передать
+RESET               : INPUT ; -- сброс
+
+    TxPreamble      : output; -- "Preamble" is being transmitted
+    TxStFrmDel      : output; -- "Start Frame Delimiter" is being transmitted
+    TxDestAddr      : OUTPUT; -- "DestinationAddr" is being transmitted
+    TxSourAddr      : OUTPUT; -- "SourceAddr is being transmitted
+    TxPkLength      : output; -- Length of Data Block is being transmitted
+    TxDataBlck      : OUTPUT; -- flag: Data Block is being transmitted
+	TxFrameCRC      : output;
+    TxEndFrame      : OUTPUT; -- flag: End-of-Frame
+
+--enTransmit          : output; -- needed for test only
+TxCount[15..0]      : output; -- выходы Счётчика Цикла 
+--sm_t[2..0]          : output; -- needed for test only
+CRC_ok              : output;
+)
+
+VARIABLE
+
+    CtTransm    : LPM_COUNTER with (LPM_WIDTH=16, LPM_DIRECTION="up");
+	crct        : crc32;
+	TXD_FF[3..0], TX_ENA_FF :DFF ;
+    StStream    : DFF;
+    TxStFrmDel  : DFF; 
+    TxDestAddr  : DFF; 
+    TxSourAddr  : DFF;
+    TxPkLength  : DFF;
+    TxDataBlck  : DFF;
+    TxFrameCRC  : DFF; 
+    TxEndFrame  : DFFE;      
+    enTransmit  : DFFE;     -- enable Transmission 
+	sm_t[2..0]  : DFF;      -- triggers hold the states of the "State Machine" 
+
+-- Registers for Conversion of 48-bit DestAddr into 12 half-Bytes
+Daddr_Reg0      : LPM_SHIFTREG with (lpm_width=12, -- contains 1st bits (LSB) of 12 consecutive half-Bytes
+                                lpm_direction="left"); --shift: q0 -> q[MSB]
+Daddr_Reg1      : LPM_SHIFTREG with (lpm_width=12, -- contains 1st bits (LSB) of 12 consecutive half-Bytes
+                                lpm_direction="left"); --shift: q0 -> q[MSB]
+Daddr_Reg2      : LPM_SHIFTREG with (lpm_width=12, -- contains 1st bits (LSB) of 12 consecutive half-Bytes
+                                lpm_direction="left"); --shift: q0 -> q[MSB]
+Daddr_Reg3      : LPM_SHIFTREG with (lpm_width=12, -- contains 1st bits (LSB) of 12 consecutive half-Bytes
+                                lpm_direction="left"); --shift: q0 -> q[MSB]
+Daddr_ld        : node;     -- strobe for loading Daddr_Reg-s
+-- Registers for Conversion of 48-bit SourAddr into 12 half-Bytes
+Saddr_Reg0      : LPM_SHIFTREG with (lpm_width=12, -- contains 1st bits (LSB) of 12 consecutive half-Bytes
+                                lpm_direction="left"); --shift: q0 -> q[MSB]
+Saddr_Reg1      : LPM_SHIFTREG with (lpm_width=12, -- contains 1st bits (LSB) of 12 consecutive half-Bytes
+                                lpm_direction="left"); --shift: q0 -> q[MSB]
+Saddr_Reg2      : LPM_SHIFTREG with (lpm_width=12, -- contains 1st bits (LSB) of 12 consecutive half-Bytes
+                                lpm_direction="left"); --shift: q0 -> q[MSB]
+Saddr_Reg3      : LPM_SHIFTREG with (lpm_width=12, -- contains 1st bits (LSB) of 12 consecutive half-Bytes
+                                lpm_direction="left"); --shift: q0 -> q[MSB]
+Saddr_ld        : node;     -- strobe for loading Saddr_Reg-s
+-- Registers for Conversion of 16-bit TxLength into 4 half-Bytes
+TxLng_Reg0      : LPM_SHIFTREG with (lpm_width= 4, -- contains 1st bits (LSB) of 4 consecutive half-Bytes
+                                lpm_direction="left"); --shift: q0 -> q[MSB]
+TxLng_Reg1      : LPM_SHIFTREG with (lpm_width= 4, -- contains 1st bits (LSB) of 4 consecutive half-Bytes
+                                lpm_direction="left"); --shift: q0 -> q[MSB]
+TxLng_Reg2      : LPM_SHIFTREG with (lpm_width= 4, -- contains 1st bits (LSB) of 4 consecutive half-Bytes
+                                lpm_direction="left"); --shift: q0 -> q[MSB]
+TxLng_Reg3      : LPM_SHIFTREG with (lpm_width= 4, -- contains 1st bits (LSB) of 4 consecutive half-Bytes
+                                lpm_direction="left"); --shift: q0 -> q[MSB]
+TxLng_ld        : node;     -- strobe for loading TxLng_Reg-s
+
+	
+BEGIN
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+DEFAULTS
+crct.clk_en = VCC;
+Daddr_ld = GND;     Saddr_ld = GND;     TxLng_ld = GND;
+END DEFAULTS;
+
+	TXD[]                = TXD_FF[];       -- registered Data   -> Eth_controller
+	TXD_FF[].clk         = TX_CLK;
+
+	TX_ENA               = TX_ENA_FF;      -- registered Enable -> Eth_controller
+	TX_ENA_FF.d          = enTransmit & !TxEndFrame;	
+	TX_ENA_FF.clk        = TX_CLK;
+    
+-- CONDUCTING the TRANSMISSION OF A PACKET 
+-- enTransmit flips to =1 by 1st _/ clock after StTransmit has flipped to =1
+enTransmit.d    = !TxEndFrame;      --StTransmit  & !enTransmit;
+enTransmit.ena  = (StTransmit & !enTransmit)   -- flips to =1, to start Transmit
+                 #(TxEndFrame &  enTransmit);  -- flips to =0, to stop Transmit
+enTransmit.clk  = TX_CLK;
+enTransmit.clrn = Reset;
+	
+TxEndFrame.d    = VCC;                  --\ 
+TxEndFrame.clk  = TX_CLK;               -- \_1-clk pulse by the End_of_Transmit
+--TxEndFrame.ena  = defined in CASE     -- /
+TxEndFrame.clrn = enTransmit;           --/ 
+	
+-- Main Cycle_Counter : 
+CtTransm.clock  = TX_CLK;
+CtTransm.aclr   = !enTransmit;          -- counts only while enTransmit = 1
+TxCount[]       = CtTransm.q[];
+	
+sm_t[].clk           = TX_CLK;
+sm_t[].clrn          = Reset;
+
+-- ATTENTION !!  
+--Как видно из порядка подставления 4-битных "полу-байтов" на шину SendData (см. "trans_eth.tdf"), 
+-- от каждого поля (напр., 6-байтный DestAddr) или слова (напр., 2-байтный PacketLength) 
+-- байты передаются начиная со Старшего и кончая Младшим.  
+-- Контроллер всасывает сначала Младший полу-байт, потом Старший полу-байт от каждого Байта, 
+-- и передаёт биты начиная с LSB и заканчивая MSB. 
+CASE sm_t[] IS
+    WHEN 0  =>  -- INITIALIZATION of the Transmit Cycle
+                -- StTransmit appeared, 
+                -- enTransmit=0;  sm_t[]=0, CtTransm= 0,  StStream=0, TXD_FF=H"0"
+        crct.clk_en      = GND;
+        IF  StTransmit  & !enTransmit THEN
+            StStream.d  = VCC;      -- StStream will flip to =1 by the next _/TX_CLK
+            sm_t[].d    = 1;        -- sm_t[]   will flip to =1 by the next _/TX_CLK
+        END IF;
+
+    WHEN 1  =>  -- "Preamble" (7 Bytes) is being transmitted 
+                -- enTransmit=1;  sm_t[]=1, CtTransm= 0,  StStream=1, TXD_FF=H"0"
+                --                CtTransmit =1..14, sm_t[]=1, StStream=1, TXD_FF=H"5"
+        TXD_FF[].d      = 5;    -- 7 * ( 1010 1010 ) is transmitted
+        crct.clk_en     = GND;
+        IF  (CtTransm.q[3..0]== 14) THEN
+            StStream.d      = GND;  -- StStream will flip to =0 by the next _/TX_CLK
+            TxStFrmDel.d    = VCC;  -- TxStFrmDel will flip to =1 by the next _/TX_CLK
+            sm_t[].d        = 2;    -- sm_t[]   will flip to =2 by the next _/TX_CLK
+        else        -- StStream=1, TxStFrmDel=0 until CtTransm=14
+            TxStFrmDel.d    = GND;
+            StStream.d      = VCC;
+            sm_t[].d        = 1;
+        END IF;
+
+    WHEN 2  =>  -- "Start Frame Delimiter" (1/2 Byte = 1010 ) is being transmitted 
+                -- TxStFrmDel=1;  sm_t[]=2, CtTransm=15,  TXD_FF=H"5"
+                --  состояние "sm_t[]=2" длится всего 1 такт !
+        TXD_FF[].d      = 13;   -- TXD_FF[] will flip to =H"D" by the next _/TX_CLK
+        crct.clk_en     = VCC;  -- !! \_Here the reset of CRC .. 
+        crct.sclr       = VCC;  -- !! / .. does occur !
+        IF  (CtTransm.q[3..0] == 15) THEN
+            TxStFrmDel.d    = GND;  -- TxStFrame  will flip to =0 by the next _/TX_CLK
+            TxDestAddr.d    = VCC;  -- TxDestAddr will flip to =1 by the next _/TX_CLK
+            sm_t[].d        = 3;    -- sm_t[]   will flip to =3 by the next _/TX_CLK
+            CtTransm.data[]= 0;
+            CtTransm.sload = VCC;   -- CtTransm will flip to =00 by next _/TX_CLK
+            Daddr_ld       = VCC;   -- Daddr_Reg-s will load by next _/TX_CLK
+        else        -- это состояние не реализуется
+            TxDestAddr.d    = GND;  -- 
+            TxStFrmDel.d    = VCC;  --
+            sm_t[].d        = 2; 
+        END IF;
+
+    WHEN 3  =>  -- "DestinationAddr" (6 Bytes) is being transmitted 
+    -- DestAddr (received before at "SourAddr" field) is to be transferred :
+    -- TxDestAddr=1;  sm_t[]=3, CtTransm=00,  TXD_FF.d=Daddr[43..40], TXD_FF=H"D"
+    -- TxDestAddr=1;  sm_t[]=3, CtTransm=01,  TXD_FF.d=Daddr[47..44], TXD_FF=Daddr[43..40]
+    -- TxDestAddr=1;  sm_t[]=3, CtTransm=02,  TXD_FF.d=Daddr[35..32], TXD_FF=Daddr[47..44]
+    -- TxDestAddr=1;  sm_t[]=3, CtTransm=03,  TXD_FF.d=Daddr[39..36], TXD_FF=Daddr[39..36]
+    -- TxDestAddr=1;  sm_t[]=3,   .  .  .  .  .  .  .  .  .  .  .  .  .
+    -- TxDestAddr=1;  sm_t[]=3, CtTransm=10,  TXD_FF.d=Daddr[ 3.. 0], TXD_FF=Daddr[11.. 8]
+    -- TxDestAddr=1;  sm_t[]=3, CtTransm=11,  TXD_FF.d=Daddr[ 7.. 4], TXD_FF=Daddr[ 3.. 0]
+        --TXD_FF[].d      = SendData[];
+        --crct.d[]        = SendData[];
+        TXD_FF[3..0].d  = (Daddr_Reg3.q11, Daddr_Reg2.q11, Daddr_Reg1.q11, Daddr_Reg0.q11);
+        crct.d[3..0]    = (Daddr_Reg3.q11, Daddr_Reg2.q11, Daddr_Reg1.q11, Daddr_Reg0.q11);
+        IF  (CtTransm.q[3..0]== 11) THEN
+            TxDestAddr.d    = GND;  -- TxDestAddr will flip to =0 by the next _/TX_CLK
+            TxSourAddr.d    = VCC;  -- TxSourAddr will flip to =1 by the next _/TX_CLK
+            sm_t[].d        = 4;    -- sm_t[]   will flip to =4 by the next _/TX_CLK
+            CtTransm.data[] = 0;
+            CtTransm.sload = VCC;   -- CtTransm will flip to =00 by next _/TX_CLK
+            Saddr_ld       = VCC;   -- Saddr_Reg-s will load by next _/TX_CLK
+        else        -- DestAddr=1, SourAddr=0 until CtTransm=11
+            TxSourAddr.d    = GND;
+            TxDestAddr.d    = VCC;
+            sm_t[].d        = 3;
+        END IF;
+
+    WHEN 4  =>  -- "SourceAddr" (6 Bytes) is being transmitted 
+    -- SourAddr (ThisDevice' address, represented by Saddr[]) is to be transferred :
+    -- TxSourAddr=1;  sm_t[]=4, CtTransm=00,  TXD_FF.d=Saddr[43..40], TXD_FF=Saddr[ 7.. 4]
+    -- TxSourAddr=1;  sm_t[]=4, CtTransm=01,  TXD_FF.d=Saddr[47..44], TXD_FF=Daddr[43..40]
+    -- TxSourAddr=1;  sm_t[]=4, CtTransm=02,  TXD_FF.d=Saddr[35..32], TXD_FF=Daddr[47..44]
+    -- TxSourAddr=1;  sm_t[]=4, CtTransm=03,  TXD_FF.d=Saddr[39..36], TXD_FF=Daddr[39..36]
+    -- TxSourAddr=1;  sm_t[]=4,   .  .  .  .  .  .  .  .  .  .  .  .  .
+    -- TxSourAddr=1;  sm_t[]=4, CtTransm=10,  TXD_FF.d=Saddr[ 3.. 0], TXD_FF=Daddr[11.. 8]
+    -- TxSourAddr=1;  sm_t[]=4, CtTransm=11,  TXD_FF.d=Saddr[ 7.. 4], TXD_FF=Daddr[ 3.. 0]
+        --TXD_FF[].d      = SendData[];
+        --crct.d[]        = SendData[];
+        TXD_FF[3..0].d  = (Saddr_Reg3.q11, Saddr_Reg2.q11, Saddr_Reg1.q11, Saddr_Reg0.q11);
+        crct.d[3..0]    = (Saddr_Reg3.q11, Saddr_Reg2.q11, Saddr_Reg1.q11, Saddr_Reg0.q11);
+        crct.clk_en     = VCC;
+        IF  (CtTransm.q[3..0] == 11) THEN
+            TxSourAddr.d    = GND;  -- TxSourAddr will flip to =0 by the next _/TX_CLK
+            TxPkLength.d    = VCC;  -- TxPackLeng will flip to =1 by the next _/TX_CLK
+            sm_t[].d        = 5;    -- sm_t[]   will flip to =5 by the next _/TX_CLK
+            CtTransm.data[] = 0;
+            CtTransm.sload = VCC;   -- CtTransm will flip to =00 by next _/TX_CLK
+            TxLng_ld       = VCC;   -- TxLng_Reg-s will load by next _/TX_CLK
+        else        -- SourAddr=1, TxPkLength=0 until CtTransm=11
+            TxPkLength.d    = gnd;
+            TxSourAddr.d    = vcc;
+            sm_t[].d        = 4;
+        END IF;
+		        
+    WHEN 5  =>  -- "PacketLength" (2 Bytes) is being transmitted 
+    -- TxPkLength=1;  sm_t[]=5, CtTransm=00,  TXD_FF.d=TxLength[11.. 8], TXD_FF=Daddr[ 7.. 4]
+    -- TxPkLength=1;  sm_t[]=5, CtTransm=01,  TXD_FF.d=TxLength[15..12], TXD_FF=TxLength[11.. 8]
+    -- TxPkLength=1;  sm_t[]=5, CtTransm=02,  TXD_FF.d=TxLength[ 3.. 0], TXD_FF=TxLength[15..12]
+    -- TxPkLength=1;  sm_t[]=5, CtTransm=03,  TXD_FF.d=TxLength[ 7.. 4], TXD_FF=TxLength[ 3.. 0]
+        --TXD_FF[].d      = SendData[];
+        --crct.d[]        = SendData[];
+        TXD_FF[3..0].d  = (TxLng_Reg3.q3, TxLng_Reg2.q3, TxLng_Reg1.q3, TxLng_Reg0.q3);
+        crct.d[3..0]    = (TxLng_Reg3.q3, TxLng_Reg2.q3, TxLng_Reg1.q3, TxLng_Reg0.q3);
+        crct.clk_en     = VCC;
+        IF  (CtTransm.q[1..0] == 3) THEN
+            TxPkLength.d    = GND;  -- TxPkLength will flip to =0 by the next _/TX_CLK
+            TxDataBlck.d    = VCC;  -- TxDataBlck will flip to =1 by the next _/TX_CLK
+            sm_t[].d        = 6;    -- sm_t[]   will flip to =6 by the next _/TX_CLK 
+            CtTransm.data[] = 0;
+            CtTransm.sload = VCC;   -- CtTransm will flip to =00 by next _/TX_CLK
+        else        -- PackLeng=1, DataFld =0 until couTransmit=3
+            TxDataBlck.d    = gnd; 
+            TxPkLength.d    = vcc;
+            sm_t[].d        = 5; 
+        END IF;
+
+    WHEN 6  =>  -- "Data" ( "Length" Bytes ) is being transmitted 
+    -- TxDataBlck=1;  sm_t[]=6, CtTransm=00,  TXD_FF.d=DByte01[3..0], TXD_FF=TxLength[7..4]
+    -- TxDataBlck=1;  sm_t[]=6, CtTransm=01,  TXD_FF.d=DByte01[7..4], TXD_FF=DByte01[3..0]
+    -- TxDataBlck=1;  sm_t[]=6, CtTransm=02,  TXD_FF.d=DByte02[3..0], TXD_FF=DByte01[7..4]
+    -- TxDataBlck=1;  sm_t[]=6, CtTransm=03,  TXD_FF.d=DByte02[7..4], TXD_FF=DByte02[3..0]
+    -- TxDataBlck=1;  sm_t[]=6,   .  .  .  .  .  .  .  .  .  .  .  .  .
+            TXD_FF[].d       = TxData[];
+            crct.d[]         = TxData[];
+            crct.clk_en      = VCC;
+        IF (CtTransm.q[] == ((TxLength[14..0],gnd) - 1)) THEN
+            TxDataBlck.d  = GND;    -- TxDataBlck will flip to =0 by the next _/TX_CLK
+            TxFrameCRC.d  = VCC;    -- TxFrameCRC will flip to =1 by the next _/TX_CLK
+            sm_t[].d      = 7;      -- sm_t[]   will flip to =7 by the next _/TX_CLK 
+            CtTransm.data[]= 0;
+            CtTransm.sload = VCC;   -- CtTransm will flip to =00 by next _/TX_CLK
+        else
+            TxFrameCRC.d  = gnd;
+            TxDataBlck.d  = vcc;
+            sm_t[].d      = 6;
+        END IF;
+
+    WHEN 7  =>  -- "FrameCRC" (4 Bytes) is being transmitted 
+    -- CRC-module must be =stopped=, and just-calculated CRC value is to be transferred :
+    -- TxFrameCRC=1;  sm_t[]=7, CtTransm=00,  TXD_FF.d=crct.q[3..0], TXD_FF="ByteLL"[7..4]
+    -- TxFrameCRC=1;  sm_t[]=7, CtTransm=01,  TXD_FF.d=crct.q[7..4], TXD_FF=CRC[ 3.. 0]
+    -- TxFrameCRC=1;  sm_t[]=7,   .  .  .  .  .  .  .  .  .  .  .  .  .
+            crct.clk_en      = GND;
+        IF  (CtTransm.q[2..0] == 7) THEN
+            TxFrameCRC.d  = GND;    -- TxFrameCRC will flip to =0 by the next _/TX_CLK
+            TxEndFrame.ena  = VCC;  -- TxEndFrame will flip to =1 by the next _/TX_CLK
+            sm_t[].d      = 0;      -- sm_t[]   will flip to =0 by the next _/TX_CLK 
+        else        -- FrameChk=1,      until couTransmit=7
+            sm_t[].d      = 7;
+            TxFrameCRC.d  = vcc;
+        END IF;
+
+        CASE CtTransm.q[2..0] IS
+            WHEN 0 => TXD_FF[].d = crct.q[  3..0];
+            WHEN 1 => TXD_FF[].d = crct.q[  7..4];
+            WHEN 2 => TXD_FF[].d = crct.q[ 11..8];
+            WHEN 3 => TXD_FF[].d = crct.q[15..12];
+            WHEN 4 => TXD_FF[].d = crct.q[19..16];
+            WHEN 5 => TXD_FF[].d = crct.q[23..20];
+            WHEN 6 => TXD_FF[].d = crct.q[27..24];
+            WHEN 7 => TXD_FF[].d = crct.q[31..28];
+        End CASE;
+End CASE;
+
+--          These flags can be =1  only when enTransmit=1 :
+(StStream,  TxStFrmDel, TxDestAddr, TxSourAddr, TxPkLength, 
+            TxDataBlck, TxFrameCRC%, InterFrame%).CLK = TX_CLK;
+(           TxStFrmDel, TxDestAddr, TxSourAddr, TxPkLength, 
+            TxDataBlck, TxFrameCRC%, InterFrame%).CLRN = enTransmit;  
+	
+--************  Conversion of 48-bit DestAddr into 12 half-Bytes  ************
+-- DestAddr is sent in the following order :    Daddr[40..43],[44..47]
+--                                              Daddr[32..35],[36..39]
+--                                               .  .  .  .  .  .  . 
+--                                              Daddr[ 0.. 3],[ 4.. 7]
+Daddr_Reg[3..0].data11 = Daddr[43..40];
+Daddr_Reg[3..0].data10 = Daddr[47..44];
+Daddr_Reg[3..0].data9  = Daddr[35..32];
+Daddr_Reg[3..0].data8  = Daddr[39..36];
+Daddr_Reg[3..0].data7  = Daddr[27..24];
+Daddr_Reg[3..0].data6  = Daddr[31..28];
+Daddr_Reg[3..0].data5  = Daddr[19..16];
+Daddr_Reg[3..0].data4  = Daddr[23..20];
+Daddr_Reg[3..0].data3  = Daddr[11.. 8];
+Daddr_Reg[3..0].data2  = Daddr[15..12];
+Daddr_Reg[3..0].data1  = Daddr[ 3.. 0];
+Daddr_Reg[3..0].data0  = Daddr[ 7.. 4];
+Daddr_Reg[3..0].(clock, enable, load) = (TX_CLK, enTransmit, Daddr_ld);
+
+--************  Conversion of 48-bit SourAddr into 12 half-Bytes  ************
+-- SourAddr is sent in the following order :    Saddr[40..43],[44..47]
+--                                              Saddr[32..35],[36..39]
+--                                               .  .  .  .  .  .  . 
+--                                              Saddr[ 0.. 3],[ 4.. 7]
+Saddr_Reg[3..0].data11 = Saddr[43..40];
+Saddr_Reg[3..0].data10 = Saddr[47..44];
+Saddr_Reg[3..0].data9  = Saddr[35..32];
+Saddr_Reg[3..0].data8  = Saddr[39..36];
+Saddr_Reg[3..0].data7  = Saddr[27..24];
+Saddr_Reg[3..0].data6  = Saddr[31..28];
+Saddr_Reg[3..0].data5  = Saddr[19..16];
+Saddr_Reg[3..0].data4  = Saddr[23..20];
+Saddr_Reg[3..0].data3  = Saddr[11.. 8];
+Saddr_Reg[3..0].data2  = Saddr[15..12];
+Saddr_Reg[3..0].data1  = Saddr[ 3.. 0];
+Saddr_Reg[3..0].data0  = Saddr[ 7.. 4];
+Saddr_Reg[3..0].(clock, enable, load) = (TX_CLK, enTransmit, Saddr_ld);
+
+--************  Conversion of 16-bit TxLength into 12 half-Bytes  ************
+-- TxLength is sent in the following order :    TxLength[ 8..11],[12..15]
+--                                              TxLength[ 0.. 3],[ 4.. 7]
+TxLng_Reg[3..0].data3  = Daddr[11.. 8];
+TxLng_Reg[3..0].data2  = Daddr[15..12];
+TxLng_Reg[3..0].data1  = Daddr[ 3.. 0];
+TxLng_Reg[3..0].data0  = Daddr[ 7.. 4];
+TxLng_Reg[3..0].(clock, enable, load) = (TX_CLK, enTransmit, TxLng_ld);
+
+--************  CRC module connections  ************
+CRC_ok      = crct.CRC_ok;
+crct.clk    = TX_CLK;
+--crct.clk_en = defined in "CASE" statement
+--crct.sclr   = defined in "CASE" statement
+
+END;

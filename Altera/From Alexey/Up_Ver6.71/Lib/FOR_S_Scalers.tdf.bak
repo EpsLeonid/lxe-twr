@@ -1,0 +1,112 @@
+Title "FOR_S_Scalers";
+
+INCLUDE "lpm_counter.inc" ;
+INCLUDE "Edge_Sensing_Sync.inc" ;
+INCLUDE "Scalers_RAM.inc" ; -- 32Words Dual-Port Memory
+
+PARAMETERS
+(	Number_of_Channel = 48  );
+--constant Number_of_Channel	= 34;
+constant WORD_WIDTH  = 16;
+--Constant Prescaler_Value = RefClock ; -- Prescaler for ONE_Second Counter 1us
+
+
+Subdesign FOR_S_Scalers
+(
+
+ ----------------- General Bus Signaling  
+	Bus_Clock					: input ; --  Global clock, assumed F_link x 4 = 100MHz
+	DataBusStrobe               : input ; -- 
+	Direct_In			    	: input ; -- 
+    AddrBus_In[7..0]            : input ; -- 
+ 	Reset						: input=gnd ; -- Common FPGA signal Reset (Active HIGH)
+	DataBus_In[WORD_WIDTH-1..0]	: input  ; -- 
+	DataBusOut[WORD_WIDTH-1..0]	: output ; -- 
+	Select						: input  ;
+	
+----------------  Specific Signals
+
+	DDRClock					     : input;
+	DDR_Referred_1mc			     : input;
+	Event					      	 : input;    -- Board Desabled during event
+	Board_Enabled				     : input;	-- If board not enabled, no FORs count
+	FOR_S_In[Number_of_Channel-1..0] : input;
+
+
+
+)
+
+Variable
+
+FORS_Edges[Number_of_Channel-1..0]		:	Edge_Sensing_Sync	; -- FOR's counters, Cell counters, Comb_FOR counter, Event cunter
+FORS_Scalers[Number_of_Channel-1..0]	:	lpm_counter WITH ( LPM_WIDTH = WORD_WIDTH); -- "pereschotki"
+
+Module_Enabled				:	node	;
+
+One_Second_CNT				:	lpm_counter WITH ( LPM_WIDTH = 14);
+One_Second_CMP				:	node	;
+Copy_to_RAM_Flag_			:	SRFF	; -- Flag for copiing
+Copy_to_RAM_Flag			:	Node	; -- High fan-outs, Global will be used
+Copy_to_RAM_CNT				:	lpm_counter WITH ( LPM_WIDTH = 6);
+Copy_to_RAM_end				:	node	;
+FORS_Scalers_RAM			: Scalers_RAM ;   -- dual port, 64 Words of 16 bit
+
+Begin
+
+
+
+-- 3.1  Individual PMT FORs scalers 
+FOR i in 0 to ( Number_of_Channel - 1 ) generate -- Connects scalers on FOR's
+	FORS_Edges[i].(d, Clk, clr)	=	(FOR_S_In[i], DDRClock, ( Reset OR Event OR (!Board_Enabled) OR (!Module_Enabled)));
+end generate;	
+
+FOR i in 0 to ( Number_of_Channel - 1 ) generate -- Connects scalers on Cell's Cell's and Comb_FOR
+	FORS_Scalers[i].(cnt_en, clock, sload)  = (FORS_Edges[i].q, DDRClock, Copy_to_RAM_Flag);
+end generate;	
+
+-- new order of readout  
+FORS_Scalers[( Number_of_Channel - 1 )].data[WORD_WIDTH-1..0]= 5252 ;  -- Chain input end termenates with Terminate Value
+FOR i in 1 to ( Number_of_Channel - 1 ) generate -- Connects all scalers in chain
+FORS_Scalers[i-1].data[] = FORS_Scalers[i].q[] ;
+end generate;
+FORS_Scalers_RAM.data_a[15..0] = FORS_Scalers[0].q[15..0];  -- Connection of chain outputs to RAM 
+
+
+FORS_Scalers_RAM.wren_a = Copy_to_RAM_Flag ;
+FORS_Scalers_RAM.address_a[5..0] = Copy_to_RAM_CNT.q[5..0];
+FORS_Scalers_RAM.clock_a	=	DDRClock;
+
+
+
+-- Control logic of Scalers
+One_Second_CNT.(clock, clk_en, sclr) = (DDRClock, DDR_Referred_1mc, One_Second_CMP);
+--IF (One_Second_CNT.q[] == One_Second_Value ) -- 1s  "integrating time"
+--THEN One_Second_CMP = VCC ; ELSE One_Second_CMP  =GND ; END IF;
+One_Second_CMP	=	DFF(.d=(One_Second_CNT.q[] == 9999 ), .clk=DDRClock);
+
+Copy_to_RAM_CNT.(clock, sclr)  = (DDRClock, !Copy_to_RAM_Flag) ;
+--IF ( Copy_to_RAM_CNT.q[] == 34 )	-- +1 - to show Terminate Value
+--THEN Copy_to_RAM_CMP = VCC ; ELSE Copy_to_RAM_CMP = GND ; END IF;
+Copy_to_RAM_end	=	DFF(.d=( Copy_to_RAM_CNT.q[] == Number_of_Channel - 1 ), .clk=DDRClock);
+--FORS_Scalers[].sclr		=	Copy_to_RAM_CMP ;
+FORS_Scalers[].sclr		=	Copy_to_RAM_end ;
+
+Copy_to_RAM_Flag_.clk	= 	DDRClock;
+Copy_to_RAM_Flag_.S		= 	One_Second_CMP AND DDR_Referred_1mc ; -- one clk pulse width
+Copy_to_RAM_Flag_.R		= 	Copy_to_RAM_end ; -- End of copiing scalers to RAM
+Copy_to_RAM_Flag		=	Copy_to_RAM_Flag_.q;
+----------------------------  FOR's Scalers section end
+
+
+-- Input DATA connection
+FORS_Scalers_RAM.data_b[]		 =	DataBus_In[];  	-- RAM input
+FORS_Scalers_RAM.address_b[5..0] =	AddrBus_In[5..0] ;
+FORS_Scalers_RAM.clock_b		 =	Bus_Clock ;
+Module_Enabled	=	DFFE(.clk=Bus_Clock, .d=DataBus_In[0], .ena=( Select AND Direct_In AND DataBusStrobe and AddrBus_In[7..0]==128));
+IF ((AddrBus_In[7..0] >= 0) AND (AddrBus_In[7..0] < 64))  
+                THEN DataBusOut[] = FORS_Scalers_RAM.q_b[] ; FORS_Scalers_RAM.wren_b = ( Select AND Direct_In AND DataBusStrobe );
+                ELSE FORS_Scalers_RAM.wren_b = GND ; 
+END IF;
+
+
+end;

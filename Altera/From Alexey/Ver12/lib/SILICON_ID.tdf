@@ -1,0 +1,246 @@
+TITLE " Функция DS2411 " ;
+
+INCLUDE "lpm_counter.inc" ;
+INCLUDE "lpm_shiftreg.inc" ;
+INCLUDE "Edge_Sensing.inc"; 
+INCLUDE "DP_ID_RAM.inc"; 
+INCLUDE "Pulse_Shaper_.inc"; 
+
+
+PARAMETERS
+(
+RefClock      = 100, -- Пользователь здесь указывает частоту в МГц-ах (целых), которую он подал на вход "Clock" 
+TimeCNTPeriod = 10   -- Пользователь здесь указывает период в микросекудах (целых), на которой работает основной счетчик проекта
+);
+ASSERT (RefClock>20 AND RefClock<156)
+REPORT "You enter RefClock (%) which is not suitable for Link function" RefClock
+SEVERITY ERROR;
+Constant PrescalerModule = RefClock * TimeCNTPeriod ;
+Constant SCALER_SIZE = CEIL (LOG2(PrescalerModule))+1;  -- определение размера счетчика;
+
+Constant COMMAND_SIZE = 8;
+Constant FAMILY_CODE_SIZE = 8;
+Constant SERIAL_NUMBER_SIZE = 48;
+Constant CRC_SIZE = 8;
+Constant COUNTER_SIZE = 16;  -- определение размера счетчика;
+Constant WORD_WIDTH = 16;
+
+Constant TIME_SLOT          = CEIL (120 div TimeCNTPeriod);
+Constant RECOVERY_TIME      = CEIL (5 div TimeCNTPeriod);
+Constant LOW_TIME           = CEIL (10 div TimeCNTPeriod);
+Constant READ_MSW_TIME      = CEIL (5 div TimeCNTPeriod);
+
+
+
+Constant RESET_PULSE_BEGIN  = 0;--CEIL (1 div TimeCNTPeriod);
+Constant RESET_PULSE_END    = RESET_PULSE_BEGIN + CEIL (512 div TimeCNTPeriod);
+Constant PRESENCE_DETECT_ST = RESET_PULSE_END + CEIL (96 div TimeCNTPeriod);
+Constant PRESENCE_DETECT_END= RESET_PULSE_END + CEIL (480 div TimeCNTPeriod);
+
+Constant END_SEND_CMD_TIME  = PRESENCE_DETECT_END+(TIME_SLOT+RECOVERY_TIME)*8+1;
+Constant CYCLE_END_TIME     = END_SEND_CMD_TIME+(TIME_SLOT+RECOVERY_TIME)*64+1;
+Constant FAMILY_CODE_TIME   = END_SEND_CMD_TIME+(TIME_SLOT+RECOVERY_TIME)*8;
+Constant DATA_TIME          = (TIME_SLOT+RECOVERY_TIME)*16;
+Constant CRC_TIME           = (TIME_SLOT+RECOVERY_TIME)*8;
+
+
+
+-- команды
+Constant ReadROM            = H"0033";
+Constant SkipCommand        = H"00F0";
+
+
+SUBDESIGN SILICON_ID
+(
+-- Сигналы со стороны последовательного канала
+        Wire_Data_in				: input ; -- Данные для приема/передачи в/из 1-Wire линка
+		Wire_Data_out				: output;
+
+-- Сигналы со стороны параллельного канала (Интерфейс Пользователя)
+		Ready_ID					: output;   -- сообщение о наличии валидного кода
+
+-- Сигналы для соединения с шиной проекта 
+	    Clock						: input; -- Тактовая частота
+		Reset						: input = GND;  -- Common FPGA Reset
+		DataBus_In[15..0]			: input;  -- отправляемые с Внутренней Шины в Линк данные
+		DataBusOut[15..0]   		: output; -- выдаваемые на Внутреннюю Шину из Линка данные
+		DataBusStrobe 			    : input;  -- строб приема/передачи данных наружу (высокий уровень, защелкиваем по заднему фронту)
+		Error              			: output; -- сигнал ошибки (неверная команда)
+
+		Select						: input;  -- Выбор Модуля для работы с памятью Командного Листа в режиме Slave (с КАМАК-ом)
+		DirectIn					: input;  -- направление передачи данных, Если =GND, то данный Модуль читается, если =VCC, то пишется.
+		AddrBus_In[4..0]			: input;  -- адрес при операциях доступа чтения/записи Командного Листа с КАМАК-а
+		
+		test1,test2,test3,test4     : output;
+)
+
+-- VARIABLE section ____________________________________________________
+VARIABLE
+  
+  AutoStart            : node;
+  EndLoopCycle         : node; -- конец основного цикла
+  PEndLoopCycle        : node;
+  FEndLoopCycle        : node;
+  EEndLoopCycle        : node;
+  MainLoop             : SRFF; -- основной цикл получения ID 
+
+
+  Rst_Pulse            : Pulse_Shaper_ with (MAX_DURATION = RESET_PULSE_END-RESET_PULSE_BEGIN);     -- импульс сброса, он же запрос о наличии (готовности) микросхемы
+  LowShaper            : Pulse_Shaper_ with (MAX_DURATION = TIME_SLOT);  -- импульс лог.0 для передачи в линк
+  LowTimeShaper        : node;   -- сигнал микросхеме об обмене 1-го бита
+  LowTimeShaperCommand : node;
+  LowTimeShaperReader  : node;
+
+  FCommand_Reg         : lpm_shiftreg with (LPM_WIDTH = 8, LPM_DIRECTION="unused"); -- регистр команд  
+  SaveCMD              : node; -- сигнал защелкивания команды в регистр
+  
+  LinkBitCounter       : LPM_COUNTER with ( lpm_width=COUNTER_SIZE, lpm_direction="up" );
+
+  Prescaler		  	   : LPM_COUNTER with ( lpm_width=SCALER_SIZE, lpm_direction="up" );
+  LowCLK               : node;
+  
+  OutBIT               : node;
+
+  LockRxBit            : node;
+  Rx_Reload            : Edge_Sensing;
+ 
+  RAM_Word_Counter	   : LPM_COUNTER with ( lpm_width=7 ); -- счетчик числа принятых/переданных слов - указатель адреса памяти
+  RAM_Word_Trig        : DFF;
+  Buffer_RAM	  	   : DP_ID_RAM ; -- Dual-Port RAM 16x16W
+  SaveRAM              : node; -- сигнал защелкивания данных в память
+
+  ErrorCode            : node;
+
+
+-- LOGIC section _______________________________________________________
+BEGIN
+
+DEFAULTS
+  EndLoopCycle  = GND;
+  PEndLoopCycle = GND;
+  FEndLoopCycle = GND;
+  EEndLoopCycle = GND;
+  LowTimeShaperCommand = GND;
+  LowTimeShaperReader  = GND;
+  LowTimeShaper = GND;
+
+END DEFAULTS;
+
+-------------------------------------------------------------------------------------
+-- Делитель частоты
+IF (Prescaler.q[] == (PrescalerModule-1) ) 	THEN LowCLK = VCC;
+											ELSE LowCLK = GND;
+END IF;
+Prescaler.clock	=	Clock;
+Prescaler.sclr	=	LowCLK OR Reset ; 
+-------------------------------------------------------------------------------------
+  test1    = LowCLK;
+  test2    = LowTimeShaper;
+  test3    = EndLoopCycle;
+  Test4    = LockRxBit;  
+
+  Ready_ID = !MainLoop.q;
+  Error    = ErrorCode;
+--  Error    = MainLoop.q;
+ 
+
+  MainLoop.(S,clk,R) = (AutoStart, Clock, EndLoopCycle OR Reset);
+  EndLoopCycle = PEndLoopCycle OR FEndLoopCycle OR EEndLoopCycle;
+
+  Wire_Data_out = Rst_Pulse.q OR LowTimeShaper OR LowShaper.q;
+ 
+-- инициализация
+  Rst_Pulse.(d,clk, cnt_en, Duration[]) = (AutoStart, Clock, LowCLK AND MainLoop.q, RESET_PULSE_END-RESET_PULSE_BEGIN);   -- сброс 
+  LinkBitCounter.(clock,cnt_en,sclr) = (Clock,MainLoop.q AND LowCLK,EndLoopCycle);
+  IF ( (LinkBitCounter.q[COUNTER_SIZE-1..0] == PRESENCE_DETECT_ST) AND (Wire_Data_in == VCC) )
+       THEN PEndLoopCycle = VCC; -- заканчиваем цикл работы, генерим ошибку
+            ErrorCode     = VCC;
+       ELSE PEndLoopCycle = GND; 
+            ErrorCode     = GND;
+  END IF;
+  LowTimeShaper = DFF(.d=LowTimeShaperCommand OR LowTimeShaperReader,.clk = Clock);
+  LowShaper.(d,clk,cnt_en, Duration[]) = (OutBIT, Clock, LowCLK,TIME_SLOT);
+
+  FOR i IN 1 TO 8 GENERATE -- создаем импульс Low Time затем бит данных и так 8 раз (8бит)
+     IF LinkBitCounter.q[COUNTER_SIZE-1..0] == PRESENCE_DETECT_END+(TIME_SLOT+RECOVERY_TIME)*(i-1)      
+            THEN LowTimeShaperCommand = VCC;
+                 IF FCommand_Reg.q[8-i] == GND 
+                         THEN OutBIT = VCC;
+                         ELSE OutBIT = GND;  
+                 END IF; 
+            ELSE LowTimeShaperCommand = GND;
+     END IF; 
+  END GENERATE;
+ 
+-- дешифратор команд  
+-- IF(AutoStart == VCC) -- по началу цикла проверяем команду 
+--         THEN 
+--              CASE FCommand_Reg.q[] IS
+--                 WHEN ReadROM     => Read_Cycle_Begin = VCC; 
+--                                     FEndLoopCycle = GND; --
+--                 WHEN SkipCommand => FEndLoopCycle = VCC;
+ --                WHEN OTHERS      => Read_Cycle_Begin = GND;
+--                                     FEndLoopCycle = VCC;
+--              END CASE;
+--         ELSE  Read_Cycle_Begin = GND;
+--               FEndLoopCycle    = GND;
+--  END IF;
+
+-- Цикл чтения 
+ -- Read_Cycle.(S,clk,R) = (Read_Cycle_Begin,Clock,EndLoopCycle);
+  -- читаем 64 бита из линка
+  FOR i IN 1 TO 64 GENERATE
+     IF LinkBitCounter.q[COUNTER_SIZE-1..0] == (END_SEND_CMD_TIME+(TIME_SLOT+RECOVERY_TIME)*(i-1)) 
+            THEN LowTimeShaperReader = VCC;
+            ELSE LowTimeShaperReader = GND;
+     END IF; 
+     IF LinkBitCounter.q[COUNTER_SIZE-1..0] == (END_SEND_CMD_TIME+(TIME_SLOT+RECOVERY_TIME)*(i-1)+(LOW_TIME+READ_MSW_TIME) ) 
+ 	       	THEN LockRxBit = VCC; -- формируем импульс для защелкивания бита в регистр 
+	        ELSE LockRxBit = GND;
+     END IF;
+  END GENERATE;
+
+-- Section "User Interface Control" Begin
+  -- запуск обмена данными по линку
+  IF ( (AddrBus_In[4..0] == 8) AND DataBusStrobe and  DirectIn AND Select )
+      THEN AutoStart = VCC;
+      ELSE AutoStart = GND;
+  END IF;
+  IF ( (AddrBus_In[4..0] == 7) AND DataBusStrobe and  DirectIn AND Select )
+      THEN SaveCMD = VCC;
+      ELSE SaveCMD = GND;
+  END IF;
+  FCommand_Reg.(data[],clock,enable,load) = (DataBus_In[7..0],Clock, SaveCMD,VCC);
+
+--------------------------------------------------------------------
+
+-- счетчик-указатель адреса Буферного ОЗУ
+  RAM_Word_Counter.clock  =  Clock; -- считаем на реальной частоте приема/передачи данных
+  RAM_Word_Counter.cnt_en =  Rx_Reload.q ; -- счетчик-указатель считает номера слов на приемо/передачу данных
+  RAM_Word_Counter.sload  =  !MainLoop.q OR Reset;  -- обнуление счета происходит  при неактивности линка
+  RAM_Word_Counter.data[] =  8;
+
+  Rx_Reload.(d,clk)       = (LockRxBit,Clock);
+  RAM_Word_Trig.(d,clk)   = (Rx_Reload.q,Clock);
+
+----------------------------------------------------------------------
+
+-- запись в память со стороны линка
+  Buffer_RAM.data_a[0] = Wire_Data_in;  -- записывать данные в порт А может только Линк
+  Buffer_RAM.clock_a = Clock;
+  Buffer_RAM.address_a[6..0] = RAM_Word_Counter.q[6..0];
+  Buffer_RAM.wren_a = Rx_Reload.q;
+
+-- запись и чтение памяти со стороны КАМАК 
+  SaveRAM = DataBusStrobe and  DirectIn AND Select;
+
+  Buffer_RAM.clock_b         = Clock;
+  Buffer_RAM.data_b[15..0]	 = DataBus_In[];
+  Buffer_RAM.address_b[2..0] = AddrBus_In[2..0];
+  Buffer_RAM.wren_b          = SaveRAM;
+ 
+  DataBusOut[15..0]			 = Buffer_RAM.q_b[15..0]; 
+-- Section "User Interface Control" End
+
+
+END; -- End design

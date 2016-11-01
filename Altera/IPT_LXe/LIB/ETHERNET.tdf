@@ -1,0 +1,341 @@
+TITLE "ETHERNET";
+
+--INCLUDE "lpm_counter.inc";
+INCLUDE "lpm_shiftreg.inc";
+
+INCLUDE "LevelSensing.inc";
+
+INCLUDE "EthernetRx.inc";
+INCLUDE "EthernetTx.inc";
+
+SUBDESIGN  ETHERNET  
+(
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--************  RECEIVER section  ************
+RX_CLK              : INPUT;    -- Ether-Rx Clock   <- Rx-channel of Eth_Controller
+RX_DV               : INPUT;    -- "DataValid"      <- Rx-channel of Eth_Controller
+COL                 : INPUT;    -- "Collision"     -//-
+CRS                 : INPUT;    -- "CarrierSense"  -//-
+RXD[3..0]           : INPUT;    -- Data half-Byte   <- Rx-channel of Eth_Controller
+
+Saddr[47..0]        : input;    --This_Device' address (to be sent at SourceAddr field
+                                        -- of the reply packets)
+--Daddr[47..0]        : output;   -- DestinationAddr for the reply packet (received 
+                                        -- before, at SourceAddr field)
+RxLength[15..0]     : output;   -- длина принятого блока данных (MSbit всегда = 0)!
+
+--Ready               : input=VCC;-- MainProject is ready for receiving Data
+--RxCount[15..0]      : OUTPUT;   -- Cycle Counter's outputs, for test
+RxDataBlck          : output;   -- flag: receiving of Data_Block is ongoing
+RxEndFrame          : output;   -- flag: receiving of a Frame is completed
+RxError             : output;   
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--************  TRANSMITTER section  ************
+TX_CLK              : INPUT;    -- Ether-Tx Clock   <- Tx-channel of Eth_Controller
+TXD[3..0]           : OUTPUT;   -- half-Bytes of Data       -> Eth_Controller
+TX_EN               : OUTPUT;   -- Enabling Transmission    -> Eth_Controller
+
+StTransmit          : input ; -- старт передачи пакета
+TxLength[15..0]     : input ; -- длина пакета данных (старший разряд всегда = 0)!
+--TxCount[15..0]      : OUTPUT;   -- Cycle Counter's outputs, for test
+TxEndFrame          : output;   -- flag: transmitting of a Frame is completed
+TxError             : output;   
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--******** Data Read/Write from/to the common DataBus of the MainProject ********
+Clock               : input;  -- Clock Frequency MUST BE > 50MHz !!!!
+
+IORq                : output; -- Data_ready or Data_required	
+RdWr_out            : output; -- =1(Wr) => Data_ready / =0(Rd) => Data_required
+
+Select              : input = GND; -- Link is selected for data reading/writing
+RdWr_in             : input = GND; -- RdWr=0 => data will be read from Link / RdWr=1 => data will be written to Link
+DataStrobe          : input = GND; -- input data must be latched while DataStrobe=1 
+
+DataBus_in[15..0]   : input;    -- data:  DataBus -> Ethernet
+DataBus_out[15..0]  : output;   -- data:  DataBus <- Ethernet
+
+--Error               : output;   -- all Errors combined
+RESET               : INPUT =GND; -- сброс
+
+Test[8..1]          : output;
+)
+
+VARIABLE
+EtherTx             : EthernetTx ;  -- Ethernet Transmitter module 
+EtherRx             : EthernetRx ;  -- Ethernet Receiver module 
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--************  RECEIVER Data readout to the MainProject  ************
+R_WaitSFD       : node;   -- flag:  Waiting for "Start Frame Delimiter"
+R_DestAddr      : node;   -- flag:  "DestinationAddr" is being received
+R_SourAddr      : node;   -- flag:  "SourceAddr" is being received
+--R_PkLength      : node;   -- flag:  "Packet Length" is being received
+R_DataBlck      : node;   -- flag:  Block of Data is being received
+R_EndFrame      : node;   -- прием фрейма завершен
+R_ReceivOK      : node;   -- флаг =1 - данные приняты корректно
+
+Daddr[47..0]    : node;   -- DestinationAddr for the reply packet (received before, 
+                                                        -- at SourceAddr field)
+R_Count[15..0]  : node;   -- Receive-Cycle Counter's outputs
+R_Data[3..0]    : node;   -- half-Byte of received data, registered in Rx module
+
+RxShifter0      : LPM_SHIFTREG with (lpm_width=3, -- contains 1st bits (LSB) of 4 consecutive half-Bytes
+                                lpm_direction="left"); --shift: q0 -> q[MSB]
+RxShifter1      : LPM_SHIFTREG with (lpm_width=3, -- contains 2nd bits       of 4 consecutive half-Bytes
+                                lpm_direction="left"); --shift: q0 -> q[MSB]
+RxShifter2      : LPM_SHIFTREG with (lpm_width=3, -- contains 3rd bits       of 4 consecutive half-Bytes
+                                lpm_direction="left"); --shift: q0 -> q[MSB]
+RxShifter3      : LPM_SHIFTREG with (lpm_width=3, -- contains 4th bits (MSB) of 4 consecutive half-Bytes
+                                lpm_direction="left"); --shift: q0 -> q[MSB]
+RxWord, 
+RxWord1,RxWord2 : node; -- derive strobe for latching RxData word
+RxWord_en       : node; -- enable for Reg_RxData
+-- Reg: holds a 16-bit Data word, for outputting it to the DataBus 
+Reg_RxWord      : LPM_SHIFTREG with (lpm_width=16, lpm_direction="left"); 
+
+RxError         : node; -- flag: Error occured during receiving a Frame
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--************  TRANSMITTER Data reading from the MainProject  ************
+Tx_init         :node;  -- garanteedly initiates a Transmit operation
+--T_DestAddr      : node; -- flag: "DestinationAddr" is being transmitted
+--T_SourAddr      : node; -- flag: "SourceAddr is being transmitted
+T_PkLength      : node; -- flag: Length of Data Block is being transmitted
+T_DataBlck      : node; -- flag: Data Block is being transmitted
+--T_FrameCRC      : node; -- flag: "Frame Check Sequence" is being transmitted
+T_EndFrame      : node; -- flag: End-of-Frame
+T_Count[15..0]  : node; -- Transmission-Cycle Counter's outputs <- Tx module
+T_Data[3..0]    : node; -- half-Bytes of data to be sent    -> Tx module
+
+TxShifter0      : LPM_SHIFTREG with (lpm_width=4, -- contains 1st bits (LSB) of 4 consecutive half-Bytes
+                                lpm_direction="left"); --shift: q0 -> q[MSB]
+TxShifter1      : LPM_SHIFTREG with (lpm_width=4, -- contains 2nd bits       of 4 consecutive half-Bytes
+                                lpm_direction="left"); --shift: q0 -> q[MSB]
+TxShifter2      : LPM_SHIFTREG with (lpm_width=4, -- contains 3rd bits       of 4 consecutive half-Bytes
+                                lpm_direction="left"); --shift: q0 -> q[MSB]
+TxShifter3      : LPM_SHIFTREG with (lpm_width=4, -- contains 4th bits (MSB) of 4 consecutive half-Bytes
+                                lpm_direction="left"); --shift: q0 -> q[MSB]
+TxShift_ld      : node; -- load   for TxShifters
+
+TxWord, 
+TxWord1,TxWord2 : node; -- derive strobe for latching RxData word
+TxWord_rq       : node; -- to set IORq / to clear Reg_TxWord
+TxWord_ld       : node; -- enables Reg_TxWord to load data
+TxShift_ld1     : node; -- strobe at the =last moment= before loading the TxShifters 
+-- Reg: holds a 16-bit Data word just inputted from the DataBus 
+Reg_TxWord      : LPM_SHIFTREG with (lpm_width=16, lpm_direction="left"); 
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--************ Data Read/Write control signals generation **************
+IORq_r, 
+IORq_r1,IORq_r2 : node; -- to reset IORq 
+
+IORq_set        : node; -- 1clk _/^\_ 
+IORq_rst        : node; -- 1clk _/^\_ just before new "IORq" request
+
+TxWord_Error    : node; -- error: new DataWord (for Tx) has NOT been read in time
+RdWr_Error      : node; -- error during Read/Write operation 
+
+
+BEGIN
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+DEFAULTS
+RxError = GND;  TxError = GND;  --Error = GND;
+RxWord  = GND;  TxWord  = GND; 
+END DEFAULTS;
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--************  RECEIVER Data readout to the MainProject  ************
+--EtherRx.Ready   = Ready;        -- ???? разрешение приема данных
+
+EtherRx.RX_CLK  = RX_CLK; 
+EtherRx.RX_DV	= RX_DV;        -- "DataValid" from Eth_Controller to EtherRx
+EtherRx.COL     = COL;          -- "Collision" from Eth_Controller to EtherRx
+EtherRx.CRS     = CRS;          -- "CarrierSense"  -//-
+EtherRx.RXD[3..0]= RXD[3..0];   -- Data half-Byte from the Rx chan of Eth_Controller
+
+EtherRx.Saddr[47..0]= Saddr[47..0];     -- This_Device' address (for checking ..
+                        -- .. if the received packet is sent to THIS Device)
+Daddr[47..0]    = EtherRx.Daddr[47..0];     -- received at SourceAddr field
+RxLength[15..0] = EtherRx.RxLength[15..0];  -- received at PacketLength field
+
+R_WaitSFD   = EtherRx.RxWaitSFD ;
+R_DestAddr  = EtherRx.RxDestAddr;   -- flag:  DestinationAddr is being received
+R_SourAddr  = EtherRx.RxSourAddr;   -- flag:  SourceAddr is being received
+--            = EtherRx.RxPkLength;   -- flag:  Length of Data Block is being received
+R_DataBlck  = EtherRx.RxDataBlck;   -- flag:  Block of Data is being received
+--            = EtherRx.RxFrameCRC;   -- flag:  Frame Check Sequence is being received
+R_EndFrame  = EtherRx.RxEndFrame;   -- flag: receiving of a Frame is completed
+R_ReceivOK  = EtherRx.Receive_OK;   -- д« Ј =1 - ¤ ­­лҐ ЇаЁ­пвл Є®ааҐЄв­®
+
+RxDataBlck  = R_DataBlck;           -- Block of Data is being received -> Output
+RxEndFrame  = R_EndFrame;           -- receiving of a Frame is completed  -> Output
+
+R_Count[15..0]  = EtherRx.RxCount[15..0];   -- Receive-Cycle Counter's outputs
+R_Data[3..0]    = EtherRx.RxData[3..0];     -- half-Bytes of Data, registered
+
+--************  Conversion of 4 half-Bytes into 1 16-bit Data Word :  ************
+RxShifter0.(clock, enable, load) = (RX_Clk, R_DataBlck, GND); 
+RxShifter0.shiftin = R_Data[0]; 
+RxShifter1.(clock, enable, load) = (RX_Clk, R_DataBlck, GND); 
+RxShifter1.shiftin = R_Data[1]; 
+RxShifter2.(clock, enable, load) = (RX_Clk, R_DataBlck, GND); 
+RxShifter2.shiftin = R_Data[2]; 
+RxShifter3.(clock, enable, load) = (RX_Clk, R_DataBlck, GND); 
+RxShifter3.shiftin = R_Data[3]; 
+
+RxWord  = R_DataBlck & (R_Count[1..0]==3);  -- 
+RxWord1 = DFF(.D=RxWord,  .clk=Clock); -- aligned to MainProjects' Clock
+RxWord2 = DFF(.D=RxWord1, .clk=Clock); -- aligned to MainProjects' Clock
+RxWord_en = RxWord1 & !RxWord2 ;        -- enabled for 1clk, to load 1 DWord 
+
+-- Reg_RxWord catches each 16-bit DWord and holds it while the next 4 half-Bytes..
+-- ..are being received.  This DWord must be read out during this time. 
+-- The bits are arranged :   RxShifter3  RxShifter2  RxShifter1  RxShifter0 
+--          RxShifter* .q2   [  11          10           9           8    ]
+--          RxShifter* .q1   [  15          14          13          12    ]
+--          RxShifter* .q0   [   3           2           1           0    ]
+--          R_Data[3..0]     [   7           6           5           4    ]
+Reg_RxWord.data[15..0] = (RxShifter3.q1,RxShifter2.q1,RxShifter1.q1,RxShifter0.q1, 
+                          RxShifter3.q2,RxShifter2.q2,RxShifter1.q2,RxShifter0.q2, 
+                          R_Data[3],    R_Data[2],    R_Data[1],    R_Data[0], 
+                          RxShifter3.q0,RxShifter2.q0,RxShifter1.q0,RxShifter0.q0);
+Reg_RxWord.(clock, enable, load) = (Clock, RxWord_en, VCC); 
+Reg_RxWord.(aclr, sclr)         = (Reset, R_EndFrame );
+DataBus_out[15..0] = Reg_RxWord.q[15..0];   -- Data received => user project
+
+RxError = LevelSensing(.D=(R_EndFrame & !R_ReceivOK), .clk=Clock, .reset=Reset); 
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--************  Ethernet_Transmit operation Control ****************************
+Tx_init     = SRFF(.S=StTransmit, .clk=Clock,       -- garanteedly initiates ..
+                .R=EtherTx.TX_ENA, .clrn=!RESET );  -- .. a Transmit operation
+
+EtherTx.TX_Clk  = TX_CLK; 
+TX_EN	    = EtherTx.TX_ENA;   -- Enabling Transmission to Eth_Controller
+TXD[3..0]   = EtherTx.TXD[3..0];-- half-Bytes of data to Ethernet-controller
+
+EtherTx.StTransmit      = Tx_init;          -- "Start Transmission" -> Tx module
+EtherTx.Daddr[47..0]    = Daddr[47..0];     -- DestinationAddr      -> Tx module
+EtherTx.Saddr[47..0]    = Saddr[47..0];     -- ThisDevice' address  -> Tx module
+EtherTx.TxLength[15..0] = TxLength[15..0];  -- Length of DataBlock  -> Tx module
+EtherTx.TxData[3..0]    = T_Data[3..0];     -- half-Byte to send    -> Tx module
+EtherTx.RESET           = Reset; 
+
+--T_Preamble  = EtherTx.TxPreamble;   -- flag: "Preamble" is being transmitted
+--T_StFrmDel  = EtherTx.TxStFrmDel;   -- flag: "Start Frame Delimiter" is being transmitted
+--T_DestAddr  = EtherTx.TxDestAddr;   -- flag: "DestinationAddr" is being transmitted
+--T_SourAddr  = EtherTx.TxSourAddr;   -- flag: "SourceAddr" is being transmitted
+T_PkLength  = EtherTx.TxPkLength;   -- flag: Length of Data Block is being transmitted
+T_DataBlck  = EtherTx.TxDataBlck;   -- flag: Data Block is being transmitted
+--T_FrameCRC  = EtherTx.TxFrameCRC;   -- flag: "Frame Check Sequence" is being transmitted
+T_EndFrame  = EtherTx.TxEndFrame;   -- flag: End-of-Frame 
+
+TxEndFrame  = T_EndFrame;           -- transmitting of a Frame is completed -> Output
+
+T_Count[15..0]= EtherTx.TxCount[15..0]; -- Transmission-Cycle Counter's outputs
+--            =EtherTx.sm_t[2..0]     --Trig-s of the StateMachine - needed FOR TEST only
+
+--************  Conversion of 16-bit Data Word into 4 half-Bytes :  *************
+-- The 1st DataWord to be sent must be read from the MainProject =before= 
+-- the transmission of the Data Block has begun ! 
+-- The 1st IORq is to be set while "PacketLength" is being transmitted. 
+TxWord  = (T_PkLength # T_DataBlck) & (T_Count[1..0]==0);  -- 
+TxWord1 = DFF(.D=TxWord,  .clk=Clock); -- aligned to MainProjects' Clock
+TxWord2 = DFF(.D=TxWord1, .clk=Clock); -- aligned to MainProjects' Clock
+TxWord_rq = TxWord1 & !TxWord2 ;        -- enabled for 1clk 
+
+-- Reg_TxWord loads each 16-bit DataWord and holds it (at least) until it is loaded 
+-- into the TxShifters.  After that moment the IORq is set.  The next DWord must be 
+-- supplied (by the MainProject) =before= the next loading of the TxShifters. 
+Reg_TxWord.data[]  = DataBus_in[]; -- подключение буферного параллельного регистра Tx к интерфейсу пользователя
+Reg_TxWord.(clock, enable, load) = (Clock, 
+        (TxWord_ld           -- load data at "Write" operation
+      OR TxWord_rq), VCC);   -- clear after latching DataWord into TxShifters
+Reg_TxWord.(sclr, aclr) = (TxWord_rq, T_EndFrame);
+
+TxWord_ld   = Select AND DataStrobe AND RdWr_in;-- load data at "Write" operation when DataStrobe comes
+
+TxShift_ld= (T_PkLength # T_DataBlck) & (T_Count[1..0]==3); -- 1clk pulse
+-- TxShifters: load a DataWord to be transmitted and shift it,
+--            thus transforming a parallel DataWord into 4 consecutive half-Bytes
+-- The bits are arranged :   TxShifter3  TxShifter2  TxShifter1  TxShifter0 
+--       TxShifter* .data3   [  11          10           9           8   ] -> TxData[]
+--       TxShifter* .data2   [  15          14          13          12   ]
+--       TxShifter* .data1   [   3           2           1           0   ]
+--       TxShifter* .data0   [   7           6           5           4   ]
+TxShifter[3..0].data3 = Reg_TxWord.q[11.. 8]; 
+TxShifter[3..0].data2 = Reg_TxWord.q[15..12]; 
+TxShifter[3..0].data1 = Reg_TxWord.q[11.. 8]; 
+TxShifter[3..0].data0 = Reg_TxWord.q[11.. 8]; 
+TxShifter[3..0].shiftin = GND;  -- for making a ZERO-word when the next word has not been loadd in time
+TxShifter0.(clock, enable, load) = (TX_Clk, (T_PkLength # T_DataBlck), TxShift_ld); 
+TxShifter1.(clock, enable, load) = (TX_Clk, (T_PkLength # T_DataBlck), TxShift_ld); 
+TxShifter2.(clock, enable, load) = (TX_Clk, (T_PkLength # T_DataBlck), TxShift_ld); 
+TxShifter3.(clock, enable, load) = (TX_Clk, (T_PkLength # T_DataBlck), TxShift_ld); 
+T_Data[3..0]    = TxShifter[3..0].q3;   -- MSbits of TxShifters -> Tx module
+
+--============================================================================
+--**************** Section "User Interface Control" :         ****************
+-- С-л TxWord_rq устанавливает запрос на чтение из MainProject-а в Reg_TxWord.
+-- Запрос сбрасывается по окончании чтения (если оно произошло) или в конце 
+-- допустимого времени ожидания (за 1 Ethernet-ный такт до момента, когда 
+-- запрошенное слово будет переписывается в TxShifters. 
+--   Следующий запрос на чтение возникает одновременно с перезагрузкой 
+-- в TxShifter уже готового слова данных, прочитанного по первому запросу.
+-- С-л RxWord_en устанавливает запрос на запись из Reg_RxWord в MainProject.
+-- Запрос сбрасывается по окончании чтения (если оно произошло) или в конце 
+-- допустимого времени ожидания (за 1 Ethernet-ный такт до момента, когда 
+-- в Reg_RxWord будет переписываться следующее принятое слово из RxShifters. 
+
+IORq_r  = R_DataBlck & (R_Count[1..0]==2);  -- to reset IORq just before new request
+IORq_r1 = DFF(.D=IORq_r,  .clk=Clock); 
+IORq_r2 = DFF(.D=IORq_r1, .clk=Clock); 
+
+-- Req.for "Write": user should read data / Req.for "Read": user MUST supply data
+IORq_set= RxWord_en & TxWord_rq ;           --   1clk _/^\_ 
+IORq_rst= (IORq_r1 & !IORq_r2)              -- \_1clk _/^\_ just before a new request
+            OR (TxWord_ld # TxShift_ld1);   -- / 
+
+IORq    =SRFF(.S=IORq_set, .clk=Clock,      -- Request for "Write" or "Read"
+            .R=((Select & DataStrobe)       -- Reset when data transfer done ..
+            OR IORq_rst),                   -- .. OR just before a new request
+            .clrn=!(T_EndFrame # R_EndFrame # Reset)) ;
+
+RdWr_out=SRFF(.S=RxWord_en,                 --"Write": Link -> user project
+            .R=((Select & DataStrobe)       -- Reset when data transfer done
+            OR IORq_rst),                   -- .. OR just before a new request
+            .clk=Clock,
+            .clrn=!(T_EndFrame # R_EndFrame # Reset)) ;
+
+-- IF a DataWord has NOT been supplied by the MainProject in time :
+TxShift_ld1 = DFF(.D=TxShift_ld, .clk=Clock); -- strobe at the =last moment= before loading the TxShifters 
+IF  ((IORq & !RdWr_out) & !TxWord_ld AND TxShift_ld1) 
+    Then  TxWord_Error = VCC; 
+    Else  TxWord_Error = GND;
+End IF;
+
+-- When RdWr_out=1: (Link => UserProj ("Write")) requested, =>     \
+--    => UserProj should "read" data from Link => RdWr_in must be =0\ Must be:
+-- When RdWr_out=0: (Link <= UserProj ("Read")) requested, =>       /RdWr_in != RdWr_out
+--    => UserProj must "write" data to Link => RdWr_in must be =1  /
+IF ( ((IORq & Select) == VCC) AND (RdWr_in == RdWr_out) ) 
+    Then  RdWr_Error = VCC; 
+    Else  RdWr_Error = GND;
+End IF;
+
+--Error = TxWord_Error # RdWr_Error;
+
+--============================================================================
+Test1 = EtherRx.Test[1];--R_WaitSFD ;
+Test2 = EtherRx.Test[2];--R_DestAddr;
+Test3 = R_WaitSFD ;     --R_SourAddr;
+Test4 = EtherRx.Test[3];--RxWord;
+Test5 = R_DestAddr;     --RxWord_en; --T_Count[1];
+Test6 = R_SourAddr;     --TxWord;    --RxShifter0.q[0]; 
+Test7 = EtherRx.Test[4];--TxWord_rq; --RxShifter0.q[1]; 
+Test8 = R_DataBlck;     --RxShifter0.q[2];
+
+END;

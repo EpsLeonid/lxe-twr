@@ -1,0 +1,1106 @@
+TITLE " IFLT Project" ;
+
+INCLUDE "Prj_PLL.inc"; 
+INCLUDE "lpm_shiftreg.inc" ;
+INCLUDE "lpm_counter.inc" ;
+INCLUDE "LightPulser.inc";
+INCLUDE "Edge_Sensing.inc";
+INCLUDE "CAMAC.inc";
+INCLUDE "Arbiter.inc";
+INCLUDE "Phase_Switch_DD.inc";
+INCLUDE "CMD3_DAQ_LINK.inc";
+INCLUDE "CMD3_UP_Link.inc";
+INCLUDE "SILICON_ID.inc";
+INCLUDE "POSS.inc";
+INCLUDE "ErrorCounters.inc";
+INCLUDE "Bunch_Crossing_adjust.inc";
+INCLUDE "Basic_Trigger.inc";
+INCLUDE "Delay_Line.inc";
+INCLUDE "FOR_S_Scalers.inc";
+INCLUDE "FORs_RAM.inc";
+INCLUDE "Test_RAM.inc";
+INCLUDE "Skeletal_Test_RAM.inc";
+INCLUDE "Fast_Link.inc";
+INCLUDE "FORs_History_RAM_.inc";
+INCLUDE "Link_Data_DDR_In_IO.inc";
+INCLUDE "CMD3_FOR_Lines_Simulator.inc";
+INCLUDE "Link_Scope.inc";
+INCLUDE "Link_Data_DDR_Buf.inc";
+INCLUDE "Pulse_Shaper.inc";
+
+
+
+Constant Test_MEM_Offset   	            = H"2000" ; -- 8192
+Constant Test_MEM_Size                  = 256 ;
+
+Constant Link_IFace_Offset 	            = H"0C00" ; -- Commad List 3072
+Constant Link_IFace_Size  	            = 1024 ;
+
+Constant ErrorCounters_Offset           = H"1400" ;
+Constant ErrorCounters_Size	            = 16;
+
+Constant POSS_Offset		            = H"1600" ;
+Constant POSS_Size		                = 128;
+
+Constant ID_Offset		 	            = H"1800" ; 
+Constant ID_Size  			            = 16 ;
+
+Constant Bunch_Crossing_12_5_DS0_Offset = H"5400";  -- 21504  
+Constant Bunch_Crossing_12_5_DS1_Offset = H"5404";  -- 21508 
+Constant Bunch_Crossing_12_5_FLS_Offset = H"5402";  -- 21506
+Constant Bunch_Crossing_12_5_T0_Offset  = H"5406";  -- 21510
+
+Constant Scalers_Offset                 = H"5200";  -- 20992
+Constant Scalers_Size                   = H"200";   -- 512
+
+Constant FOR_H_RAM0_Offset              = H"6000";  -- 24576
+Constant FOR_H_RAM1_Offset              = H"6400";  -- 25600
+Constant FOR_H_RAM_Size                 = 512;
+Constant FOR_H_RAM_SE_Ctrl              = H"6800";  -- 26624
+
+Constant RAM_Simulator0_Offset          = H"2400";  -- 9216
+Constant RAM_Simulator1_Offset          = H"2800";  -- 10240
+Constant RAM_Simulator_Size             = 772;
+Constant RAM_Simulator_Start            = H"3200";
+Constant RAM_Simulator_Stop             = H"3201";
+
+Constant DS_MEM_Offset   	            = H"2200" ;
+Constant DS_MEM_Size                    = 256 ;
+
+Constant Link_Scope_Offset			    = H"1000" ;
+Constant Link_Scope_Size  			    = 16 ;
+
+Constant DelayTimeReg_Offset            = H"5501"; -- 21761
+Constant DurationTimeReg_Offset         = H"5502"; -- 21762
+Constant Output_Control_Reg_Offset      = H"5503"; -- 21763
+Constant TInputShapingTime_Reg_Offset   = H"5504"; -- 21764
+Constant Time_Out_Reg_Offset            = H"5505"; -- 21765
+Constant Trigger_Blk_Offset             = H"5506"; -- 21766
+
+Constant Time_Count_L_Reg_Offset        = H"8000"; -- 21765  -- Функция платы досчета 16 LSB
+Constant Time_Count_H_Reg_Offset        = H"8001"; -- 21765  -- Функция платы досчета 16 MSB
+
+
+Constant Sector_25_En_Reg_Offset        = H"7000"; -- 28672
+Constant Sector_26_En_Reg_Offset        = H"7001"; -- 28673
+Constant Sector_27_En_Reg_Offset        = H"7002"; -- 28674
+
+
+CONSTANT DeviceNumber         = 30; -- число устройст доступных для чтения/записи
+CONSTANT MasterDeviceNumber   = 3;  -- число мастер-устройств в проекте
+
+
+SUBDESIGN IFLT_Project
+(
+ -- сигналы линка
+   Link_TxRx                   : output; -- сигнал направления передачи
+   Link_Data                   : bidir;  -- последовательный вход/выход данных линка
+   Link_Data_In                : input;  -- последовательный вход данных линка для синхронизации блока по стартовому биту
+   Wire_Data                   : bidir;  -- последовательный вход/выход данных 1-wire
+ -- Входная частота  
+   FLCLK                       : input;  -- внешняя частота с кварца (25 МГц)
+   Phase0                      : input;  -- внешняя частота с линка (25 МГц)
+   Phase25                     : output; -- выбранная частота (между FLCLK и Phase0)
+   PLL_Input                   : input;  -- выбранная частота подается на вход второго (рабочего) PLL
+   Phase0Direct                : output; -- направление передачи фазы у приемопередатчика
+     
+ -- индикация на передней панели   
+   LedR, LedG, LedB            : bidir;  -- идикаторы
+
+ -- КАМАК интерфейс
+   CAMAC_W[24..1]              : input; --bidir;
+   CAMAC_R[16..1]              : bidir; 
+   CAMAC_RI[8..1]              : input; --bidir;  -- старшие 8 разрядов магистрали КАМАК
+   CAMAC_A[4..1]               : input;
+   CAMAC_F[4..0]               : input; 
+   CAMAC_N, CAMAC_B            : input;
+   CAMAC_S1, CAMAC_S2          : input;
+   CAMAC_Q, CAMAC_X, CAMAC_L   : bidir; 
+   CAMAC_Z, CAMAC_C, CAMAC_I   : input;
+
+-- Быстрый линк
+   SerDataOutR[7..0]           : output;   
+   SerDataOutW[7..0]           : output;
+   NWordR[1..0]                : output;
+   NWordW[1..0]                : output;
+   DsrStrob                    : input;   -- частота работы выходов Deserializer
+   DsrData[9..0]               : input;
+   W_Sync,R_Sync,Ext_Sync      : output;  -- сигнал синхронизации в Serializer
+   Lock                        : input;   -- сигнал синхронизации из Deserializer(расположенного на плате)
+   R_Lock,W_Lock			   : input;   -- сигнал о захвате частоты из Deserializer
+   PWRDN                       : output;  -- сигнал вкл/выкл выходов Serializer
+   W_En1,R_En1,W_En2,R_En2     : output;  -- управление шинами данных поступающих на Deserializer
+   3PH_CLK0					   : output;
+
+-- POSS
+   POSS_Dummy_In	           : input;	  -- Pin136 - Formerly not in use
+
+-- Trigger
+   TrgResult0                  : output;
+   TrgResult1                  : output;
+   
+-- Тестовые пины
+   pin5,pin6,pin7              : output;
+
+-- virtul nodes
+   
+   Address_Line_Virtual_Pin[15..0]	: output;
+   Data_Line_Virtual_Pin[15..0]		: output;
+   Data_Bus_Strobe_VP				: output;
+   Target_Ready_VP					: output;
+   Address_Valid_VP					: output;
+   
+   CLK12_5_DS_VP	                : output;
+   CLK12_5_FLS_VP	                : output;
+   
+   HS_RAM_ADDR_0_VP[7..0]           : output;
+
+)
+
+VARIABLE
+
+-- 1. Тактовые частоты и управление частотами   
+   PLL                         : Prj_PLL; 
+   CLK100                      : node; -- внутреннии частоты
+   CLK150                      : node;
+   Phase_Switcher              : Phase_Switch_DD with (FmaxThresh=26000, FminThresh=23000);--(Number_of_Channel = 1, FmaxThresh=26000, FminThresh=23000);
+   LightCounter                : LPM_COUNTER  with (lpm_width=28, lpm_direction="up" ); 
+
+
+-- 2. Индикаторы (Duration в mc, RefClock в kHz)
+   LightR,LightB               : LightPulser with (Duration = 20, RefClock = 100000); 
+   Green_LED                   : node;
+   --Yellow_flash_VEPP_Synchro:	LightPulser with (Duration = 50, RefClock = 100000); -- Duration in ms, RefClock in kHz
+
+
+-- 3.  Arbiter 
+   Bus_Arbiter                 : Arbiter with ( DeviceMaxNumber=MasterDeviceNumber );
+   Address_Line[17..0] 		   : node;  -- 16 битный адрес + 1 бит mem/reg (VCC=> mem) + 1 бит read/write (VCC=>write)
+   Address_Line_[17..0] 	   : node;  -- 16 битный адрес + 1 бит mem/reg (VCC=> mem) + 1 бит read/write (VCC=>write)
+   Addr_Line_Reg[17..0]  	   : DFF ;
+   Data_Line[15..0]    		   : node;
+   Data_Line_[15..0]  		   : node;
+   Data_Line_Reg[15..0]  	   : DFF ;  
+   Address_Valid       		   : node;
+   Target_Ready        		   : node;
+   Data_Strobe        		   : node;
+
+-- 4. CAMAC 
+   CAMAC_IFace                 : CAMAC with ( RefClock = 100); -- 75MHz timing
+
+-- 5. Slow link
+   Link_IFace                  : CMD3_UP_Link with (RefClock = 100);
+   Link_IFace_CS			   : node;
+
+-- 6. Память
+   RAMData                     : Skeletal_Test_RAM;
+   Test_MEM_CS                 : node;
+
+-- 7. 1-wire ID
+   ID                          : SILICON_ID with (RefClock = 100, LinkSpeed = 10);
+   ID_CS					   : node;
+
+-- 8. FORs
+   FOR_IFace0                  : Fast_Link;
+   FOR_IFace1                  : Fast_Link;
+   
+   Event_ES_Beg                : Edge_Sensing;
+   Event_ES_End                : Edge_Sensing; 
+   Event_Trig                  : SRFF;
+   LinkMsg_Trig                : DFF;
+   Link_Data_DDR_Buffer        : Link_Data_DDR_In_IO;
+
+   Bunch_Crossing_12_5_DS0     : Bunch_Crossing_adjust with (Cavity_to_Bunch_Ratio = 12, Number_of_Channel=1);
+   Bunch_Crossing_12_5_DS1     : Bunch_Crossing_adjust with (Cavity_to_Bunch_Ratio = 12, Number_of_Channel=1);
+   Bunch_Crossing_12_5_FLS     : Bunch_Crossing_adjust with (Cavity_to_Bunch_Ratio = 12, Number_of_Channel=1);
+   Bunch_Crossing_12_5_T0      : Bunch_Crossing_adjust with (Cavity_to_Bunch_Ratio = 12, Number_of_Channel=1);
+   Bunch_Crossing_12_5_DS0_CS  : node;
+   Bunch_Crossing_12_5_DS1_CS  : node;
+   Bunch_Crossing_12_5_FLS_CS  : node;
+   Bunch_Crossing_12_5_T0_CS   : node;
+   BC_Sample_Enable0           : node;
+   BC_Sample_Enable1           : node;
+   BC_Fast_Link_Start          : node;
+   BC_Time0                    : node;
+ 
+   CAMAC_R_In_Pin_Buffer       : lpm_shiftreg with (LPM_WIDTH=24,LPM_DIRECTION="unused");
+   CAMAC_W_In_Pin_Buffer       : lpm_shiftreg with (LPM_WIDTH=24,LPM_DIRECTION="unused");
+   BUS_W[24..1]                : node;
+   BUS_R[24..1]                : node;
+   Sector_26_Masked            : node;
+   Sector_12_Masked            : node;
+   Sector_27_En_Reg            : lpm_shiftreg with (LPM_WIDTH=16,LPM_DIRECTION="unused");
+   Sector_25_En_Reg            : lpm_shiftreg with (LPM_WIDTH=16,LPM_DIRECTION="unused");
+   Sector_26_En_Reg            : lpm_shiftreg with (LPM_WIDTH=16,LPM_DIRECTION="unused");
+   Sector_27_En_Reg_CS         : node;
+   Sector_25_En_Reg_CS         : node;
+   Sector_26_En_Reg_CS         : node;
+   
+
+   SerDataOutR_Out_Pin_Buffer  : lpm_shiftreg with (LPM_WIDTH=8,LPM_DIRECTION="unused");
+   SerDataOutW_Out_Pin_Buffer  : lpm_shiftreg with (LPM_WIDTH=8,LPM_DIRECTION="unused");
+   NWordR_Out_Pin_Buffer       : lpm_shiftreg with (LPM_WIDTH=2,LPM_DIRECTION="unused");
+   NWordW_Out_Pin_Buffer       : lpm_shiftreg with (LPM_WIDTH=2,LPM_DIRECTION="unused");
+   3PH_CLK0_Out_Pin_Buffer     : DFF;
+  -- 3PH_CLK1_Out_Pin_Buffer     : DFF;
+   
+   History_RAM0                : FORs_History_RAM_;
+   History_RAM0_CS             : node;
+   History_RAM1                : FORs_History_RAM_;
+   History_RAM1_CS             : node;
+   FOR_H_RAM_SE_Ctrl_Reg       : lpm_shiftreg with (LPM_WIDTH=16,LPM_DIRECTION="unused");
+   FOR_H_RAM_SE_Ctrl_CS        : node;
+   FOR_H_RAM_DFF[1..0]         : DFF;
+
+-- 9. POSS 
+   POSS_IFace			       : POSS with (RefClock = 100);
+   POSS_IFace_CS			   : NODE;
+
+-- 10. Error counter
+   ErrorCounters_IFace		   : ErrorCounters;
+   ErrorCounters_IFace_CS	   : NODE;
+   Sync_ES                     : Edge_Sensing;
+   PLL_PS                      : Pulse_Shaper;
+
+-- 10. Declaration of Dev_Sel_X  - signals of Address Comparators 
+   Dev_Sel_[DeviceNumber-1..0] : DFF ;  -- Clocked comparator output for Select & Target_Ready		
+
+-- Deserializer
+   RAM_DS                      : FORs_RAM;
+   DS_MEM_CS                   : node;
+   RAM_Addr_Cnt_DS   	       : LPM_COUNTER with ( lpm_width=8, lpm_direction="down" );  
+   DsStrobPulse                : Edge_Sensing;
+   DS_Reg                      : lpm_shiftreg with (LPM_WIDTH=10,LPM_DIRECTION="unused"); -- регистр данных приходящих с Deserializer-а                     :
+   DsRegEnable                 : node;
+
+-- Basic_Trigger
+   BTrigger                    : Basic_Trigger with (TIME_OUT = 75);
+ --  BTrigger_CS                 : node;
+   DelayTimeReg                : lpm_shiftreg with (LPM_WIDTH=16,LPM_DIRECTION="unused");  -- регистр задержки
+   DurationTimeReg             : lpm_shiftreg with (LPM_WIDTH=16,LPM_DIRECTION="unused");  -- регистр длительности
+   DelayTimeReg_CS             : node;
+   DurationTimeReg_CS          : node;
+   DLine1                      : Delay_Line    with (MAX_DELAY = 1024); -- Формирователь длительности и задержки
+   DLine2                      : Delay_Line    with (MAX_DELAY = 1024); -- Формирователь длительности и задержки
+   BTrig_Output_Buf1           : DFF;
+   BTrig_Output_Buf2           : DFF;
+   Trigger_Enabled             : node;
+   Trigger_Enable_CS           : node;
+  
+   TrgOutputEn[5..0]           : node;
+   TrgOutput[6..0]             : node;
+  
+   TInputShapingTime_Reg       : lpm_shiftreg  with (LPM_WIDTH = 8, LPM_DIRECTION="unused");
+   TInputShapingTime_Reg_CS    : node;
+   Output_Control_Reg          : lpm_shiftreg  with (LPM_WIDTH = 16, LPM_DIRECTION="unused");
+   Output_Control_Reg_CS       : node;   
+   Time_Out_REG                : lpm_shiftreg  with (LPM_WIDTH = 16, LPM_DIRECTION="unused");
+   Time_Out_Reg_CS             : node;
+   
+   
+  -- Модуль досчета (измерение времени от общего стопа до решения триггера) 
+    Time_SRFF                  : SRFF;
+    Time_Cnt                   : LPM_COUNTER with ( lpm_width=32, lpm_direction="up" ); 
+    Time_Reg_L                 : lpm_shiftreg  with (LPM_WIDTH = 16, LPM_DIRECTION="unused");
+    Time_Reg_H                 : lpm_shiftreg  with (LPM_WIDTH = 16, LPM_DIRECTION="unused");
+    Time_Count_L_Reg_CS        : node;
+    Time_Count_H_Reg_CS        : node;
+    
+ -- Пересчетка
+	Scaler_IFace			   : FOR_S_Scalers with (Number_of_Channel = 50);
+	Scaler_IFace_CS			   : node;
+
+    Referred_1mc_CNT		   : LPM_COUNTER  with (lpm_width=ceil(log2(150*1000)), lpm_direction="up" ); 
+    DDR_Referred_1mc_pulse	   : node;
+
+-- Имитация FOR-ов
+    FLink0_Data_BUS[23..0]     : node;
+    FLink1_Data_BUS[23..0]     : node;
+
+    Lines_Simulator0		   : CMD3_FOR_Lines_Simulator;
+    Lines_Simulator0_CS        : node;
+    Lines_Simulator1		   : CMD3_FOR_Lines_Simulator;
+    Lines_Simulator1_CS        : node;
+    RAM_Simulator_Start_CS     : node;
+    RAM_Simulator_Stop_CS      : node;
+          
+-- 18. Осциллограф C-Link-а
+    DDR_Buffer_Data            : Link_Data_DDR_Buf;
+    DDR_Buffer_Phase           : Link_Data_DDR_Buf;
+    Scope                      : Link_Scope;
+    Scope_CS                   : node;
+          
+    
+BEGIN -- Начало описания проекта
+
+--DEFAULTS
+--END DEFAULTS;
+  pin5 =  DDR_Referred_1mc_pulse;--FOR_IFace0.Test1;  ---BC_Sample_Enable;
+  pin6 =  Lines_Simulator1.Add_nReplace; --FOR_IFace0.Test2;  ---BC_Fast_Link_Start;
+  pin7 =  Lines_Simulator0.Started;
+    
+    
+
+--************************** PLL section ***************************
+  PLL.inclk0 = PLL_Input ;
+  CLK100 = Global(PLL.c0);  -- 100 МГц
+  CLK150 = Global(PLL.c1);  -- 150 МГц
+      
+-- Автоматический выбор входной частоты (между кварцом и линком)
+  Phase_Switcher.Reference_Clock  = FLCLK ; -- сравниваем частоты с кварца
+  Phase_Switcher.Link_Phase0      = Phase0 ; -- и линка в течении 1 мс
+  Phase_Switcher.Reset            = GND; 
+
+  Phase25 = Phase_Switcher.Phase25 ; -- частота которую будет умножать PLL
+  Phase0Direct = GND; -- направление передачи фазы у приемопередатчика.
+
+  --Phase_Switcher.Bus_Clock = CLK100;
+--*************************** Индикаторы ***************************
+
+  LightCounter.clock = CLK100;
+  LightB.(event,clock) = (Link_IFace.LinkMessage, CLK100);
+  LightR.(clock,event) = (CLK100, CAMAC_IFace.CAMAC_Error OR  Link_IFace.Error OR Phase_Switcher.Error OR Bunch_Crossing_12_5_DS0.Error OR Bunch_Crossing_12_5_DS1.Error OR Bunch_Crossing_12_5_FLS.Error);  -- светодиод вывода ошибок
+--
+  Green_LED = (Phase_Switcher.LinkClock_Enabled OR LightCounter.q[27]) AND PLL.locked; 
+  LedG = OPNDRN(!Green_LED);
+  LedR = OPNDRN(LightR.LightOut);
+  LedB = OPNDRN(LightB.LightOut);
+  
+
+
+--*************** CAMAC Interface I/O connection *******************
+%
+ XXXX	  XXXX	X	  X    XXXX   XXXX
+X    x	 X	 X	XX	 XX   X   X  X    X
+X		X	 X	X X X X  X    X  X
+X		XXXXXX	X  X  X  XXXXXX  X
+X    X	X	 X	X     X  X    X  X    X
+ XXXX	X	 X	X     X  X    X   XXXX
+%
+
+  CAMAC_IFace.N   = !CAMAC_N  ; -- Input from Pin54
+  CAMAC_IFace.B   =   VCC     ; -- Input from Pin13
+  CAMAC_IFace.S1  = !CAMAC_S1 ; -- Input from Pin58
+  CAMAC_IFace.S2  = !CAMAC_S2 ; -- Input from Pin60
+  CAMAC_IFace.A[] = !CAMAC_A[]; -- Input from Pin 48,50,53,55
+  CAMAC_IFace.F[] = !CAMAC_F[]; -- Input from Pin 42,43,44,45,46
+
+  CAMAC_IFace.clock = CLK100;
+	
+  CAMAC_X  = OPNDRN(CAMAC_IFace.X1 )  ; -- Output to Pin47
+  CAMAC_Q  = OPNDRN(CAMAC_IFace.Q  )  ; -- Output to Pin59
+  CAMAC_L  = OPNDRN(CAMAC_IFace.LAM) ; -- Output to Pin56
+
+--	Bus_Arbiter.BARQ[3] = CAMAC_IFace.AccessRequest; -- High priority input
+  CAMAC_IFace.AccessGranted      = Bus_Arbiter.BAGD[MasterDeviceNumber-1] ;
+  CAMAC_IFace.DataBusStrobe      = Data_Strobe ;
+  CAMAC_IFace.DataBusIn[]        = Data_Line[] ;
+	
+-- "Standard" Status Register connections	
+  CAMAC_IFace.LinkClockCaptured  = VCC ;
+  CAMAC_IFace.LinkActive         = GND ;
+  CAMAC_IFace.Link_Error         = GND ;
+  CAMAC_IFace.Busy_on_Digitizing = GND ; -- Блок занят внутренними вычислениями и не выставляет LAM
+  CAMAC_IFace.Busy_on_Copy       = GND ;
+  CAMAC_IFace.DeadTime           = GND ;
+
+-- Соединение шин данных CAMAC
+    FOR i IN 1 TO 16 Generate
+        CAMAC_R[i]      = OPNDRN(!CAMAC_IFace.R[i]);
+   	END GENERATE;
+   
+	FOR i IN 1 TO 16 Generate
+        CAMAC_IFace.W[i]   = !CAMAC_W[i];
+	END GENERATE;
+--**********************Slow Link Interface I/O connection ***********************
+% 
+HH    H   			HH                  H
+HH    H HHHH   		HH       o  H  HH   H   H
+HH    H H 	H		HH          HH   H  H  H
+HH    H HHHH		HH       H  H    H  HHH
+ HH   H H			HH       H  H    H  H  H
+  HHHHH H   		HHooooH  H  H    H  H   H
+%
+
+     -- input
+    Link_IFace.(Clock , DataBus_In[15..0], AccessGranted      , DataBusStrobe) =
+               (CLK100,   Data_Line[]    , Bus_Arbiter.BAGD[0], Data_Strobe);
+    Link_IFace.Bus_Clock        = CLK100;
+    Link_IFace.Reset			= GND;
+    Link_IFace.DirectIn			= Address_Line[17] ;
+    Link_IFace.AddrBus_In[9..0]	= Address_Line[9..0];
+    Link_IFace.Select			= Dev_Sel_[1].q ;
+
+    -- Соединение шин данных Link-а 
+	Link_TxRx				= Link_IFace.Link_TxRx; -- направление передачи
+	Link_IFace.Link_Data_in = !Link_Data; -- полученные данные
+	Link_Data               = TRI(.in = !Link_IFace.Link_Data_out, .oe = Link_IFace.Link_TxRx); -- данные для передачи
+
+
+
+
+    --******************  Таблица нового расположения секторов ***************************
+    BUS_W[1]  =  CAMAC_W[1];          BUS_R[1]   =  CAMAC_R[1];
+    BUS_W[2]  =  CAMAC_W[2];          BUS_R[2]   =  CAMAC_R[2];
+    BUS_W[3]  =  CAMAC_W[3];          BUS_R[3]   =  CAMAC_R[3];
+    BUS_W[4]  =  CAMAC_W[4];          BUS_R[4]   =  CAMAC_R[4];
+    BUS_W[5]  =  CAMAC_W[5];          BUS_R[5]   =  CAMAC_R[5];
+    BUS_W[6]  =  CAMAC_W[6];          BUS_R[6]   =  CAMAC_R[6];
+    BUS_W[7]  =  CAMAC_W[7];          BUS_R[7]   =  CAMAC_R[7];
+    BUS_W[8]  =  CAMAC_W[8];          BUS_R[8]   =  CAMAC_R[8];
+    BUS_W[9]  =  CAMAC_W[9];          BUS_R[9]   =  CAMAC_R[9];
+    BUS_W[10] =  CAMAC_W[10];         BUS_R[10]  =  CAMAC_R[10];
+    BUS_W[11] =  CAMAC_W[11];         BUS_R[11]  =  CAMAC_R[11];
+    --BUS_W[12] =  CAMAC_W[12];         BUS_R[12]  =  CAMAC_R[12];
+    BUS_W[12] =  !Sector_12_Masked;   BUS_R[12]  =  CAMAC_R[12];
+    BUS_W[13] =  CAMAC_W[17];         BUS_R[13]  =  CAMAC_RI[1];
+    --BUS_W[14] =  CAMAC_W[18];         BUS_R[14]  =  CAMAC_RI[2];
+    BUS_W[14] =  !Sector_26_Masked;   BUS_R[14]  =  CAMAC_RI[2];
+    BUS_W[15] =  CAMAC_W[19];         BUS_R[15]  =  CAMAC_RI[3];
+    BUS_W[16] =  CAMAC_W[20];         BUS_R[16]  =  CAMAC_RI[4];
+    BUS_W[17] =  CAMAC_W[21];         BUS_R[17]  =  CAMAC_RI[5];
+    BUS_W[18] =  CAMAC_W[22];         BUS_R[18]  =  CAMAC_RI[6];
+    BUS_W[19] =  CAMAC_W[23];         BUS_R[19]  =  CAMAC_RI[7];
+    BUS_W[20] =  CAMAC_W[24];         BUS_R[20]  =  CAMAC_RI[8];
+    BUS_W[21] =  CAMAC_W[13];         BUS_R[21]  =  CAMAC_R[13];
+    BUS_W[22] =  CAMAC_W[14];         BUS_R[22]  =  CAMAC_R[14];
+    BUS_W[23] =  CAMAC_W[15];         BUS_R[23]  =  CAMAC_R[15];
+    BUS_W[24] =  CAMAC_W[16];         BUS_R[24]  =  CAMAC_R[16];
+      
+    Sector_26_Masked = ((Sector_27_En_Reg.q[0] AND !CAMAC_W[19]) OR (Sector_25_En_Reg.q[0] AND !CAMAC_W[17])) OR (Sector_26_En_Reg.q[0] AND !CAMAC_W[18]);
+    Sector_12_Masked = ((Sector_27_En_Reg.q[1] AND !CAMAC_W[12]) OR (Sector_25_En_Reg.q[1] AND !CAMAC_R[2])) OR (Sector_26_En_Reg.q[1] AND !CAMAC_R[1]);
+    
+    Sector_25_En_Reg.(data[],clock,load,enable)    = (Data_Line[],CLK100,VCC,(Data_Strobe and Dev_Sel_[16].q and Address_Line[17]));
+    Sector_26_En_Reg.(data[],clock,load,enable)    = (Data_Line[],CLK100,VCC,(Data_Strobe and Dev_Sel_[17].q and Address_Line[17]));
+    Sector_27_En_Reg.(data[],clock,load,enable)    = (Data_Line[],CLK100,VCC,(Data_Strobe and Dev_Sel_[18].q and Address_Line[17]));
+        
+    --************** Basic Trigger Interface I/O connection ************
+-- Формирователь разрешающего времени
+    BTrigger.DataIn_R[23..0]  = CAMAC_R_In_Pin_Buffer.q[];--B"000000000000000000000001";--CAMAC_R_In_Pin_Buffer.q[]; --!BUS_R[24..1];
+    BTrigger.DataIn_W[23..0]  = CAMAC_W_In_Pin_Buffer.q[];--B"000000000000000000000000";--CAMAC_W_In_Pin_Buffer.q[]; --!BUS_W[24..1];
+
+
+    BTrigger.(Clock,Enable,Reset) = (CLK150,Trigger_Enabled,GND);
+    BTrigger.InputShapingTime[]   = TInputShapingTime_Reg.q[]; -- длительность FOR-ов
+    BTrigger.TIME_OUT_IN[]        = Time_Out_Reg.q[]; -- мертвое время триггера
+
+    TrgOutput[0] = GND;
+    FOR i IN 0 TO 5 GENERATE
+       TrgOutputEn[i] = BTrigger.Result[i] AND Output_Control_Reg.q[i];
+       TrgOutput[i+1] = TrgOutput[i] OR TrgOutputEn[i]; 
+    END GENERATE; 
+
+-- вывод результатов работы Basic Trigger на плату
+    DLine1.(InputPulse,Clock,Reset) = (TrgOutput[6],CLK150,GND);
+    DLine1.(DelayTime[],DurationTime[]) = (DelayTimeReg.q[],DurationTimeReg.q[]);
+    DLine2.(InputPulse,Clock,Reset) = (BTrigger.Result[4],CLK150,GND);
+    DLine2.(DelayTime[],DurationTime[]) = (DelayTimeReg.q[],DurationTimeReg.q[]);
+
+-- Соединение с выходами Altera
+    BTrig_Output_Buf1.(d,clk) = (DLine1.DelayedPulse,CLK150);
+    BTrig_Output_Buf2.(d,clk) = (DLine2.DelayedPulse,CLK150);
+    TrgResult0 = BTrig_Output_Buf1.q;
+    TrgResult1 = BTrig_Output_Buf2.q;
+
+
+-- регистр длительности и задержки для модуля Basic Trigger
+	DelayTimeReg.(data[],clock,load,enable)    = (Data_Line[],CLK100,VCC,(Data_Strobe and Dev_Sel_[8].q and Address_Line[17]));
+	DurationTimeReg.(data[],clock,load,enable) = (Data_Line[],CLK100,VCC,(Data_Strobe and Dev_Sel_[9].q and Address_Line[17]));
+
+-- регистры длительности FOR-ов 
+	TInputShapingTime_Reg.(data[],clock,load,enable) = (Data_Line[7..0],CLK100,VCC,(Data_Strobe and Dev_Sel_[10].q and Address_Line[17]));
+
+-- регистры мертвого времени триггера 
+	Time_Out_Reg.(data[],clock,load,enable) = (Data_Line[],CLK100,VCC,(Data_Strobe and Dev_Sel_[12].q and Address_Line[17]));
+
+-- регистр управления выходами Trigger
+	Output_Control_Reg.(data[],clock,load,enable) = (Data_Line[],CLK100,VCC,(Data_Strobe and Dev_Sel_[11].q and Address_Line[17]));
+
+-- блокировка триггера	
+	Trigger_Enabled	= DFFE(.clk=CLK100, .d=Data_Line[0], .ena=(Dev_Sel_[26].q AND Address_Line[17] AND Data_Strobe));
+
+
+--*************************** Функция платы досчета ****************************    
+    Time_Cnt.(Clock, cnt_en, sclr) = (CLK150, !Event_Trig.q, (TrgOutput[6] OR Event_ES_End.q)); 
+    Time_Reg_L.(data[],clock,enable,load,aclr) = (Time_Cnt.q[15..0] ,CLK150, Event_ES_Beg.q, VCC, Event_ES_End.q);
+    Time_Reg_H.(data[],clock,enable,load,aclr) = (Time_Cnt.q[31..16],CLK150, Event_ES_Beg.q, VCC, Event_ES_End.q);
+    
+    
+--******************************* Пересчетка ***********************************
+	Referred_1mc_CNT.(clock, sclr) = (CLK150, DDR_Referred_1mc_pulse);
+	DDR_Referred_1mc_pulse	=	DFF(.clk=CLK150, .d=(Referred_1mc_CNT.q[]==(150000-2)));
+   
+    Scaler_IFace.(DDRClock, Bus_Clock, DDR_Referred_1mc, 		DataBus_In[15..0], DataBusStrobe, AddrBus_In[7..0]) = 
+                 (CLK150  , CLK100   , DDR_Referred_1mc_pulse , Data_Line[]      , Data_Strobe  , Address_Line[7..0]);
+    
+    
+    Scaler_IFace.Event            = Event_Trig.q;--Link_IFace.LinkMessage;
+    Scaler_IFace.Board_Enabled    = DFF(.clk=CLK150, .d=CAMAC_B);--VCC;--Inhibit counters during CAMAC operations!!! added 070410
+
+    Scaler_IFace.Direct_In        = Address_Line[17]; 
+    Scaler_IFace.Select	          = Dev_Sel_[14].q;
+    Scaler_IFace.FOR_S_In[23..0]  = CAMAC_R_In_Pin_Buffer.q[];--!CAMAC_R[16..1];
+    Scaler_IFace.FOR_S_In[47..24] = CAMAC_W_In_Pin_Buffer.q[];--!CAMAC_W[24..1];
+	Scaler_IFace.FOR_S_In[48]     = DLine1.DelayedPulse;
+	Scaler_IFace.FOR_S_In[49]     = DLine2.DelayedPulse;
+
+
+--***************************** Осциллограф C-Link-а ********************************
+	DDR_Buffer_Data.(datain,inclock)	          = (Link_Data, CLK150);	
+	DDR_Buffer_Phase.(datain,inclock)	          = (Phase_Switcher.Phase25, CLK150);	
+			
+	Scope.(Data_Line_l, Data_Line_h)              = (DDR_Buffer_Data.dataout_l, DDR_Buffer_Data.dataout_h);
+	Scope.(Reference_Clock_l, Reference_Clock_h)  = (DDR_Buffer_Phase.dataout_l, DDR_Buffer_Phase.dataout_h);	
+	Scope.Event_in_Progress                       = Event_Trig.q;
+	Scope.Cavity_Clock                            = CLK150;
+	Scope.BusClock                  = CLK100;
+	Scope.DataBusStrobe				= Data_Strobe ;
+	Scope.DirectIn					= Address_Line[17] ;
+	Scope.AddrBus_In[7..0]			= Address_Line[7..0];
+	Scope.DataBus_In[15..0]			= Data_Line[] ;
+	Scope.Select					= Dev_Sel_[25].q ;
+	
+--***************************** Bunch_Crossing adjust *********************************	
+%
+HHHHHHH       HHHHH
+H      H     H     H
+H     H		H			H  HHH   HHHHH    HHHHH    HHHHH
+HHHHHH		H			HHH     H     H        H        H
+H     H		H			H	    H     H   HHHHH    HHHHH
+H      H	H			H       H     H  H        H
+H      H	 H	   H	H       H     H  H     L  H     L
+HHHHH H		  HHHHH		H        HHHHH    HHHHH    HHHHH
+%
+    Bunch_Crossing_12_5_T0.(Cavity_Clock, BusClock, Bunch_Crossing, DataBus_In[15..0], DataBusStrobe, AddrBus_In[0]  ) =
+                           (CLK150      , CLK100  , Event_ES_Beg.q,   Data_Line[]    , Data_Strobe  , Address_Line[0]);
+    Bunch_Crossing_12_5_T0.DirectIn		= Address_Line[17];
+    Bunch_Crossing_12_5_T0.Select		= Dev_Sel_[22].q;
+      
+  
+    Bunch_Crossing_12_5_DS0.(Cavity_Clock, BusClock, Bunch_Crossing, DataBus_In[15..0], DataBusStrobe, AddrBus_In[0]  ) =
+                           (CLK150      , CLK100  , Event_ES_Beg.q,   Data_Line[]    , Data_Strobe  , Address_Line[0]);
+    Bunch_Crossing_12_5_DS0.DirectIn		= Address_Line[17];
+    Bunch_Crossing_12_5_DS0.Select		= Dev_Sel_[6].q;
+    
+    Bunch_Crossing_12_5_DS1.(Cavity_Clock, BusClock, Bunch_Crossing, DataBus_In[15..0], DataBusStrobe, AddrBus_In[0]  ) =
+                           (CLK150       , CLK100  , Event_ES_Beg.q,   Data_Line[]    , Data_Strobe  , Address_Line[0]);
+    Bunch_Crossing_12_5_DS1.DirectIn		= Address_Line[17];
+    Bunch_Crossing_12_5_DS1.Select		= Dev_Sel_[13].q;
+    
+    Bunch_Crossing_12_5_FLS.(Cavity_Clock, BusClock, Bunch_Crossing, DataBus_In[15..0], DataBusStrobe, AddrBus_In[0]  ) =
+                            (CLK150      , CLK100  , Event_ES_Beg.q,   Data_Line[]    , Data_Strobe  , Address_Line[0]);
+    Bunch_Crossing_12_5_FLS.DirectIn		= Address_Line[17];
+    Bunch_Crossing_12_5_FLS.Select			= Dev_Sel_[15].q;
+            
+            
+    Link_Data_DDR_Buffer.(datain,inclock) = (!Link_Data_In,CLK150);    -- Подстройка (точная) момента сэмплирования Общего Стопа
+			-- Требуется подкручивать, если фронт CLK150 "наехал" на фронт Стартового Бита
+            
+    Event_ES_Beg.(d,clk) = (Link_Data_DDR_Buffer.dataout_h AND !Event_Trig.q, CLK150); -- Определение стартового бита
+ 
+--     Event_ES_Beg.(d,clk) = (
+--								((Link_Data_DDR_Buf.dataout_h AND Fine_control_bit) or (Link_Data_DDR_Buf.dataout_l AND !Fine_control_bit)) 
+--								AND !Event_Trig.q, 
+--								CLK150); -- Определение (с выбором момента) стартового бита
+--		Fine_control_bit - этот бит, собственно, и "подкручивает" момент сэмплирования стартового бита
+
+
+    LinkMsg_Trig.(d,clk) = (!Link_IFace.LinkMessage, CLK150);    
+    Event_ES_End.(d,clk) = (LinkMsg_Trig.q, CLK150);
+    Event_Trig.(S,clk,R) = (Event_ES_Beg.q, CLK150, Event_ES_End.q);
+
+    BC_Sample_Enable0   = Bunch_Crossing_12_5_DS0.Start_Enable[];  -- 12.5 МГц привязанные к стартовому биту	
+    BC_Sample_Enable1   = Bunch_Crossing_12_5_DS1.Start_Enable[];  -- 12.5 МГц привязанные к стартовому биту	
+    BC_Fast_Link_Start  = Bunch_Crossing_12_5_FLS.Start_Enable[];
+    BC_Time0            = Bunch_Crossing_12_5_T0.Start_Enable[];
+   
+   
+--***************************** FORs Interface *********************************
+%
+HHHHHHH
+HH        HHHH   HHHH
+HH       H    H  H   H
+HHHH     H    H  H   H
+HH       H    H  HHHK
+HH       H    H  H  K
+HH        HHHH   H   H
+%  
+    
+    CAMAC_R_In_Pin_Buffer.(data[],clock,enable,load) = (!BUS_R[],CLK150,VCC,VCC);
+    CAMAC_W_In_Pin_Buffer.(data[],clock,enable,load) = (!BUS_W[],CLK150,VCC,VCC);
+
+    FOR_IFace0.Data_To_Ser[23..0] = FLink0_Data_BUS[];
+    FOR_IFace0.(Clock, Bunch_Crossing_Data_Sample, Bunch_Crossing_Fast_Link_Start) = (CLK150, BC_Sample_Enable0, BC_Fast_Link_Start);
+    --FOR_IFace0.Reset = GND;
+     
+    FOR_IFace1.Data_To_Ser[23..0] = FLink1_Data_BUS[];
+    FOR_IFace1.(Clock, Bunch_Crossing_Data_Sample, Bunch_Crossing_Fast_Link_Start) = (CLK150, BC_Sample_Enable1, BC_Fast_Link_Start);
+    --FOR_IFace1.Reset = GND;
+ 
+    SerDataOutR[7..0]  = SerDataOutR_Out_Pin_Buffer.q[];
+    SerDataOutW[7..0]  = SerDataOutW_Out_Pin_Buffer.q[];
+    NWordR[1..0]       = NWordR_Out_Pin_Buffer.q[];  
+    NWordW[1..0]       = NWordW_Out_Pin_Buffer.q[]; 
+    SerDataOutR_Out_Pin_Buffer.(data[],clock,enable,load) = (FOR_IFace0.SerDataOut[7..0],CLK150,VCC,VCC);
+    SerDataOutW_Out_Pin_Buffer.(data[],clock,enable,load) = (FOR_IFace1.SerDataOut[7..0],CLK150,VCC,VCC);
+    NWordR_Out_Pin_Buffer.(data[],clock,enable,load)      = (FOR_IFace0.NumberWord[1..0],CLK150,VCC,VCC);
+    NWordW_Out_Pin_Buffer.(data[],clock,enable,load)      = (FOR_IFace1.NumberWord[1..0],CLK150,VCC,VCC);
+  --  
+    3PH_CLK0_Out_Pin_Buffer.(d,clk) = (FOR_IFace0.3xPH_Clk, CLK150);
+    3PH_CLK0 = 3PH_CLK0_Out_Pin_Buffer.q;
+        
+    W_Sync = W_Lock; -- синхронизация между Serializer и Deserializer канала W
+    R_Sync = R_Lock;--Lock; -- синхронизация между Serializer и Deserializer канала R
+
+    PWRDN  = VCC;  -- включить Serializer/Deserializer 
+
+    W_En1  = GND; -- Loop-Back test mode, выход канал W Serializer, вход Deserializer через внутренний мультиплексор
+    R_En1  = GND; -- Loop-Back test mode, выход канал R Serializer, вход Deserializer через внутренний мультиплексор
+    W_En2  = GND; -- Loop-Back test mode, любой выход Serializer, вход Deserializer с внешнего разъема 2
+    R_En2  = VCC; -- Loop-Back test mode, любой выход Serializer, вход Deserializer с внешнего разъема 1
+
+--************************** Память истории FOR-ов*****************************
+    --History_RAM0.(Clock, FOR_Sample_Enable, LinkMessage) = (CLK150, BC_Sample_Enable0, Link_IFace.LinkMessage);
+    History_RAM0.(Clock, FOR_Sample_Enable, LinkMessage) = (CLK150, FOR_H_RAM_DFF[0].q, Event_Trig.q);
+    History_RAM0.DataIn[23..0]    = FLink0_Data_BUS[];
+    History_RAM0.DataIn[24]       = DLine1.DelayedPulse;
+    History_RAM0.DataIn[25]       = DLine2.DelayedPulse;
+    History_RAM0.DataIn[26]       = Event_Trig.q;
+    History_RAM0.DataIn[31..27]   = GND;
+    
+    History_RAM0.Bus_Clock        = CLK100;
+    History_RAM0.DataBus_In[]     = Data_Line[];
+    History_RAM0.DirectIn	      = Address_Line[17];
+    History_RAM0.Select	          = Dev_Sel_[4].q;
+    History_RAM0.AddrBus_In[9..0] = Address_Line[9..0];
+    History_RAM0.DataBusStrobe    = Data_Strobe;
+    
+    --History_RAM1.(Clock, FOR_Sample_Enable, LinkMessage) = (CLK150, BC_Sample_Enable1, Link_IFace.LinkMessage);
+    History_RAM1.(Clock, FOR_Sample_Enable, LinkMessage) = (CLK150, FOR_H_RAM_DFF[1].q, Event_Trig.q);
+    History_RAM1.DataIn[23..0]    = FLink1_Data_BUS[]; -- B"101010101010101010101010";
+    History_RAM1.DataIn[24]       = DLine1.DelayedPulse;
+    History_RAM1.DataIn[25]       = DLine2.DelayedPulse;
+    History_RAM1.DataIn[26]       = Event_Trig.q;
+    History_RAM1.DataIn[31..27]   = GND;
+    
+    History_RAM1.Bus_Clock        = CLK100;
+    History_RAM1.DataBus_In[]     = Data_Line[];
+    History_RAM1.DirectIn	      = Address_Line[17];
+    History_RAM1.Select	          = Dev_Sel_[19].q;
+    History_RAM1.AddrBus_In[9..0] = Address_Line[9..0];
+    History_RAM1.DataBusStrobe    = Data_Strobe;
+  
+    FOR_H_RAM_SE_Ctrl_Reg.(data[],clock,enable,load) = (Data_Line[], CLK150, Dev_Sel_[29].q AND Address_Line[17] AND Data_Strobe, VCC);
+    FOR_H_RAM_DFF[0].(d,clk) = ((BC_Sample_Enable0 AND !FOR_H_RAM_SE_Ctrl_Reg.q[0]) OR (CLK150 AND FOR_H_RAM_SE_Ctrl_Reg.q[0]),CLK150);
+    FOR_H_RAM_DFF[1].(d,clk) = ((BC_Sample_Enable1 AND !FOR_H_RAM_SE_Ctrl_Reg.q[0]) OR (CLK150 AND FOR_H_RAM_SE_Ctrl_Reg.q[0]),CLK150);
+  
+    HS_RAM_ADDR_0_VP[] = History_RAM0.HS_RAM_ADDR_0[7..0];
+--************************** Память имитации FOR-ов***************************** 
+  
+    Lines_Simulator0.(Fast_Link_Clock, Bus_Clock)	=	(CLK150, CLK100);
+    Lines_Simulator0.DirectIn			   = Address_Line[17];
+    Lines_Simulator0.AddrBus_In[9..0]	   = Address_Line[9..0];
+    Lines_Simulator0.Select			       = Dev_Sel_[20].q;   --Lines_Simulator_CS;
+    Lines_Simulator0.DataBus_In[]		   = Data_Line[];
+    Lines_Simulator0.DataBusStrobe		   = Data_Strobe;
+
+-- Data_Path connections
+    Lines_Simulator0.Next_Slice		    = BC_Time0;	--Increment of RAM_Addr_CNT
+  
+    IF Lines_Simulator0.Add_nReplace 
+        THEN	FLink0_Data_BUS[23..0]  = Lines_Simulator0.q[23..0];  								-- Data Path Test mode
+        ELSE    FLink0_Data_BUS[23..0]  = CAMAC_R_In_Pin_Buffer.q[]	OR	Lines_Simulator0.q[23..0];	-- Trigger efficiency check
+                
+
+    END IF;
+    Lines_Simulator0.Parallel_Start	=	Dev_Sel_[23].q AND Address_Line[17];
+    Lines_Simulator0.Parallel_Stop  =   Dev_Sel_[24].q AND Address_Line[17];  
+    
+    Lines_Simulator1.(Fast_Link_Clock, Bus_Clock)	=	(CLK150, CLK100);
+    Lines_Simulator1.DirectIn			   = Address_Line[17];
+    Lines_Simulator1.AddrBus_In[9..0]	   = Address_Line[9..0];
+    Lines_Simulator1.Select			       = Dev_Sel_[21].q;   --Lines_Simulator_CS;
+    Lines_Simulator1.DataBus_In[]		   = Data_Line[];
+    Lines_Simulator1.DataBusStrobe		   = Data_Strobe;
+
+-- Data_Path connections
+    Lines_Simulator1.Next_Slice		    = BC_Time0;	--Increment of RAM_Addr_CNT
+  
+    IF Lines_Simulator1.Add_nReplace 
+        THEN	FLink1_Data_BUS[23..0]  = Lines_Simulator1.q[23..0];  								-- Data Path Test mode
+        ELSE    FLink1_Data_BUS[23..0]  = CAMAC_W_In_Pin_Buffer.q[]	OR	Lines_Simulator1.q[23..0];	-- Trigger efficiency check
+                
+
+    END IF;
+    Lines_Simulator1.Parallel_Start	=	Dev_Sel_[23].q AND Address_Line[17];
+    Lines_Simulator1.Parallel_Stop  =   Dev_Sel_[24].q AND Address_Line[17];
+  
+-- End Simulator Section      %
+--***************************** Deserializer **********************************
+	DS_Reg.(data[],clock,load) = (DsrData[9..0],DsrStrob,VCC);
+    Ext_Sync = Lock;
+
+	IF(Lock == GND) THEN  -- проверка синхронизации
+      DS_Reg.enable = VCC;  -- есть
+	ELSE
+      DS_Reg.enable = GND;  -- нет
+	END IF;
+--    DS_Reg.enable = VCC;
+
+    CASE DS_Reg.q[9..8] IS     -- Мультиплексор выбора регистра для записи возвращаемого слова
+		WHEN b"11"  => DsRegEnable = VCC;
+		WHEN b"10"  => DsRegEnable = VCC;
+		WHEN b"01"  => DsRegEnable = VCC;
+		WHEN OTHERS => DsRegEnable = GND;
+	END CASE;
+--	DsRegEnable = GND;
+	
+    DsStrobPulse.(d,clk,clr) = (DsrStrob AND !Event_Trig.q, CLK150, GND);
+ 
+	RAM_DS.(address_a[7..0]        , clock_a,  data_a[15..10], wren_a) =
+		   (RAM_Addr_Cnt_DS.q[7..0], CLK150 ,  B"000000"     , DsRegEnable AND DsStrobPulse.q); 
+	FOR i IN 0 TO 3 GENERATE
+	   RAM_DS.data_a[i*2] = DS_Reg.q[i*2];
+	   RAM_DS.data_a[i*2+1] = DS_Reg.q[i*2+1];
+	END GENERATE;
+	RAM_DS.data_a[8] = DS_Reg.q[8];
+	RAM_DS.data_a[9] = DS_Reg.q[9];
+		   
+	RAM_Addr_Cnt_DS.clock   = CLK150;
+	RAM_Addr_Cnt_DS.clk_en  = DsRegEnable AND DsStrobPulse.q;
+
+	RAM_DS.(address_b[7..0]   , clock_b, data_b[]   , wren_b) =
+		   (Address_Line[7..0], CLK100 , Data_Line[], Data_Strobe and Dev_Sel_[7].q and Address_Line[17]); 
+	
+--********************************* Arbiter ************************************
+
+-- Project Bus Port, common
+	ErrorCounters_IFace.clock 			=	CLK100;
+	ErrorCounters_IFace.AddrBusIn[3..0]	=	Address_Line[3..0];
+	ErrorCounters_IFace.DataBusStrobe	=	Data_Strobe ;
+-- Project Bus Port, Slave
+	--ErrorCounters_IFace.DirectIn		= 	Address_Line[17] ;
+	ErrorCounters_IFace.Select			= 	Dev_Sel_[2].q ;
+
+    ErrorCounters_IFace.ErrorInputs[0]	=	CAMAC_IFace.CAMAC_Error;
+    ErrorCounters_IFace.ErrorInputs[1]	=	Bus_Arbiter.ErrorLight;
+    ErrorCounters_IFace.ErrorInputs[2]	=	Phase_Switcher.Error;
+    ErrorCounters_IFace.ErrorInputs[3]	=	Link_IFace.Error;
+    ErrorCounters_IFace.ErrorInputs[4]	=	Bunch_Crossing_12_5_DS0.Error;
+    ErrorCounters_IFace.ErrorInputs[5]	=	Bunch_Crossing_12_5_DS1.Error;
+    ErrorCounters_IFace.ErrorInputs[6]	=	Bunch_Crossing_12_5_FLS.Error;
+	ErrorCounters_IFace.ErrorInputs[7]	=	Sync_ES.q;
+	ErrorCounters_IFace.ErrorInputs[8]	=	CAMAC_IFace.AccessRequest;
+	ErrorCounters_IFace.ErrorInputs[9]	=	Link_IFace.AccessRequest;
+	ErrorCounters_IFace.ErrorInputs[10]	=	PLL_PS.q;
+
+
+    Sync_ES.(d,clk)  = (R_Lock OR W_Lock, CLK100);
+    
+    PLL_PS.(d,clk,clr,Shaping_Time[]) = (PLL.locked,FLCLK,GND,B"11111010");
+--********************************* Arbiter ************************************
+%
+	HHHHHH    H     H    HHHHH
+	H     H   H     H   H
+	H     H   H     H   H     
+	HHHHHH    H     H    HHHHH
+	H     H   H     H         H
+	H     H   H     H         H
+	HHHHHH     HHHHHH   HHHHHH 
+%
+
+    Bus_Arbiter.BARQ[2] = CAMAC_IFace.AccessRequest; -- запрос на предастовление шины данных
+	Bus_Arbiter.BARQ[0] = Link_IFace.AccessRequest;
+	Bus_Arbiter.BARQ[1] = POSS_IFace.AccessRequest;
+	
+	Bus_Arbiter.clock       = CLK100;
+	Bus_Arbiter.Reset       = GND;
+	Bus_Arbiter.TargetReady = Target_Ready;
+	
+	Address_Valid      =  Bus_Arbiter.AddressValid ; -- адрес подтвержден
+	Data_Strobe        =  Bus_Arbiter.DataStrobe ; -- защелкиваем данные --Global
+
+   FOR i IN 0 TO DeviceNumber-1 GENERATE
+     Target_Ready = Dev_Sel_[i].q;
+   END GENERATE; 
+
+--  Определение устройства которому разрешен доступ на шину данных
+--	Address_Line[17..0]  -- 16 битный адрес + 1 бит mem/reg (VCC=> mem) + 1 бит read/write (VCC=>write)
+CASE Bus_Arbiter.BAGD[2..0] IS
+	WHEN b"100"  => Address_Line_[15..0] = CAMAC_IFace.AddrBusOut[15..0] ; 
+					Address_Line_[16]    = CAMAC_IFace.Addr_MemnReg ; -- определение Slave-устройства с которым будет происходить общение (память или регистр)
+					Address_Line_[17]    = CAMAC_IFace.Direct ; -- направление передачи
+	WHEN b"001"  => Address_Line_[15..0] = Link_IFace.AddrBusOut[15..0] ;
+	                Address_Line_[16]    = VCC; -- общение только с памятью
+	                Address_Line_[17]    = Link_IFace.DirectOut ; -- направление передачи данных, на внутреннюю шину или с нее, по умолчанию =GND, передача от внутренних ресурсов платы Модуль,
+	WHEN b"010"  => Address_Line_[15..0] = POSS_IFace.AddrBusOut[] ;
+					Address_Line_[16]    = VCC;
+					Address_Line_[17]    = POSS_IFace.DirectOut ;
+	WHEN OTHERS  =>	Address_Line_[15..0] = GND; -- b"0000000001010101";-- куда писать данные с линка
+	                Address_Line_[16]    = GND; -- общение только с памятью
+	                Address_Line_[17]    = GND; -- направление передачи
+END CASE;
+
+-- определение Slave-устройства с которым будет происходить общение (память или регистр)
+IF ( (Address_Line[15..0] >= Test_MEM_Offset) AND (Address_Line[15..0] < (Test_MEM_Offset + Test_MEM_Size)) ) 
+  THEN 	Test_MEM_CS   = VCC;
+  ELSE 	Test_MEM_CS   = GND;
+END IF;
+IF ( (Address_Line[15..0] >= Link_IFace_Offset) AND (Address_Line[15..0] < (Link_IFace_Offset + Link_IFace_Size)) ) 
+  THEN Link_IFace_CS  = VCC ;
+  ELSE Link_IFace_CS  = GND ;
+END IF;
+IF ( (Address_Line[15..0] >= ID_Offset) AND (Address_Line[15..0] < (ID_Offset + ID_Size)) ) 
+  THEN ID_CS  = VCC ;
+  ELSE ID_CS  = GND ;
+END IF;
+IF ( (Address_Line[15..0] >= FOR_H_RAM0_Offset) AND (Address_Line[15..0] < (FOR_H_RAM0_Offset + FOR_H_RAM_Size)) ) 
+  THEN 	History_RAM0_CS   = VCC;
+  ELSE 	History_RAM0_CS   = GND;
+END IF;
+IF ( (Address_Line[15..0] >= FOR_H_RAM1_Offset) AND (Address_Line[15..0] < (FOR_H_RAM1_Offset + FOR_H_RAM_Size)) ) 
+  THEN 	History_RAM1_CS   = VCC;
+  ELSE 	History_RAM1_CS   = GND;
+END IF;
+IF (Address_Line[15..0] == FOR_H_RAM_SE_Ctrl)
+    THEN  FOR_H_RAM_SE_Ctrl_CS = VCC;
+	ELSE  FOR_H_RAM_SE_Ctrl_CS = GND;
+END IF;	
+
+IF ( (Address_Line[15..0] >= RAM_Simulator0_Offset) AND (Address_Line[15..0] < (RAM_Simulator0_Offset + RAM_Simulator_Size)) ) 
+  THEN 	Lines_Simulator0_CS   = VCC;
+  ELSE 	Lines_Simulator0_CS   = GND;
+END IF;
+IF ( (Address_Line[15..0] >= RAM_Simulator1_Offset) AND (Address_Line[15..0] < (RAM_Simulator1_Offset + RAM_Simulator_Size)) ) 
+  THEN 	Lines_Simulator1_CS   = VCC;
+  ELSE 	Lines_Simulator1_CS   = GND;
+END IF;
+
+IF (Address_Line[15..0] == RAM_Simulator_Start)
+  THEN 	RAM_Simulator_Start_CS   = VCC;
+  ELSE 	RAM_Simulator_Start_CS   = GND;
+END IF;
+IF (Address_Line[15..0] == RAM_Simulator_Stop)
+  THEN 	RAM_Simulator_Stop_CS   = VCC;
+  ELSE 	RAM_Simulator_Stop_CS   = GND;
+END IF;
+
+IF ((Address_Line[15..0] >= ErrorCounters_Offset) AND ((ErrorCounters_Offset + ErrorCounters_Size) > Address_Line[15..0]) ) 
+  THEN ErrorCounters_IFace_CS = VCC ; 
+  ELSE ErrorCounters_IFace_CS = GND ; 
+END IF ;
+IF ((Address_Line[15..0] >= POSS_Offset) AND ((POSS_Offset + POSS_Size) > Address_Line[15..0]) ) 
+  THEN POSS_IFace_CS   = VCC ;
+  ELSE POSS_IFace_CS   = GND ; 
+END IF ;
+IF (Address_Line[15..0] == Bunch_Crossing_12_5_DS0_Offset)
+  THEN  Bunch_Crossing_12_5_DS0_CS = VCC;
+  ELSE 	Bunch_Crossing_12_5_DS0_CS = GND;
+END IF;
+IF (Address_Line[15..0] == Bunch_Crossing_12_5_DS1_Offset)
+  THEN  Bunch_Crossing_12_5_DS1_CS = VCC;
+  ELSE 	Bunch_Crossing_12_5_DS1_CS = GND;
+END IF;
+IF (Address_Line[15..0] == Bunch_Crossing_12_5_FLS_Offset)
+  THEN  Bunch_Crossing_12_5_FLS_CS = VCC;
+  ELSE 	Bunch_Crossing_12_5_FLS_CS = GND;
+END IF;
+
+IF (Address_Line[15..0] == Bunch_Crossing_12_5_T0_Offset)
+  THEN  Bunch_Crossing_12_5_T0_CS = VCC;
+  ELSE 	Bunch_Crossing_12_5_T0_CS = GND;
+END IF;
+
+IF ( (Address_Line[15..0] >= Scalers_Offset) AND (Address_Line[15..0] < (Scalers_Offset + Scalers_Size)) ) 
+  THEN 	Scaler_IFace_CS   = VCC;
+  ELSE 	Scaler_IFace_CS   = GND;
+END IF;
+IF ( (Address_Line[15..0] >= DS_MEM_Offset) AND (Address_Line[15..0] < (DS_MEM_Offset + DS_MEM_Size)) ) 
+  THEN 	DS_MEM_CS   = VCC;
+  ELSE 	DS_MEM_CS   = GND;
+END IF;
+
+IF ((Address_Line[15..0] >= Link_Scope_Offset) AND ((Link_Scope_Offset + Link_Scope_Size) > Address_Line[15..0]) ) 
+  THEN	Scope_CS = VCC ;	
+  ELSE  Scope_CS = GND ;
+END IF ;
+
+			IF (Address_Line[15..0] == DelayTimeReg_Offset)
+			  THEN  DelayTimeReg_CS = VCC;
+			  ELSE 	DelayTimeReg_CS = GND;
+			END IF;
+			IF (Address_Line[15..0] == DurationTimeReg_Offset)
+			  THEN  DurationTimeReg_CS = VCC;
+			  ELSE 	DurationTimeReg_CS = GND;
+			END IF;
+			IF (Address_Line[15..0] == TInputShapingTime_Reg_Offset)
+			  THEN  TInputShapingTime_Reg_CS = VCC;
+			  ELSE 	TInputShapingTime_Reg_CS = GND;
+			END IF;
+			IF (Address_Line[15..0] == Output_Control_Reg_Offset)
+			  THEN  Output_Control_Reg_CS = VCC;
+			  ELSE 	Output_Control_Reg_CS = GND;
+			END IF;
+			IF (Address_Line[15..0] == Time_Out_Reg_Offset)
+			  THEN  Time_Out_Reg_CS = VCC;
+			  ELSE 	Time_Out_Reg_CS = GND;
+			END IF;		
+	IF (Address_Line[15..0] == Sector_25_En_Reg_Offset)
+		  THEN  Sector_25_En_Reg_CS = VCC;
+	      ELSE  Sector_25_En_Reg_CS = GND;
+	END IF;	
+	IF (Address_Line[15..0] == Sector_26_En_Reg_Offset)
+		  THEN  Sector_26_En_Reg_CS = VCC;
+	      ELSE  Sector_26_En_Reg_CS = GND;
+	END IF;	
+	IF (Address_Line[15..0] == Sector_27_En_Reg_Offset)
+		  THEN  Sector_27_En_Reg_CS = VCC;
+	      ELSE  Sector_27_En_Reg_CS = GND;
+	END IF;	
+    IF (Address_Line[15..0] == Trigger_Blk_Offset)
+		  THEN  Trigger_Enable_CS = VCC;
+		  ELSE 	Trigger_Enable_CS = GND;
+	END IF;
+	
+IF (Address_Line[15..0] == Time_Count_L_Reg_Offset)
+    THEN  Time_Count_L_Reg_CS = VCC;
+	ELSE  Time_Count_L_Reg_CS = GND;
+END IF;		
+IF (Address_Line[15..0] == Time_Count_H_Reg_Offset)
+    THEN  Time_Count_H_Reg_CS = VCC;
+	ELSE  Time_Count_H_Reg_CS = GND;
+END IF;	
+	
+			
+Dev_Sel_[0].d  = Test_MEM_CS;
+Dev_Sel_[1].d  = Link_IFace_CS;
+Dev_Sel_[2].d  = ErrorCounters_IFace_CS;
+Dev_Sel_[3].d  = ID_CS AND Address_Line[16];
+Dev_Sel_[4].d  = History_RAM0_CS;--FOR_IFace_CS;
+Dev_Sel_[5].d  = POSS_IFace_CS;
+Dev_Sel_[6].d  = Bunch_Crossing_12_5_DS0_CS;
+Dev_Sel_[7].d  = DS_MEM_CS;
+Dev_Sel_[8].d  = DelayTimeReg_CS;
+Dev_Sel_[9].d  = DurationTimeReg_CS;
+Dev_Sel_[10].d = TInputShapingTime_Reg_CS;
+Dev_Sel_[11].d = Output_Control_Reg_CS;
+Dev_Sel_[12].d = Time_Out_Reg_CS;
+Dev_Sel_[13].d = Bunch_Crossing_12_5_DS1_CS;
+Dev_Sel_[14].d = Scaler_IFace_CS;
+Dev_Sel_[15].d = Bunch_Crossing_12_5_FLS_CS;
+Dev_Sel_[16].d = Sector_25_En_Reg_CS;
+Dev_Sel_[17].d = Sector_26_En_Reg_CS;
+Dev_Sel_[18].d = Sector_27_En_Reg_CS;
+Dev_Sel_[19].d = History_RAM1_CS;
+Dev_Sel_[20].d = Lines_Simulator0_CS;
+Dev_Sel_[21].d = Lines_Simulator1_CS;
+Dev_Sel_[22].d = Bunch_Crossing_12_5_T0_CS;
+Dev_Sel_[23].d = RAM_Simulator_Start_CS;
+Dev_Sel_[24].d = RAM_Simulator_Stop_CS;
+Dev_Sel_[25].d = Scope_CS;
+Dev_Sel_[26].d = Trigger_Enable_CS;
+Dev_Sel_[27].d = Time_Count_L_Reg_CS;
+Dev_Sel_[28].d = Time_Count_H_Reg_CS;
+Dev_Sel_[29].d = FOR_H_RAM_SE_Ctrl_CS;
+
+
+FOR i IN 0 TO DeviceNumber-1 GENERATE
+  Dev_Sel_[i].clrn = Address_Valid ; -- Dev_Select is enabled while Address_Valid=VCC
+  Dev_Sel_[i].clk = CLK100;
+END GENERATE; 
+-- определение направления передачи
+IF Address_Line[17] THEN   -- Мастер-устройство предоставляет данные
+	CASE  Bus_Arbiter.BAGD[MasterDeviceNumber-1..0] IS          -- Мультиплексор выбора Master-устройства 
+	    WHEN b"100" => Data_Line_[] = CAMAC_IFace.DataBusOut[] ;
+	    WHEN b"001" => Data_Line_[] = Link_IFace.DataBusOut[] ;
+  	    WHEN b"010" => Data_Line_[] = POSS_IFace.DataBusOut[] ;
+ 	END CASE;
+  ELSE   -- Мастер-устройство требует данные 
+	CASE Dev_Sel_[DeviceNumber-1..0].q IS     -- Мультиплексор выбора Slave-устройства
+        WHEN b"000000000000000000000000000001" => Data_Line_[] = RAMData.q[];
+        WHEN b"000000000000000000000000000010" => Data_Line_[] = Link_IFace.DataBusOut[];
+        WHEN b"000000000000000000000000000100" => Data_Line_[] = ErrorCounters_IFace.DataBusOut[];
+        WHEN b"000000000000000000000000001000" => Data_Line_[] = ID.DataBusOut[];
+    	WHEN b"000000000000000000000000010000" => Data_Line_[] = History_RAM0.DataBusOut[];--FOR_IFace.DataBusOut[];
+    	WHEN b"000000000000000000000000100000" => Data_Line_[] = POSS_IFace.DataBusOut[];
+        WHEN b"000000000000000000000001000000" => Data_Line_[] = Bunch_Crossing_12_5_DS0.DataBusOut[];
+        WHEN b"000000000000000000000010000000" => Data_Line_[] = RAM_DS.q_b[];
+        WHEN b"000000000000000000000100000000" => Data_Line_[] = DelayTimeReg.q[];
+        WHEN b"000000000000000000001000000000" => Data_Line_[] = DurationTimeReg.q[];
+        WHEN b"000000000000000000010000000000" => Data_Line_[7..0] = TInputShapingTime_Reg.q[];
+        WHEN b"000000000000000000100000000000" => Data_Line_[] = Output_Control_Reg.q[];
+        WHEN b"000000000000000001000000000000" => Data_Line_[] = Time_Out_Reg.q[];
+        WHEN b"000000000000000010000000000000" => Data_Line_[] = Bunch_Crossing_12_5_DS1.DataBusOut[];
+        WHEN b"000000000000000100000000000000" => Data_Line_[] = Scaler_IFace.DataBusOut[];
+        WHEN b"000000000000001000000000000000" => Data_Line_[] = Bunch_Crossing_12_5_FLS.DataBusOut[];
+        WHEN b"000000000000010000000000000000" => Data_Line_[] = Sector_25_En_Reg.q[];
+        WHEN b"000000000000100000000000000000" => Data_Line_[] = Sector_26_En_Reg.q[];
+        WHEN b"000000000001000000000000000000" => Data_Line_[] = Sector_27_En_Reg.q[];
+    	WHEN b"000000000010000000000000000000" => Data_Line_[] = History_RAM1.DataBusOut[];
+    	WHEN b"000000000100000000000000000000" => Data_Line_[] = Lines_Simulator0.DataBusOut[];
+    	WHEN b"000000001000000000000000000000" => Data_Line_[] = Lines_Simulator1.DataBusOut[];
+        WHEN b"000000010000000000000000000000" => Data_Line_[] = Bunch_Crossing_12_5_T0.DataBusOut[];
+        WHEN b"000010000000000000000000000000" => Data_Line_[] = Scope.DataBusOut[];
+        WHEN b"001000000000000000000000000000" => Data_Line_[] = Time_Reg_L.q[];
+        WHEN b"010000000000000000000000000000" => Data_Line_[] = Time_Reg_H.q[];
+        WHEN b"100000000000000000000000000000" => Data_Line_[] = FOR_H_RAM_SE_Ctrl_Reg.q[];
+        WHEN OTHERS                           => Data_Line_[] = GND; 
+ 	END CASE;
+END IF;
+
+Data_Line_Reg[].d   = Data_Line_[];
+Data_Line_Reg[].clk = CLK100;
+Data_Line[]         = Data_Line_Reg[].q;
+
+Address_Line_[16]   = GND;
+Addr_Line_Reg[].d   = Address_Line_[];
+Addr_Line_Reg[].clk = CLK100;
+Address_Line[]      = Addr_Line_Reg[].q;
+
+
+--******************************* SILICON ID ***********************************
+    ID.(Clock , DataBus_In[15..0], DataBusStrobe) =
+       (CLK100,   Data_Line[]    , Data_Strobe);
+    ID.Reset			= GND;
+    ID.DirectIn			= Address_Line[17];
+    ID.AddrBus_In[4..0]	= Address_Line[4..0];
+    ID.Select			= Dev_Sel_[3].q;
+
+    ID.Wire_Data_in     = Wire_Data ; -- iieo?aiiua aaiiua
+
+    Wire_Data           = OPNDRN(.in = !ID.Wire_Data_out); -- aaiiua aey ia?aaa?e
+
+--********************************* POSS ***************************************
+	POSS_IFace.clock 			 = CLK100;
+	POSS_IFace.DataBusStrobe	 = Data_Strobe ;
+	POSS_IFace.AddrBus_In[15..0] = Address_Line[15..0];
+	
+	POSS_IFace.AccessGranted	 = Bus_Arbiter.BAGD[1] ;
+-- Project Bus Port, Slave
+	POSS_IFace.DirectIn	  		 = Address_Line[17] ;
+	POSS_IFace.Select			 = Dev_Sel_[5].q ;
+		
+--	Special Port
+	POSS_IFace.Dummy_In	         = POSS_Dummy_In; -- Input from any unused pin
+
+
+
+-- ************************* Тестовая память *******************************
+    RAMData.(address[7..0]     , clock  , data[15..0]  , wren) =
+            (Address_Line[7..0], CLK100 , Data_Line[]  , Data_Strobe and Dev_Sel_[0].q and Address_Line[17]); 
+
+
+--***********************************************  TEST *************************************************
+------ virtual nodes --------------
+    Address_Line_Virtual_Pin[15..0]	= Address_Line[15..0];
+    Data_Line_Virtual_Pin[]			=	Data_Line[];
+    Address_Valid_VP				=	Address_Valid;
+    Target_Ready_VP					=	Target_Ready;
+    Data_Bus_Strobe_VP				=	Data_Strobe;
+    
+    CLK12_5_DS_VP	           = BC_Sample_Enable0;
+    CLK12_5_FLS_VP	           = BC_Fast_Link_Start;
+
+
+END;  -- Конец описания проекта
+

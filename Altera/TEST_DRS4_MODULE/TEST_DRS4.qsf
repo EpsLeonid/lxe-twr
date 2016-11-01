@@ -1,0 +1,254 @@
+# -------------------------------------------------------------------------- #
+#
+# Copyright (C) 1991-2010 Altera Corporation
+# Your use of Altera Corporation's design tools, logic functions 
+# and other software and tools, and its AMPP partner logic 
+# functions, and any output files from any of the foregoing 
+# (including device programming or simulation files), and any 
+# associated documentation or information are expressly subject 
+# to the terms and conditions of the Altera Program License 
+# Subscription Agreement, Altera MegaCore Function License 
+# Agreement, or other applicable license agreement, including, 
+# without limitation, that your use is for the sole purpose of 
+# programming logic devices manufactured by Altera and sold by 
+# Altera or its authorized distributors.  Please refer to the 
+# applicable agreement for further details.
+#
+# -------------------------------------------------------------------------- #
+#
+# Quartus II
+# Version 9.1 Build 350 03/24/2010 Service Pack 2 SJ Full Version
+# Date created = 16:16:32  December 28, 2015
+#
+# -------------------------------------------------------------------------- #
+#
+# Notes:
+#
+# 1) The default values for assignments are stored in the file:
+#		TEST_DRS4_assignment_defaults.qdf
+#    If this file doesn't exist, see file:
+#		assignment_defaults.qdf
+#
+# 2) Altera recommends that you do not modify this file. This
+#    file is updated automatically by the Quartus II software
+#    and any changes you make may be lost or overwritten.
+#
+# -------------------------------------------------------------------------- #
+
+
+set_global_assignment -name FAMILY "Cyclone III"
+set_global_assignment -name DEVICE EP3C10E144C7
+set_global_assignment -name TOP_LEVEL_ENTITY TEST_DRS4
+set_global_assignment -name ORIGINAL_QUARTUS_VERSION "9.1 SP2"
+set_global_assignment -name PROJECT_CREATION_TIME_DATE "16:16:32  DECEMBER 28, 2015"
+set_global_assignment -name LAST_QUARTUS_VERSION "9.1 SP2"
+set_global_assignment -name USE_GENERATED_PHYSICAL_CONSTRAINTS OFF -section_id eda_blast_fpga
+set_global_assignment -name CYCLONEII_OPTIMIZATION_TECHNIQUE SPEED
+set_global_assignment -name DEVICE_FILTER_PACKAGE TQFP
+set_global_assignment -name DEVICE_FILTER_PIN_COUNT 144
+set_global_assignment -name DEVICE_FILTER_SPEED_GRADE 7
+set_global_assignment -name MIN_CORE_JUNCTION_TEMP 0
+set_global_assignment -name MAX_CORE_JUNCTION_TEMP 85
+set_global_assignment -name NOMINAL_CORE_SUPPLY_VOLTAGE 1.2V
+set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
+set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
+set_global_assignment -name LL_ROOT_REGION ON -section_id "Root Region"
+set_global_assignment -name LL_MEMBER_STATE LOCKED -section_id "Root Region"
+set_instance_assignment -name VIRTUAL_PIN ON -to t_couTransmit
+set_instance_assignment -name VIRTUAL_PIN ON -to t_DataField
+set_instance_assignment -name VIRTUAL_PIN ON -to t_EndTrans
+set_instance_assignment -name VIRTUAL_PIN ON -to t_FrameCheck
+set_instance_assignment -name VIRTUAL_PIN ON -to t_Lenght
+set_instance_assignment -name VIRTUAL_PIN ON -to t_TXDout
+set_instance_assignment -name VIRTUAL_PIN ON -to t_TXena
+set_instance_assignment -name VIRTUAL_PIN ON -to Fp
+set_instance_assignment -name VIRTUAL_PIN ON -to St_tx_test
+set_instance_assignment -name VIRTUAL_PIN ON -to calibr
+set_instance_assignment -name VIRTUAL_PIN ON -to data_DACA
+set_instance_assignment -name VIRTUAL_PIN ON -to data_DACB
+set_instance_assignment -name VIRTUAL_PIN ON -to data_DACC
+set_instance_assignment -name VIRTUAL_PIN ON -to data_DACD
+set_instance_assignment -name VIRTUAL_PIN ON -to data_DACE
+set_instance_assignment -name VIRTUAL_PIN ON -to data_DACF
+set_instance_assignment -name VIRTUAL_PIN ON -to data_DACG
+set_instance_assignment -name VIRTUAL_PIN ON -to data_DACH
+set_instance_assignment -name VIRTUAL_PIN ON -to dev_number
+set_instance_assignment -name VIRTUAL_PIN ON -to kop
+set_instance_assignment -name VIRTUAL_PIN ON -to number_n
+set_instance_assignment -name VIRTUAL_PIN ON -to number_p
+set_instance_assignment -name VIRTUAL_PIN ON -to outdata_adc_slow
+set_instance_assignment -name VIRTUAL_PIN ON -to pachka
+set_instance_assignment -name VIRTUAL_PIN ON -to stat_cor
+set_instance_assignment -name VIRTUAL_PIN ON -to zap_delay
+set_instance_assignment -name VIRTUAL_PIN ON -to COR_DATA
+set_instance_assignment -name VIRTUAL_PIN ON -to COR_DATB
+set_instance_assignment -name VIRTUAL_PIN ON -to COR_DATC
+set_instance_assignment -name VIRTUAL_PIN ON -to COR_DATD
+set_instance_assignment -name VIRTUAL_PIN ON -to COR_DATE
+set_instance_assignment -name VIRTUAL_PIN ON -to COR_DATF
+set_instance_assignment -name VIRTUAL_PIN ON -to COR_DATG
+set_instance_assignment -name VIRTUAL_PIN ON -to COR_DATH
+set_instance_assignment -name VIRTUAL_PIN ON -to Daddr
+set_instance_assignment -name VIRTUAL_PIN ON -to Raddr
+set_instance_assignment -name VIRTUAL_PIN ON -to Rdata
+set_instance_assignment -name VIRTUAL_PIN ON -to Rdestination
+set_instance_assignment -name VIRTUAL_PIN ON -to Rok
+set_instance_assignment -name VIRTUAL_PIN ON -to rg_DACA
+set_instance_assignment -name VIRTUAL_PIN ON -to rg_DACB
+set_instance_assignment -name VIRTUAL_PIN ON -to rg_DACC
+set_instance_assignment -name VIRTUAL_PIN ON -to rg_DACD
+set_instance_assignment -name VIRTUAL_PIN ON -to rg_DACE
+set_instance_assignment -name VIRTUAL_PIN ON -to rg_DACF
+set_instance_assignment -name VIRTUAL_PIN ON -to rg_DACG
+set_instance_assignment -name VIRTUAL_PIN ON -to rg_DACH
+set_instance_assignment -name VIRTUAL_PIN ON -to Rcalibr
+set_instance_assignment -name VIRTUAL_PIN ON -to Rdev_number
+set_instance_assignment -name VIRTUAL_PIN ON -to Rkop
+set_instance_assignment -name VIRTUAL_PIN ON -to Rnumber_n
+set_instance_assignment -name VIRTUAL_PIN ON -to Rnumber_p
+set_instance_assignment -name VIRTUAL_PIN ON -to Rpachka
+set_instance_assignment -name VIRTUAL_PIN ON -to Rstat_cor
+set_instance_assignment -name VIRTUAL_PIN ON -to Rzap_delay
+set_instance_assignment -name VIRTUAL_PIN ON -to Addr_bus
+set_instance_assignment -name VIRTUAL_PIN ON -to cou_load
+set_instance_assignment -name VIRTUAL_PIN ON -to couTransmit
+set_instance_assignment -name VIRTUAL_PIN ON -to Data_bus
+set_instance_assignment -name VIRTUAL_PIN ON -to DataField
+set_instance_assignment -name VIRTUAL_PIN ON -to DestinationAddr
+set_instance_assignment -name VIRTUAL_PIN ON -to end_load_c_d
+set_instance_assignment -name VIRTUAL_PIN ON -to load_c_d
+set_instance_assignment -name VIRTUAL_PIN ON -to PacketLenth
+set_instance_assignment -name VIRTUAL_PIN ON -to SourceAddr
+set_instance_assignment -name VIRTUAL_PIN ON -to cou_rd_data
+set_instance_assignment -name VIRTUAL_PIN ON -to data_in_eth
+set_instance_assignment -name VIRTUAL_PIN ON -to data_ou_eth
+set_instance_assignment -name VIRTUAL_PIN ON -to waddr_eth
+set_instance_assignment -name VIRTUAL_PIN ON -to wren
+set_instance_assignment -name VIRTUAL_PIN ON -to en_cou_rd
+set_instance_assignment -name VIRTUAL_PIN ON -to load_data
+set_instance_assignment -name GLOBAL_SIGNAL "GLOBAL CLOCK" -to CLK25
+set_instance_assignment -name GLOBAL_SIGNAL "GLOBAL CLOCK" -to RXCLK
+set_instance_assignment -name GLOBAL_SIGNAL "GLOBAL CLOCK" -to TXclk
+set_global_assignment -name VERILOG_FILE lmk04906.v
+set_global_assignment -name AHDL_FILE TEST_DRS4.tdf
+set_global_assignment -name AHDL_FILE CRC32NIBBLE.tdf
+set_global_assignment -name AHDL_FILE trans_eth.tdf
+set_global_assignment -name AHDL_FILE eth_tx.tdf
+set_global_assignment -name AHDL_FILE eth_rx.tdf
+set_global_assignment -name AHDL_FILE receiver_eth.tdf
+set_global_assignment -name AHDL_FILE test_tr_eth.tdf
+set_global_assignment -name VECTOR_WAVEFORM_FILE TEST_DRS4.vwf
+set_global_assignment -name QIP_FILE dp_ram_in.qip
+set_global_assignment -name QIP_FILE iobuf.qip
+set_global_assignment -name STRATIX_DEVICE_IO_STANDARD "2.5 V"
+set_global_assignment -name MISC_FILE "D:/Share/ADC_6GSPS/TEST_DRS4_MODULE/TEST_DRS4.dpf"
+set_instance_assignment -name IO_STANDARD "2.5 V" -to clk_bus
+set_instance_assignment -name VIRTUAL_PIN ON -to cou_l_sd
+set_instance_assignment -name VIRTUAL_PIN ON -to en_read_dm
+set_instance_assignment -name VIRTUAL_PIN ON -to EndTrans
+set_instance_assignment -name VIRTUAL_PIN ON -to I_CLK
+set_instance_assignment -name VIRTUAL_PIN ON -to load_cd
+set_instance_assignment -name VIRTUAL_PIN ON -to load_md
+set_instance_assignment -name VIRTUAL_PIN ON -to load_sd
+set_instance_assignment -name VIRTUAL_PIN ON -to p_n
+set_instance_assignment -name VIRTUAL_PIN ON -to Rcheck
+set_instance_assignment -name VIRTUAL_PIN ON -to read_m
+set_instance_assignment -name VIRTUAL_PIN ON -to read_md
+set_instance_assignment -name VIRTUAL_PIN ON -to CheckDes
+set_instance_assignment -name VIRTUAL_PIN ON -to start_reply
+set_instance_assignment -name VIRTUAL_PIN ON -to start_rmd
+set_location_assignment PIN_65 -to TXEN
+set_location_assignment PIN_64 -to TXD[0]
+set_location_assignment PIN_60 -to TXD[1]
+set_location_assignment PIN_59 -to TXD[2]
+set_location_assignment PIN_58 -to TXD[3]
+set_location_assignment PIN_24 -to TXclk
+set_location_assignment PIN_73 -to test_signal[0]
+set_location_assignment PIN_74 -to test_signal[1]
+set_location_assignment PIN_28 -to test_signal[27]
+set_location_assignment PIN_30 -to test_signal[26]
+set_location_assignment PIN_31 -to test_signal[25]
+set_location_assignment PIN_32 -to test_signal[24]
+set_location_assignment PIN_33 -to test_signal[23]
+set_location_assignment PIN_34 -to test_signal[22]
+set_location_assignment PIN_38 -to test_signal[21]
+set_location_assignment PIN_39 -to test_signal[20]
+set_location_assignment PIN_42 -to test_signal[19]
+set_location_assignment PIN_43 -to test_signal[18]
+set_location_assignment PIN_44 -to test_signal[17]
+set_location_assignment PIN_46 -to test_signal[16]
+set_location_assignment PIN_49 -to test_signal[15]
+set_location_assignment PIN_50 -to test_signal[14]
+set_location_assignment PIN_51 -to test_signal[13]
+set_location_assignment PIN_52 -to test_signal[12]
+set_location_assignment PIN_87 -to test_signal[11]
+set_location_assignment PIN_53 -to ETH_R
+set_location_assignment PIN_86 -to test_signal[10]
+set_location_assignment PIN_85 -to test_signal[9]
+set_location_assignment PIN_84 -to test_signal[8]
+set_location_assignment PIN_83 -to test_signal[7]
+set_location_assignment PIN_80 -to test_signal[6]
+set_location_assignment PIN_79 -to test_signal[5]
+set_location_assignment PIN_77 -to test_signal[4]
+set_location_assignment PIN_76 -to test_signal[3]
+set_location_assignment PIN_75 -to test_signal[2]
+set_location_assignment PIN_104 -to sync_s
+set_location_assignment PIN_99 -to SCLK_S
+set_location_assignment PIN_103 -to S/H
+set_location_assignment PIN_67 -to RXER
+set_location_assignment PIN_25 -to RXCLK
+set_location_assignment PIN_106 -to n_b[0]
+set_location_assignment PIN_110 -to n_b[1]
+set_location_assignment PIN_105 -to dir
+set_location_assignment PIN_98 -to DATA_S
+set_location_assignment PIN_100 -to CS_S
+set_location_assignment PIN_144 -to Data_drs[7]
+set_location_assignment PIN_143 -to Data_drs[6]
+set_location_assignment PIN_142 -to Data_drs[5]
+set_location_assignment PIN_141 -to Data_drs[4]
+set_location_assignment PIN_138 -to Data_drs[3]
+set_location_assignment PIN_137 -to Data_drs[2]
+set_location_assignment PIN_136 -to Data_drs[1]
+set_location_assignment PIN_135 -to Data_drs[0]
+set_location_assignment PIN_54 -to CRS
+set_location_assignment PIN_55 -to COL
+set_location_assignment PIN_127 -to clk_bus
+set_location_assignment PIN_23 -to CLK25
+set_location_assignment PIN_133 -to Addr_drs[9]
+set_location_assignment PIN_132 -to Addr_drs[8]
+set_location_assignment PIN_129 -to Addr_drs[7]
+set_location_assignment PIN_128 -to Addr_drs[6]
+set_location_assignment PIN_121 -to Addr_drs[5]
+set_location_assignment PIN_120 -to Addr_drs[4]
+set_location_assignment PIN_119 -to Addr_drs[3]
+set_location_assignment PIN_115 -to Addr_drs[2]
+set_location_assignment PIN_114 -to Addr_drs[1]
+set_location_assignment PIN_111 -to Addr_drs[0]
+set_location_assignment PIN_68 -to RXDV
+set_location_assignment PIN_69 -to RXD[0]
+set_location_assignment PIN_70 -to RXD[1]
+set_location_assignment PIN_71 -to RXD[2]
+set_location_assignment PIN_72 -to RXD[3]
+set_global_assignment -name AHDL_FILE trans_eth_new.tdf
+set_global_assignment -name MISC_FILE "D:/Share/ADC_6GSPS/add_board/TEST_DRS4_MODULE/TEST_DRS4.dpf"
+set_location_assignment PIN_66 -to TXER
+set_global_assignment -name ADV_NETLIST_OPT_SYNTH_WYSIWYG_REMAP ON
+set_global_assignment -name MUX_RESTRUCTURE OFF
+set_global_assignment -name PHYSICAL_SYNTHESIS_COMBO_LOGIC ON
+set_global_assignment -name PHYSICAL_SYNTHESIS_REGISTER_DUPLICATION ON
+set_global_assignment -name PHYSICAL_SYNTHESIS_REGISTER_RETIMING ON
+set_global_assignment -name ROUTER_TIMING_OPTIMIZATION_LEVEL MAXIMUM
+set_global_assignment -name AUTO_PACKED_REGISTERS_STRATIXII NORMAL
+set_global_assignment -name AUTO_PACKED_REGISTERS_MAXII NORMAL
+set_global_assignment -name AUTO_PACKED_REGISTERS_CYCLONE NORMAL
+set_global_assignment -name AUTO_PACKED_REGISTERS NORMAL
+set_global_assignment -name AUTO_PACKED_REGISTERS_STRATIX NORMAL
+set_global_assignment -name TIMEQUEST_MULTICORNER_ANALYSIS ON
+set_global_assignment -name TIMEQUEST_DO_CCPP_REMOVAL ON
+set_global_assignment -name USE_CONFIGURATION_DEVICE ON
+set_global_assignment -name FORCE_CONFIGURATION_VCCIO ON
+set_location_assignment PIN_124 -to n_b[2]
+set_global_assignment -name VECTOR_WAVEFORM_FILE my_wave.vwf
+set_global_assignment -name INCREMENTAL_VECTOR_INPUT_SOURCE my_wave.vwf
+set_global_assignment -name QIP_FILE pll_test.qip
+set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
