@@ -1,0 +1,327 @@
+Protel Synchronization report
+=========================================================================
+Date : 15-Jul-2009
+Time : 12:35:22
+
+Reference document: ADIS.Sch
+Target document:    ADIS.Pcb
+=========================================================================
+
+ERRORS: 75 macros can not be executed:
+-------------------------------------------------------------------------
+Macro 1: New Component
+Add new component C_clk1
+Error: Footprint CHIP1206 not found in library
+
+Macro 2: New Component
+Add new component C_clk2
+Error: Footprint CHIP1206 not found in library
+
+Macro 3: New Component
+Add new component C_clk3
+Error: Footprint CHIP0805 not found in library
+
+Macro 4: New Component
+Add new component C_clk4
+Error: Footprint CHIP0805 not found in library
+
+Macro 5: New Component
+Add new component C_clk5
+Error: Footprint CHIP0805 not found in library
+
+Macro 6: New Component
+Add new component RADC1
+Error: Footprint CHIP0805 not found in library
+
+Macro 7: New Component
+Add new component RADC2
+Error: Footprint CHIP0805 not found in library
+
+Macro 8: New Component
+Add new component RADC3
+Error: Footprint CHIP0805 not found in library
+
+Macro 9: New Component
+Add new component RADC4
+Error: Footprint CHIP0805 not found in library
+
+Macro 10: New Component
+Add new component RADC5
+Error: Footprint CHIP0805 not found in library
+
+Macro 11: New Component
+Add new component RADC6
+Error: Footprint CHIP0805 not found in library
+
+Macro 12: New Component
+Add new component RADC7
+Error: Footprint CHIP0805 not found in library
+
+Macro 13: New Component
+Add new component RADC8
+Error: Footprint CHIP0805 not found in library
+
+Macro 14: New Component
+Add new component RADC9
+Error: Footprint CHIP0805 not found in library
+
+Macro 15: New Component
+Add new component RADC10
+Error: Footprint CHIP0805 not found in library
+
+Macro 16: New Component
+Add new component RR6
+Error: Footprint CHIP0805 not found in library
+
+Macro 17: New Component
+Add new component RR7
+Error: Footprint CHIP0805 not found in library
+
+Macro 18: New Component
+Add new component R_Clk
+Error: Footprint CHIP0805 not found in library
+
+Macro 19: New Component
+Add new component U_Clk1
+Error: Footprint TO-252 not found in library
+
+Macro 20: New Node
+Add node RR6-1 to net GND
+Error: Component not found
+
+Macro 21: New Node
+Add node C_clk5-1 to net GND
+Error: Component not found
+
+Macro 22: New Node
+Add node R_Clk-1 to net GND
+Error: Component not found
+
+Macro 23: New Node
+Add node C_clk4-1 to net GND
+Error: Component not found
+
+Macro 24: New Node
+Add node C_clk3-1 to net GND
+Error: Component not found
+
+Macro 25: New Node
+Add node C_clk2-1 to net GND
+Error: Component not found
+
+Macro 26: New Node
+Add node U_Clk1-1 to net GND
+Error: Component not found
+
+Macro 27: New Node
+Add node C_clk1-1 to net GND
+Error: Component not found
+
+Macro 28: New Node
+Add node RADC9-2 to net GND
+Error: Component not found
+
+Macro 29: New Node
+Add node RADC1-2 to net GND
+Error: Component not found
+
+Macro 30: New Node
+Add node RADC2-2 to net GND
+Error: Component not found
+
+Macro 31: New Node
+Add node RADC3-2 to net GND
+Error: Component not found
+
+Macro 32: New Node
+Add node RADC4-2 to net GND
+Error: Component not found
+
+Macro 33: New Node
+Add node RADC5-2 to net GND
+Error: Component not found
+
+Macro 34: New Node
+Add node RADC6-2 to net GND
+Error: Component not found
+
+Macro 35: New Node
+Add node RADC7-2 to net GND
+Error: Component not found
+
+Macro 36: New Node
+Add node RADC8-2 to net GND
+Error: Component not found
+
+Macro 37: New Node
+Add node RADC10-2 to net GND
+Error: Component not found
+
+Macro 38: New Node
+Add node RR7-2 to net SW_REF
+Error: Component not found
+
+Macro 39: New Node
+Add node C_clk1-2 to net +6V
+Error: Component not found
+
+Macro 40: New Node
+Add node U_Clk1-3 to net +6V
+Error: Component not found
+
+Macro 41: New Node
+Add node RADC6-1 to net ADC_CLK6
+Error: Component not found
+
+Macro 42: New Node
+Add node RADC5-1 to net ADC_CLK5
+Error: Component not found
+
+Macro 43: New Node
+Add node RADC4-1 to net ADC_CLK4
+Error: Component not found
+
+Macro 44: New Node
+Add node RADC1-1 to net ADC_CLK1
+Error: Component not found
+
+Macro 45: New Node
+Add node RADC2-1 to net ADC_CLK2
+Error: Component not found
+
+Macro 46: New Node
+Add node RADC3-1 to net ADC_CLK3
+Error: Component not found
+
+Macro 47: New Node
+Add node RADC7-1 to net ADC_CLK7
+Error: Component not found
+
+Macro 48: New Node
+Add node RADC8-1 to net ADC_CLK8
+Error: Component not found
+
+Macro 49: New Node
+Add node R_Clk-2 to net FLCLK
+Error: Component not found
+
+Macro 50: New Node
+Add node RADC10-1 to net ADC_CLK10
+Error: Component not found
+
+Macro 51: New Node
+Add node RADC9-1 to net ADC_CLK9
+Error: Component not found
+
+Macro 52: New Node
+Add node U_Clk1-4 to net 3.3_CLK
+Error: Component not found
+
+Macro 53: New Node
+Add node C_clk4-2 to net 3.3_CLK
+Error: Component not found
+
+Macro 54: New Node
+Add node C_clk5-2 to net 3.3_CLK
+Error: Component not found
+
+Macro 55: New Node
+Add node C_clk3-2 to net 3.3_CLK
+Error: Component not found
+
+Macro 56: New Node
+Add node C_clk2-2 to net 3.3_CLK
+Error: Component not found
+
+Macro 57: New Node
+Add node U_Clk1-2 to net 3.3_CLK
+Error: Component not found
+
+Macro 58: New Node
+Add node RR7-1 to net NetU1_6
+Error: Component not found
+
+Macro 59: New Node
+Add node RR6-2 to net NetU1_6
+Error: Component not found
+
+Macro 60: New Node
+Add node UE1-NC to net 12
+Error: Node not found
+
+Macro 61: New Node
+Add node UE2-NC to net 12
+Error: Node not found
+
+Macro 62: New Node
+Add node UE3-NC to net 12
+Error: Node not found
+
+Macro 63: New Node
+Add node UE4-NC to net 12
+Error: Node not found
+
+Macro 64: New Node
+Add node UE5-NC to net 12
+Error: Node not found
+
+Macro 65: New Node
+Add node UE6-NC to net 12
+Error: Node not found
+
+Macro 66: New Node
+Add node UE7-NC to net 12
+Error: Node not found
+
+Macro 67: New Node
+Add node UE8-NC to net 12
+Error: Node not found
+
+Macro 68: New Node
+Add node UE9-NC to net 12
+Error: Node not found
+
+Macro 69: New Node
+Add node UE10-NC to net 12
+Error: Node not found
+
+Macro 70: New Node
+Add node UE11-NC to net 12
+Error: Node not found
+
+Macro 71: New Node
+Add node UE12-NC to net 12
+Error: Node not found
+
+Macro 72: New Node
+Add node UE13-NC to net 12
+Error: Node not found
+
+Macro 73: New Node
+Add node UE14-NC to net 12
+Error: Node not found
+
+Macro 74: New Node
+Add node UE15-NC to net 12
+Error: Node not found
+
+Macro 75: New Node
+Add node UE16-NC to net 12
+Error: Node not found
+
+
+
+3 macros to be executed:
+-------------------------------------------------------------------------
+Macro 1: Redundant Net
+Remove redundant net 12
+
+
+Macro 2: New Net
+Add new net 12
+
+
+Macro 3: Add Component Class
+Add Component Class (ADIS)
+
+

@@ -1,0 +1,13 @@
+Protel Synchronisation warnings report
+=========================================================================
+Date : 14-Jul-2009
+Time : 17:26:08
+
+Reference document: ADIS.Sch
+Target document:    ADIS.Pcb
+=========================================================================
+
+DUPLICATE DESIGNATORS
+=========================================================================
+Designator C_clk3 is used 3 times.
+

@@ -1,0 +1,24 @@
+---------------------------------------------------------------------------
+NCDrill File Report For: New_LXe_twr.PcbDoc   25.03.2014  14:30:07
+---------------------------------------------------------------------------
+
+Layer Pair : Top Layer to Bottom Layer
+ASCII RoundHoles File : New_LXe_twr.TXT
+EIA File   : New_LXe_twr.DRL
+
+Tool         Hole Size           Hole Type     Hole Count Plated       Tool Travel
+---------------------------------------------------------------------------
+T1        24mil (0.6096mm)         Round          88               21.78 Inch (553.22 mm)
+T2        28mil (0.7112mm)         Round          234              50.26 Inch (1276.49 mm)
+T3        32mil (0.8128mm)         Round          6                0.45 Inch (11.43 mm)
+T4        39.4mil (1.00076mm)      Round          3                0.20 Inch (5.08 mm)
+T5        40mil (1.016mm)          Round          88               30.86 Inch (783.96 mm)
+T6        42mil (1.0668mm)         Round          10               0.90 Inch (22.86 mm)
+T7        50mil (1.27mm)           Round          34               18.60 Inch (472.55 mm)
+T8        52mil (1.3208mm)         Round          2                1.84 Inch (46.74 mm)
+T9        60mil (1.524mm)          Round          4                1.33 Inch (33.81 mm)
+T10       118.1mil (2.99974mm)     Round          6                13.43 Inch (341.00 mm)
+---------------------------------------------------------------------------
+Totals                                            475              139.65 Inch (3547.15 mm)
+
+Total Processing Time (hh:mm:ss) : 00:00:02

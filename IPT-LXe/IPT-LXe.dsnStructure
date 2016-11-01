@@ -1,0 +1,9 @@
+Record=SubProject|ProjectPath=U
+Record=SubProject|ProjectPath=U
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=CAMAC|SchDesignator=CAMAC|FileName=CAMAC_v2.SchDoc|SymbolType=Normal|RawFileName=CAMAC_v2.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=Ethernet|SchDesignator=Ethernet|FileName=Ethernet.SchDoc|SymbolType=Normal|RawFileName=Ethernet.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=FPGA|SchDesignator=FPGA|FileName=FPGA.SchDoc|SymbolType=Normal|RawFileName=FPGA.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=In-Out|SchDesignator=In-Out|FileName=In-Out.SchDoc|SymbolType=Normal|RawFileName=In-Out.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=IPT-LXe Top|SchDesignator=IPT-LXe Top|FileName=IPT-LXe Top.SchDoc|SymbolType=Normal|RawFileName=IPT-LXe Top.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=U_Ref&Supply unit|SchDesignator=U_Ref&Supply unit|FileName=Ref&Supply Unit.SchDoc|SymbolType=Normal|RawFileName=Ref&Supply Unit.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=TopLevelDocument|FileName=Main schem.SchDoc

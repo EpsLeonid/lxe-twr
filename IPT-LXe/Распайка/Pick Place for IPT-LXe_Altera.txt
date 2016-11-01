@@ -1,0 +1,2 @@
+Designator	Footprint	MidX	MidY	TB	Rotation	Comment	Feeder	Tool
+UApu1	PQFP-240	6344.291	4136.614	T	270.00	EP3C25Q240C8N  	800	3

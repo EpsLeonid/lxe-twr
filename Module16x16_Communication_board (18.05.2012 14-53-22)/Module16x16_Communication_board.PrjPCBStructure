@@ -1,0 +1,6 @@
+Record=SheetSymbol|SourceDocument=DigitalPart.SchDoc|Designator=Ethernet|SchDesignator=Ethernet|FileName=Ethernet.SchDoc|SymbolType=Normal|RawFileName=Ethernet.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=DigitalPart.SchDoc|Designator=FPGA|SchDesignator=FPGA|FileName=FPGA.SchDoc|SymbolType=Normal|RawFileName=FPGA.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=DigitalPart.SchDoc|Designator=Misc|SchDesignator=Misc|FileName=Misc.SchDoc|SymbolType=Normal|RawFileName=Misc.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=DigitalPart.SchDoc|Designator=Power|SchDesignator=Power|FileName=Power.SchDoc|SymbolType=Normal|RawFileName=Power.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=DigitalPart.SchDoc|Designator=PowerMeasure|SchDesignator=PowerMeasure|FileName=PowerMeasure.SchDoc|SymbolType=Normal|RawFileName=PowerMeasure.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=TopLevelDocument|FileName=DigitalPart.SchDoc

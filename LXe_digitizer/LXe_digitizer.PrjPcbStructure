@@ -1,0 +1,26 @@
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=Digit_1|SchDesignator=Digit_1|FileName=Digit.SchDoc|SymbolType=Normal|RawFileName=Digit.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=Digit_2|SchDesignator=Digit_2|FileName=Digit.SchDoc|SymbolType=Normal|RawFileName=Digit.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=Digit_3|SchDesignator=Digit_3|FileName=Digit.SchDoc|SymbolType=Normal|RawFileName=Digit.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=Digit_4|SchDesignator=Digit_4|FileName=Digit.SchDoc|SymbolType=Normal|RawFileName=Digit.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=Digit_5|SchDesignator=Digit_5|FileName=Digit.SchDoc|SymbolType=Normal|RawFileName=Digit.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=Digit_6|SchDesignator=Digit_6|FileName=Digit.SchDoc|SymbolType=Normal|RawFileName=Digit.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=Ethernet|SchDesignator=Ethernet|FileName=Ethernet.SchDoc|SymbolType=Normal|RawFileName=Ethernet.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=FPGA|SchDesignator=FPGA|FileName=Processing Unit.SchDoc|SymbolType=Normal|RawFileName=Processing Unit.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=In-Out|SchDesignator=In-Out|FileName=In-Out.SchDoc|SymbolType=Normal|RawFileName=In-Out.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=Timing|SchDesignator=Timing|FileName=Timing Unit.SchDoc|SymbolType=Normal|RawFileName=Timing Unit.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=U_Ref&Supply unit|SchDesignator=U_Ref&Supply unit|FileName=Ref&Supply Unit.SchDoc|SymbolType=Normal|RawFileName=Ref&Supply Unit.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SubProject|ProjectPath=U
+Record=SubProject|ProjectPath=U
+Record=SubProject|ProjectPath=R
+Record=SubProject|ProjectPath=R
+Record=SubProject|ProjectPath=R
+Record=SubProject|ProjectPath=R
+Record=SubProject|ProjectPath=U
+Record=SubProject|ProjectPath=R
+Record=SubProject|ProjectPath=R
+Record=SubProject|ProjectPath=X
+Record=SubProject|ProjectPath=_38
+Record=SubProject|ProjectPath=U
+Record=SubProject|ProjectPath=U
+Record=SubProject|ProjectPath=U
+Record=TopLevelDocument|FileName=Main schem.SchDoc
