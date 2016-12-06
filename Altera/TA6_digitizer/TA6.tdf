@@ -712,7 +712,7 @@ END GENERATE;
 
 Clk37_5 = DFF (.d = !Clk37_5, .clk = Clk75);
 SerClk = Clk25;--Clk37_5;--
-ReadWFhist.(s,r,clk) = (Link_IFace.LinkMessage, (DataCount.cout AND (IF ChannelCount.q[] == b"101")), ADC_Clock);
+ReadWFhist.(s,r,clk) = (Link_IFace.LinkMessage, (DataCount.cout AND ChannelCount.q[0] AND ChannelCount.q[2]), Clk100);
 FOR i IN 0 TO (NUM_CH-1) GENERATE
 	TA6Channel[i].ReadWFhist = ReadWFhist.q;
 END GENERATE;
