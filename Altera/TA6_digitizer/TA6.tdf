@@ -166,6 +166,7 @@ Link_IFace			: UpLink with (RefClock = 100);
 FLink_Data_BUS				: lpm_shiftreg with (lpm_width=12, lpm_direction="unused");
 --FLink_cnt					: lpm_counter with (lpm_width = 8, lpm_direction="up"); -- счетчик времени для синхронизации
 
+ReadWFhist					: SRFF;
 DataCount					: lpm_counter with (lpm_width = 8, lpm_direction="up"); -- счетчик данных из памяти канала для передачи по линку в ИПТ
 ChannelCount				: lpm_counter with (lpm_width = 3, lpm_direction="up"); -- счетчик каналов для передачи по линку в ИПТ
 NWordCount					: lpm_counter with (lpm_width = 1, lpm_direction="up"); -- счетчик номера слова передаваемого по линку в ИПТ
@@ -711,8 +712,12 @@ END GENERATE;
 
 Clk37_5 = DFF (.d = !Clk37_5, .clk = Clk75);
 SerClk = Clk25;--Clk37_5;--
-DataCount.(clock, cnt_en) = (Clk25, Link_IFace.LinkMessage);
-ChannelCount.(clock, cnt_en) = (Clk25, DataCount.cout);
+ReadWFhist.(s,r,clk) = (Link_IFace.LinkMessage, (DataCount.cout AND (IF ChannelCount.q[] == b"101")), ADC_Clock);
+FOR i IN 0 TO (NUM_CH-1) GENERATE
+	TA6Channel[i].ReadWFhist = ReadWFhist.q;
+END GENERATE;
+DataCount.(clock, cnt_en, sclr) = (Clk25, ReadWFhist, !ReadWFhist);
+ChannelCount.(clock, cnt_en, sclr) = (Clk25, DataCount.cout, !ReadWFhist);
 NWordCount.(clock, cnt_en) = (Clk25, VCC);
 FLink_Data_BUS.data[11..10] = (!NWordCount.q[], NWordCount.q[]);
 FLink_Data_BUS.clock = Clk25;

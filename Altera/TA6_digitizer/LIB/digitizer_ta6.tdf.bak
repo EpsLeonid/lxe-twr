@@ -59,6 +59,7 @@ SUBDESIGN Digitizer_TA6
 		DataBusStrobe           : input;  -- строб приема/передачи данных наружу (высокий уровень, используя его как Enable, "защелкиваем" по заднему фронту
 
 		Flink_clock				: input; -- частота передачи слов по линку в ИПТ-LXe
+		ReadWFhist				: input;
 		DAQAddrBus_In[7..0]		: input; -- адрес данных для передачи по быстрому линку, когда пришла команда чтения
 		DAQDataBusOut[9..0]		: output; -- данные для передачи по быстрому линку, когда пришла команда чтения
 
@@ -104,12 +105,12 @@ VARIABLE
 	StopWrite			:	DelayLine with (DelayCode = 200);
 	StopWrite_trig		:	SRFF;
 --	SaveRam				:	node;
-%
+
 	WFhist				:	WFhist_ram;
 	WFhist_ADCCt		:	LPM_COUNTER with (lpm_width = 8, lpm_direction="up" ); -- счетчик 
 	WFhist_RAMAddrBus	:	lpm_shiftreg with (LPM_WIDTH = 8, LPM_DIRECTION="unused");
 	WFhist_RAMAddr[9..0]:	node;
-%
+
 %
 	Test_ADC			:	test_ram;
 	Test_ADCCt			:	LPM_COUNTER with (lpm_width = 8, lpm_direction="up" ); -- счетчик 
@@ -562,28 +563,26 @@ END IF;
 	Hist_ADCCt.clk_en = VCC;
 	Hist_ADCCt.cnt_en = !StopWrite_trig.q;
 
-	Hist_RAMAddrBus.(data[], clock, load, enable) = (Hist_ADCCt.q[], ADC_Clock, VCC, Working1);
+	Hist_RAMAddrBus.(data[], clock, load, enable) = (Hist_ADCCt.q[], ADC_Clock, VCC, EdgeSensing(.D=WriteRAM, .clk=ADC_Clock, .reset=RESET));
 	Hist_RAMAddr[8..0] = Hist_RAMAddrBus.q[8..0] +1 + AddrBus_In[8..0]; -- выставление адреса в 0 для текущего значения счетчика адресса
 
 -----------------------------------------------------------
-%
+
 	WFhist.data[9..0] = ADCdata[9..0];
 	WFhist.(wraddress[], wrclock, wren) = (WFhist_ADCCt.q[7..0], ADC_clock, !Working1);--AND SaveRam));
+	WFhist.(rdaddress[], rdclock, rden) = (WFhist_RAMAddr[7..0], Flink_clock, !ReadWFhist);--AND SaveRam));
+
+--	StopWriteWFhist.(s,r,clk) = (EdgeSensing(.D= Working1, .clk=ADC_clock, .reset=RESET), !WriteRAM, ADC_Clock);
 
 	WFhist_ADCCt.clock = ADC_Clock;
 	WFhist_ADCCt.sclr = (EdgeSensing(.D= Working1, .clk=ADC_clock, .reset=RESET) );
 	WFhist_ADCCt.clk_en = VCC;
-	WFhist_ADCCt.cnt_en = !StopWrite;
-
-	IF  WFhist_ADCCt.q[] == b"11111111" THEN StopWrite = VCC;
-										ELSE StopWrite = GND;
-	END IF;
+	WFhist_ADCCt.cnt_en = !StopWriteWFhist.q;
 
 	WFhist_RAMAddrBus.(data[], clock, load, enable) = (WFhist_ADCCt.q[], ADC_Clock, VCC, Working1);
 	WFhist_RAMAddr[7..0] = WFhist_RAMAddrBus.q[7..0] + 1 + DAQAddrBus_In[7..0]; -- выставление адреса в 0 для текущего значения счетчика адресса
-%
-	DAQDataBusOut[9..0] = GND;--WFhist.q[];
---	WFhist.(rdaddress[], rdclock, rden) = (DAQAddrBus_In[7..0], Flink_clock, Working1);--AND SaveRam));
+
+	DAQDataBusOut[9..0] = WFhist.q[];
 
 -----------------------------------------------------------
 -- Тестовая память для проверки данных --
