@@ -645,7 +645,7 @@ FOR i IN 0 TO (NUM_CH-1) GENERATE
 	TA6Channel[i].DataBusStrobe	    = DataStrobe ;
 	TA6Channel[i].DirectIn			= RW;
 	TA6Channel[i].Select			= DevSel[5+i].q ;
-	TA6Channel[i].Working1			= Link_IFace.LinkMessage;
+	TA6Channel[i].LinkMessage		= Link_IFace.LinkMessage;
 	TA6Channel[i].WriteRAM			= SelCommdList_Trig.q;--SelCommdList_Count.q;
 --END GENERATE;
 --	Digitizer1.ADCdata[] = DDRin.dataout_h[9..0];  -- input of parallel data from ADC
@@ -712,12 +712,8 @@ END GENERATE;
 
 Clk37_5 = DFF (.d = !Clk37_5, .clk = Clk75);
 SerClk = Clk25;--Clk37_5;--
-ReadWFhist.(s,r,clk) = (Link_IFace.LinkMessage, (DataCount.cout AND ChannelCount.q[0] AND ChannelCount.q[2]), Clk100);
-FOR i IN 0 TO (NUM_CH-1) GENERATE
-	TA6Channel[i].ReadWFhist = ReadWFhist.q;
-END GENERATE;
-DataCount.(clock, cnt_en, sclr) = (Clk25, ReadWFhist, !ReadWFhist);
-ChannelCount.(clock, cnt_en, sclr) = (Clk25, DataCount.cout, !ReadWFhist);
+DataCount.(clock, cnt_en, sclr) = (Clk25, Link_IFace.LinkMessage, !Link_IFace.LinkMessage);
+ChannelCount.(clock, cnt_en, sclr) = (Clk25, DataCount.cout, !Link_IFace.LinkMessage);
 NWordCount.(clock, cnt_en) = (Clk25, VCC);
 FLink_Data_BUS.data[11..10] = (!NWordCount.q[], NWordCount.q[]);
 FLink_Data_BUS.clock = Clk25;
@@ -744,10 +740,10 @@ Else
 END IF;
 
 
-FLink_Data_BUS.data[11..0] = (!ADC_In_Data[1][11],ADC_In_Data[1][10..0]);
+--FLink_Data_BUS.data[11..0] = (!ADC_In_Data[1][11],ADC_In_Data[1][10..0]);
 
-SerDataOut[9..0] = FLink_Data_BUS.q[11..2]; --TestLinkCt.q[9..0];
-NWordFLink[] = (GND,VCC);
+SerDataOut[9..0] = FLink_Data_BUS.q[9..0]; --TestLinkCt.q[9..0];
+NWordFLink[] = FLink_Data_BUS.q[11..10];--(GND,VCC);
 
 TestLinkCt.(clock, clk_en)	= (Clk25, VCC); -- Test Counter, can be used to drive LED blinking
 TestLinkCt.cnt_en			= PowerUp0;

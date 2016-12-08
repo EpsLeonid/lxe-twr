@@ -569,17 +569,17 @@ END IF;
 -----------------------------------------------------------
 
 	WFhist.data[9..0] = ADCdata[9..0];
-	WFhist.(wraddress[], wrclock, wren) = (WFhist_ADCCt.q[7..0], ADC_clock, !Working1);--AND SaveRam));
-	WFhist.(rdaddress[], rdclock, rden) = (WFhist_RAMAddr[7..0], Flink_clock, !ReadWFhist);--AND SaveRam));
+	WFhist.(wraddress[], wrclock, wren) = (WFhist_ADCCt.q[7..0], ADC_clock, !ReadWFhist);--AND SaveRam));
+	WFhist.(rdaddress[], rdclock, rden) = (WFhist_RAMAddr[7..0], Flink_clock, ReadWFhist);--AND SaveRam));
 
 --	StopWriteWFhist.(s,r,clk) = (EdgeSensing(.D= Working1, .clk=ADC_clock, .reset=RESET), !WriteRAM, ADC_Clock);
 
 	WFhist_ADCCt.clock = ADC_Clock;
 	WFhist_ADCCt.sclr = (EdgeSensing(.D= Working1, .clk=ADC_clock, .reset=RESET) );
 	WFhist_ADCCt.clk_en = VCC;
-	WFhist_ADCCt.cnt_en = !StopWriteWFhist.q;
+	WFhist_ADCCt.cnt_en = !ReadWFhist;
 
-	WFhist_RAMAddrBus.(data[], clock, load, enable) = (WFhist_ADCCt.q[], ADC_Clock, VCC, Working1);
+	WFhist_RAMAddrBus.(data[], clock, load, enable) = (WFhist_ADCCt.q[], ADC_Clock, VCC, ReadWFhist);
 	WFhist_RAMAddr[7..0] = WFhist_RAMAddrBus.q[7..0] + 1 + DAQAddrBus_In[7..0]; -- выставление адреса в 0 для текущего значения счетчика адресса
 
 	DAQDataBusOut[9..0] = WFhist.q[];
