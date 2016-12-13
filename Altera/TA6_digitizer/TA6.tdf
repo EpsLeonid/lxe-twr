@@ -718,7 +718,7 @@ NWordCount.(clock, cnt_en) = (Clk25, VCC);
 FLink_Data_BUS.data[11..10] = (!NWordCount.q[], NWordCount.q[]);
 FLink_Data_BUS.clock = Clk25;
 
-IF Link_IFace.LinkMessage == GND Then
+IF (TestLinkCt.q[18] == VCC) THEN --Link_IFace.LinkMessage == GND Then
 	FLink_Data_BUS.data[5..0]	= TA6Channel[5..0].EventFound;	-- Trigger efficiency check
 	FLink_Data_BUS.data[9..6]	= (VCC,GND,VCC,GND);--TA6Channel[4..0].EventFound;
 Else 

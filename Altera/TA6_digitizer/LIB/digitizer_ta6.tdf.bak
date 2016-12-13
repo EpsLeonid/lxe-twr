@@ -39,7 +39,7 @@ SUBDESIGN Digitizer_TA6
 			DataBus_In[15..0]		: input; -- отправляемые с Внутренней Шины в Линк данные
 			DataBusOut[15..0]		: output; -- выдаваемые на Внутреннюю Шину из памяти данные
 			Working					: output;
-			Working1				: input;
+			LinkMessage				: input;
 			WriteRAM				: input;
 --			Event					: input; -- такт конвеера
 --			LinkMsg					: input; -- сигнал о работе линка (общий стоп)
@@ -212,9 +212,10 @@ VARIABLE
 	TimeOutSch			:	node;
 	ENDCycle			:	node; -- флаг окончание работы цикла
 	
-	Working1_reset		:	DFFE;
+	LinkMessage_reset	:	DFFE;
 	Reset_def			:	node;
 
+	TestLinkCt			:	lpm_counter with (lpm_width = 20, lpm_direction="up"); -- oanoiaue n?ao?ee aey i?iaa?ee ia?aaa?e aaiiuo
 	Test_Reg[9..0]		:	lpm_shiftreg with (LPM_WIDTH = 16, LPM_DIRECTION="unused"); -- тестовые регистры для внешнего чтения 
 							-- #4896-4905 (внутренний адрес 800 - 809)
 	Read_test[9..0]		:	node;
@@ -508,9 +509,9 @@ END IF;
 
 --******** Main Counter of Digitization: *************************************
 --   counts #_of_Clock, defines all control signals' states
-DigitCt.(clock,cnt_en,clk_en,sclr) = (ADC_Clock, Working1, VCC, InitSet OR AllReset.q); -- sets to #00 in the Beg-g_of_Cycle
+DigitCt.(clock,cnt_en,clk_en,sclr) = (ADC_Clock, LinkMessage, VCC, InitSet OR AllReset.q); -- sets to #00 in the Beg-g_of_Cycle
 
-IF ((DigitCt.q[] == TimeRead) %AND (Working1 == GND )%)   -- 
+IF ((DigitCt.q[] == TimeRead) %AND (LinkMessage == GND )%)   -- 
 	Then  DigitEnd   = VCC;     --
 End IF;
 
@@ -559,7 +560,7 @@ END IF;
 	Hist_ADC.wren_b = DataBusStrobe and  DirectIn AND Select AND Ram_Sel;
 
 	Hist_ADCCt.clock = ADC_Clock;
-	Hist_ADCCt.sclr = GND;--(EdgeSensing(.D= Working1, .clk=ADC_clock, .reset=RESET) & WriteRAM);
+	Hist_ADCCt.sclr = GND;--(EdgeSensing(.D= LinkMessage, .clk=ADC_clock, .reset=RESET) & WriteRAM);
 	Hist_ADCCt.clk_en = VCC;
 	Hist_ADCCt.cnt_en = !StopWrite_trig.q;
 
@@ -568,18 +569,18 @@ END IF;
 
 -----------------------------------------------------------
 
-	WFhist.data[9..0] = ADCdata[9..0];
-	WFhist.(wraddress[], wrclock, wren) = (WFhist_ADCCt.q[7..0], ADC_clock, !ReadWFhist);--AND SaveRam));
-	WFhist.(rdaddress[], rdclock, rden) = (WFhist_RAMAddr[7..0], Flink_clock, ReadWFhist);--AND SaveRam));
+	WFhist.data[9..0] = TestLinkCt.q[9..0];--ADCdata[9..0];
+	WFhist.(wraddress[], wrclock, wren) = (WFhist_ADCCt.q[7..0], ADC_clock, !LinkMessage);--AND SaveRam));
+	WFhist.(rdaddress[], rdclock, rden) = (WFhist_RAMAddr[7..0], Flink_clock, LinkMessage);--AND SaveRam));
 
---	StopWriteWFhist.(s,r,clk) = (EdgeSensing(.D= Working1, .clk=ADC_clock, .reset=RESET), !WriteRAM, ADC_Clock);
+--	StopWriteWFhist.(s,r,clk) = (EdgeSensing(.D= LinkMessage, .clk=ADC_clock, .reset=RESET), !WriteRAM, ADC_Clock);
 
 	WFhist_ADCCt.clock = ADC_Clock;
-	WFhist_ADCCt.sclr = (EdgeSensing(.D= Working1, .clk=ADC_clock, .reset=RESET) );
+	WFhist_ADCCt.sclr = (EdgeSensing(.D= LinkMessage, .clk=ADC_clock, .reset=RESET) );
 	WFhist_ADCCt.clk_en = VCC;
-	WFhist_ADCCt.cnt_en = !ReadWFhist;
+	WFhist_ADCCt.cnt_en = !LinkMessage;
 
-	WFhist_RAMAddrBus.(data[], clock, load, enable) = (WFhist_ADCCt.q[], ADC_Clock, VCC, ReadWFhist);
+	WFhist_RAMAddrBus.(data[], clock, load, enable) = (WFhist_ADCCt.q[], ADC_Clock, VCC, LinkMessage);
 	WFhist_RAMAddr[7..0] = WFhist_RAMAddrBus.q[7..0] + 1 + DAQAddrBus_In[7..0]; -- выставление адреса в 0 для текущего значения счетчика адресса
 
 	DAQDataBusOut[9..0] = WFhist.q[];
@@ -633,9 +634,14 @@ END IF;
 
 --=========================================================================================
 --only for test
+TestLinkCt.(clock, clk_en)	= (Clk25, VCC); -- Test Counter, can be used to drive LED blinking
+TestLinkCt.cnt_en			= PowerUp0;
+TestLinkCt.aclr				= !PowerUp0;    -- even if NO clock - Reset does occur
+
+
 	test1 = Thr_Trig.q;
 	test2 = Zero_Trig.q;
-	test3 = AllReset.q;--Working1;
+	test3 = AllReset.q;--LinkMessage;
 --	IF RegSum[0].q[] > 100 THEN test1 = VCC; ELSE test1 = GND; END IF;
 --	IF RegSum[0].q[] > 200 THEN test2 = VCC; ELSE test2 = GND; END IF;
 --	IF RegSum[0].q[] > 400 THEN test3 = VCC; ELSE test3 = GND; END IF;
