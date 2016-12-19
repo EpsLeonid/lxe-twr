@@ -768,7 +768,7 @@ PWRDN   = VCC;  -- включить Serializer/Deserializer
 --============================================================================
 --******** 7. TA6/12 data Interface ******************************************************
 
-DeSerClk = Clk37_5;--Clk25;
+DeSerClk = Clk25;--Clk37_5;--
 %
 InData.(rx_in[], rx_inclock) = (DataInLVDS_TA[0], Clk25);
 InData_Reg.(data[], clock, enable, load) = (InData.rx_out[], Clk25, VCC, VCC);

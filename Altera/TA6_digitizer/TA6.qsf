@@ -243,5 +243,6 @@ set_global_assignment -name SDC_FILE TA6.sdc
 set_global_assignment -name AHDL_FILE TA6.tdf
 set_global_assignment -name VECTOR_WAVEFORM_FILE Digit.vwf
 set_global_assignment -name MISC_FILE "E:/Work/CMD-3/Altera/TA6_digitizer/TA6.dpf"
+set_global_assignment -name MISC_FILE "D:/Users/Leon/Work/CMD-3/el_lxe/Electronics/trunk/Altera/TA6_digitizer/TA6.dpf"
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
 set_instance_assignment -name PARTITION_HIERARCHY comma_915926efcac656850ff39e11b5df6911 -to "RAMcommd_TA6:CommandRAM" -section_id "RAMcommd_TA6:CommandRAM"
