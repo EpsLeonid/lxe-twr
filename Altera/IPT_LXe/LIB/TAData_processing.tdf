@@ -21,7 +21,7 @@ SUBDESIGN TAData_processing
 	WFTAdata[9..0]			: output; -- ‘орма сигналов дл€ передачи по Ethernet
 
 	LnkMess					: input; -- приход команды по —-Ћинку
-	EtherMess				: input; -- команда на передачу данных по Ethernet
+	EtherMess				: input; -- запрос 1слова данных от модул€ Ethernet
 	Data_ready				: output; --данные готовы дл€ чтени€ через Ethernet
 
 	DigitInit				: input; -- initiates a Cycle of data processing (Temporary!)

@@ -319,69 +319,74 @@ W_WE = CAMACactive2 AND S1; -- сигнал защелкивания данных в регистры адреса, ста
 --		%AND !DeadTime% )       -- или воще какой-нибудь процесс
 --Then
 CASE F_Reg.q[] IS
-	WHEN F0 => CASE A_Reg.q[] IS   -- чтение из регистров КАМАК-интерфейса
+	WHEN F0 => 
+      CASE A_Reg.q[] IS   -- чтение из регистров КАМАК-интерфейса
 		WHEN 0 => R[] = DescriptorWord1;-- 
 		WHEN 1 => R[] = DescriptorWord2;-- 
 		WHEN 2 => R[] = StatusR_Reg.q[];-- Data: из "read-only" Cтатус. регистра -> CAMAC_bus
 		WHEN 3 => R[] = StatusRW_Reg.q[];-- Data: из "read-write" Cтатус. регистра -> CAMAC_bus
 		WHEN 4 => R[] = Addr_Reg.q[];   -- Data: Reg_Addr -> CAMAC_bus 
 		WHEN 8 => R[] = R_Reg.q[];      --Данные, переданные MainProj -> R_Reg -> CAMAC_bus в предыдущем цикле
-		WHEN 9 => R[] = W_Reg.q[];      --Данные, переданные MainProj <- W_Reg <- CAMAC_bus в предыдущем цикле
-	END CASE;
-	R_OE = CAMACactive2;  -- enable external buffers on CAMAC's "R"-bus
-	IntQ = CAMACactive2;  -- F(1)A(0..15) - command is valid
-	WHEN F1 => CASE A_Reg.q[] IS   -- чт-е из адр.простр-ва User Project
-		WHEN 0 => IntQ = CAMACactive2;-- command is valid
+        WHEN 9 => R[] = W_Reg.q[];      --Данные, переданные MainProj <- W_Reg <- CAMAC_bus в предыдущем цикле
+      END CASE;
+	  R_OE = CAMACactive2;  -- enable external buffers on CAMAC's "R"-bus
+	  IntQ = CAMACactive2;  -- F(1)A(0..15) - command is valid
+	WHEN F1 => 
+	  CASE A_Reg.q[] IS   -- чт-е из адр.простр-ва User Project
+        WHEN 0 => IntQ = CAMACactive2;-- command is valid
 				  CAMACRead = CAMACactive2;-- Request for reading data: MainProj -> R_Reg
 				  R[] = R_Reg.q[];  -- Data:  R_reg -> CAMAC_bus
-		WHEN 1 => IntQ = CAMACactive2;-- command is valid
+        WHEN 1 => IntQ = CAMACactive2;-- command is valid
 				  CAMACRead = CAMACactive2;-- Request for reading data: MainProj -> R_Reg
 				--MemOrReg = CAMACactive2;-- Read from MEMORY 
 				  R[] = R_Reg.q[];  -- Data:  R_reg -> CAMAC_bus
-		WHEN OTHERS => IntQ = GND; -- command INvalid
+        WHEN OTHERS => IntQ = GND; -- command INvalid
 				--MemOrReg   = GND; -- по умолчанию попадаем в пространство регистров проекта пользователя
-	END CASE;
-	R_OE = CAMACactive2;  -- enable external buffers on CAMAC's "R"-bus
-	WHEN F2  => CASE A_Reg.q[] IS   --READ from ADDR_space of MainProj, with auto-incr. of Addr
-		WHEN 0 => IntQ = CAMACactive2;-- command is valid
+      END CASE;
+      R_OE = CAMACactive2;  -- enable external buffers on CAMAC's "R"-bus
+    WHEN F2  => 
+      CASE A_Reg.q[] IS   --READ from ADDR_space of MainProj, with auto-incr. of Addr
+        WHEN 0 => IntQ = CAMACactive2;-- command is valid
 				  CAMACRead = CAMACactive2;-- Request for reading data: MainProj -> R_Reg
 				  R[] = R_Reg.q[];  -- Data:  R_reg -> CAMAC_bus
 				  Address_Increment_Request.d = CAMACactive2; 
-		WHEN 1 => IntQ = CAMACactive2;-- command is valid
+        WHEN 1 => IntQ = CAMACactive2;-- command is valid
 				  CAMACRead = CAMACactive2;-- Request for reading data: MainProj -> R_Reg
 				--MemOrReg  =CAMACactive2;-- Read from MEMORY 
 				  R[] = R_Reg.q[];        -- Data:  R_reg -> CAMAC_bus
 				  Address_Increment_Request.d = CAMACactive2;
-		WHEN OTHERS =>  IntQ = GND; -- command INvalid
+        WHEN OTHERS =>  IntQ = GND; -- command INvalid
                       --MemOrReg   = GND;   -- по умолчанию попадаем в пространство регистров проекта пользователя
-	END CASE;                
-	R_OE = CAMACactive2;  -- enable external buffers on CAMAC's "R"-bus
+      END CASE;                
+	  R_OE = CAMACactive2;  -- enable external buffers on CAMAC's "R"-bus
 
-	WHEN F16 => CASE A_Reg.q[] IS   -- запись в регистры КАМАК-интерфейса
-%Attention!%
+	WHEN F16 => 
+      CASE A_Reg.q[] IS   -- запись в регистры КАМАК-интерфейса
+    --Attention!
 		WHEN 3 => StatusRW_we = W_WE;  
 		WHEN 4 => AddrReg_we  = W_WE;   -- write to Addr_Reg
 		WHEN 9 => WReg_we     = W_WE;   -- write to WriteRegister
 		WHEN OTHERS =>  StatusRW_we = GND;  
 						AddrReg_we  = GND;
 						WReg_we     = GND;
-	END CASE;
-	W_OE = CAMACactive2;  -- enable external buffers of CAMAC's "W"-bus
-	IntQ = CAMACactive2;  -- F(16)A(0..15) - command is valid
-	WHEN F17 => CASE A_Reg.q[] IS   -- WRITE to ADDR_space of MainProj
-		WHEN 0 => IntQ      =CAMACactive2;-- command is valid
+      END CASE;
+      W_OE = CAMACactive2;  -- enable external buffers of CAMAC's "W"-bus
+      IntQ = CAMACactive2;  -- F(16)A(0..15) - command is valid
+	WHEN F17 => 
+      CASE A_Reg.q[] IS   -- WRITE to ADDR_space of MainProj
+        WHEN 0 => IntQ      =CAMACactive2;-- command is valid
 				  CAMACWrite=CAMACactive2;-- Request for writing data: W_Reg -> MainProject
 				  WReg_we   = W_WE;       -- LATCH data: CAMAC_bus -> W_Reg
-		WHEN 1 => IntQ      =CAMACactive2;-- command is valid
+        WHEN 1 => IntQ      =CAMACactive2;-- command is valid
 				  CAMACWrite=CAMACactive2;-- Request for writing data: W_Reg -> MainProject
                       --MemOrReg  =CAMACactive2;-- Write to MEMORY 
 				  WReg_we   = W_WE;       -- LATCH data: CAMAC_bus -> W_Reg
-		WHEN OTHERS =>  IntQ = GND; -- command INvalid
+        WHEN OTHERS =>  IntQ = GND; -- command INvalid
                             --MemOrReg = GND; -- по умолчанию попадаем в пространство регистров проекта пользователя
 						WReg_we = GND; 
                             --CAMACWrite = GND;
-	END CASE;
-	W_OE  = CAMACactive2; -- enable external buffers of CAMAC's "W"-bus
+      END CASE;
+	  W_OE  = CAMACactive2; -- enable external buffers of CAMAC's "W"-bus
 	WHEN F18 => CASE A_Reg.q[] IS   --WRITE to ADDR_space of MainProj, with auto-incr. of Addr
 		WHEN 0 => IntQ      =CAMACactive2;-- command is valid
 				  CAMACWrite=CAMACactive2;-- Request for writing data: W_Reg -> MainProject
