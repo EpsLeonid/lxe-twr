@@ -1,30 +1,31 @@
 TITLE "ErrorCounters";
 INCLUDE "lpm_counter.inc";
-INCLUDE "Edge_Sensing.inc" ;
+INCLUDE "EdgeSensing.inc" ;
 
---Constant Width=11;
+PARAMETERS ( Width = 7  );
+--CONSTANT Width=11;
+
 CONSTANT Word_Width = 16;
-PARAMETERS ( Width = 11  );
-CONSTANT AddrWidth = FLOOR (LOG2(Width))+1;
+CONSTANT AddrWidth = FLOOR( LOG2(Width) ) + 1;
 
 Subdesign ErrorCounters
 (
 -- Standard Interface Signaling
 -- »нтерфейс на шину проекта пользовател€
-	Clock                     : input;  -- частота работы модул€ (25..125ћ√ц). Main clock, assumed F_link x 4 = 100MHz
-	DataBusStrobe             : input ;  -- строб приема/передачи данных наружу (высокий уровень, защелкиваем по заднему фронту)
+Clock               : input;  -- частота работы модул€ (25..125ћ√ц). Main clock, assumed F_link x 4 = 100MHz
+DataBusStrobe       : input ;  -- строб приема/передачи данных наружу (высокий уровень, защелкиваем по заднему фронту)
 
-    AddrBusIn[AddrWidth-1..0]   : input ; -- шина адреса дл€ доступа в пространство пам€ти
--- 	Reset                     : input=gnd ; -- Common FPGA signal Reset (Active HIGH)
-    DataBusOut[WORD_WIDTH-1..0] : output; -- 
-	Select                    : input ;
+AddrBusIn[AddrWidth-1..0]   : input ; -- шина адреса дл€ доступа в пространство пам€ти
+--Reset               : input=gnd ; -- Common FPGA signal Reset (Active HIGH)
+DataBusOut[Word_Width-1..0] : output; -- 
+Select              : input ;
 	
 ----------------  Specific Signals
 ErrorInputs[Width-1..0]	: input;
 )
 
 VARIABLE
-    Edge_of_Error_Input[Width-1..0]			: Edge_Sensing;
+    Edge_of_Error_Input[Width-1..0]			: EdgeSensing;
     Reg_of_Error[Width-1..0]				: SRFF	;
     Counter_of_Error[Width-1..0]		 	: lpm_counter with (lpm_width=16);
     Clear_Reg, Clear_Counters, C_R,C_C		: node;

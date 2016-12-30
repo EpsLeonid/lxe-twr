@@ -115,11 +115,11 @@ Sw_LinkClk                   : 41        : output : 2.5 V             :         
 GND                          : 42        : gnd    :                   :         :           :                
 FQuartz                      : 43        : input  : 2.5 V             :         : 2         : Y              
 Sw_Quartz                    : 44        : output : 2.5 V             :         : 2         : Y              
-ExtReset                     : 45        : input  : 2.5 V             :         : 2         : N              
-PLL_ExtOut                   : 46        : output : 2.5 V             :         : 2         : N              
+RESERVED_INPUT_WITH_WEAK_PULLUP : 45        :        :                   :         : 2         :                
+DataIn_TA[1][3]              : 46        : input  : 2.5 V             :         : 2         : N              
 VCCIO2                       : 47        : power  :                   : 2.5V    : 2         :                
 GND                          : 48        : gnd    :                   :         :           :                
-RESERVED_INPUT_WITH_WEAK_PULLUP : 49        :        :                   :         : 2         :                
+NChLock[1]                   : 49        : input  : 2.5 V             :         : 2         : N              
 CAMAC_F[5]                   : 50        : input  : 2.5 V             :         : 2         : Y              
 CAMAC_F[4]                   : 51        : input  : 2.5 V             :         : 2         : Y              
 CAMAC_F[3]                   : 52        : input  : 2.5 V             :         : 2         : Y              
@@ -135,7 +135,7 @@ VCCINT                       : 61        : power  :                   : 1.2V    
 GND                          : 62        : gnd    :                   :         :           :                
 DataIn_TA[1][7]              : 63        : input  : 2.5 V             :         : 3         : N              
 CAMAC_A[4]                   : 64        : input  : 2.5 V             :         : 3         : Y              
-DataIn_TA[1][6]              : 65        : input  : 2.5 V             :         : 3         : N              
+DataIn_TA[1][5]              : 65        : input  : 2.5 V             :         : 3         : N              
 VCCIO3                       : 66        : power  :                   : 2.5V    : 3         :                
 GND                          : 67        : gnd    :                   :         :           :                
 CAMAC_A[3]                   : 68        : input  : 2.5 V             :         : 3         : Y              
@@ -181,10 +181,10 @@ CAMAC_RW[1]                  : 107       : bidir  : 2.5 V             :         
 CAMAC_RW[4]                  : 108       : bidir  : 2.5 V             :         : 4         : Y              
 CAMAC_RW[2]                  : 109       : bidir  : 2.5 V             :         : 4         : Y              
 Cam_Rd_Enable                : 110       : output : 2.5 V             :         : 4         : Y              
-DataInLVDS_TA[1]             : 111       : input  : 2.5 V             :         : 4         : N              
-CLK100_                      : 112       : output : 2.5 V             :         : 4         : N              
-CLK75_                       : 113       : output : 2.5 V             :         : 4         : N              
-NChLock[1]                   : 114       : input  : 2.5 V             :         : 4         : N              
+RESERVED_INPUT_WITH_WEAK_PULLUP : 111       :        :                   :         : 4         :                
+DataIn_TA[1][9]              : 112       : input  : 2.5 V             :         : 4         : N              
+RESERVED_INPUT_WITH_WEAK_PULLUP : 113       :        :                   :         : 4         :                
+RESERVED_INPUT_WITH_WEAK_PULLUP : 114       :        :                   :         : 4         :                
 VCCINT                       : 115       : power  :                   : 1.2V    :           :                
 GND                          : 116       : gnd    :                   :         :           :                
 LinkData                     : 117       : bidir  : 2.5 V             :         : 4         : Y              
@@ -217,7 +217,7 @@ RXD[1]                       : 143       : input  : 2.5 V             :         
 RXD[2]                       : 144       : input  : 2.5 V             :         : 5         : Y              
 RXD[3]                       : 145       : input  : 2.5 V             :         : 5         : Y              
 RESERVED_INPUT_WITH_WEAK_PULLUP : 146       :        :                   :         : 5         :                
-RESERVED_INPUT_WITH_WEAK_PULLUP : 147       :        :                   :         : 5         :                
+CLK100_                      : 147       : output : 2.5 V             :         : 5         : N              
 RESERVED_INPUT_WITH_WEAK_PULLUP : 148       :        :                   :         : 5         :                
 GND+                         : 149       :        :                   :         : 5         :                
 GND+                         : 150       :        :                   :         : 5         :                
@@ -266,45 +266,45 @@ VCCIO7                       : 192       : power  :                   : 2.5V    
 GND                          : 193       : gnd    :                   :         :           :                
 RESERVED_INPUT_WITH_WEAK_PULLUP : 194       :        :                   :         : 7         :                
 RESERVED_INPUT_WITH_WEAK_PULLUP : 195       :        :                   :         : 7         :                
-DataInLVDS_TA[0](n)          : 196       : input  : LVDS              :         : 7         : Y              
-DataInLVDS_TA[0]             : 197       : input  : LVDS              :         : 7         : Y              
+NChStrobe[1]                 : 196       : input  : 2.5 V             :         : 7         : N              
+RESERVED_INPUT_WITH_WEAK_PULLUP : 197       :        :                   :         : 7         :                
 VCCINT                       : 198       : power  :                   : 1.2V    :           :                
 GND                          : 199       : gnd    :                   :         :           :                
-RESERVED_INPUT_WITH_WEAK_PULLUP : 200       :        :                   :         : 7         :                
-RESERVED_INPUT_WITH_WEAK_PULLUP : 201       :        :                   :         : 7         :                
+DataIn_TA[1][6]              : 200       : input  : 2.5 V             :         : 7         : N              
+CLK75_                       : 201       : output : 2.5 V             :         : 7         : N              
 RESERVED_INPUT_WITH_WEAK_PULLUP : 202       :        :                   :         : 7         :                
 RESERVED_INPUT_WITH_WEAK_PULLUP : 203       :        :                   :         : 7         :                
 VCCINT                       : 204       : power  :                   : 1.2V    :           :                
 GND                          : 205       : gnd    :                   :         :           :                
 VCCIO7                       : 206       : power  :                   : 2.5V    : 7         :                
-DataIn_TA[1][2]              : 207       : input  : 2.5 V             :         : 7         : N              
+ExtReset                     : 207       : input  : 2.5 V             :         : 7         : N              
 GND                          : 208       : gnd    :                   :         :           :                
 GND+                         : 209       :        :                   :         : 7         :                
 GND+                         : 210       :        :                   :         : 7         :                
 DataIn_TA[1][0]              : 211       : input  : 2.5 V             :         : 8         : N              
 DataIn_TA[1][1]              : 212       : input  : 2.5 V             :         : 8         : N              
 VCCIO8                       : 213       : power  :                   : 2.5V    : 8         :                
-DataIn_TA[1][3]              : 214       : input  : 2.5 V             :         : 8         : N              
+PLL_ExtOut                   : 214       : output : 2.5 V             :         : 8         : N              
 GND                          : 215       : gnd    :                   :         :           :                
 RESERVED_INPUT_WITH_WEAK_PULLUP : 216       :        :                   :         : 8         :                
 RESERVED_INPUT_WITH_WEAK_PULLUP : 217       :        :                   :         : 8         :                
 RESERVED_INPUT_WITH_WEAK_PULLUP : 218       :        :                   :         : 8         :                
 RESERVED_INPUT_WITH_WEAK_PULLUP : 219       :        :                   :         : 8         :                
 VCCINT                       : 220       : power  :                   : 1.2V    :           :                
-NChStrobe[1]                 : 221       : input  : 2.5 V             :         : 8         : N              
+RESERVED_INPUT_WITH_WEAK_PULLUP : 221       :        :                   :         : 8         :                
 GND                          : 222       : gnd    :                   :         :           :                
 RESERVED_INPUT_WITH_WEAK_PULLUP : 223       :        :                   :         : 8         :                
 RESERVED_INPUT_WITH_WEAK_PULLUP : 224       :        :                   :         : 8         :                
 VCCIO8                       : 225       : power  :                   : 2.5V    : 8         :                
-RESERVED_INPUT_WITH_WEAK_PULLUP : 226       :        :                   :         : 8         :                
+DataIn_TA[1][8]              : 226       : input  : 2.5 V             :         : 8         : N              
 GND                          : 227       : gnd    :                   :         :           :                
 VCCINT                       : 228       : power  :                   : 1.2V    :           :                
 GND                          : 229       : gnd    :                   :         :           :                
-DataIn_TA[1][5]              : 230       : input  : 2.5 V             :         : 8         : N              
-DataIn_TA[1][4]              : 231       : input  : 2.5 V             :         : 8         : N              
-DataIn_TA[1][9]              : 232       : input  : 2.5 V             :         : 8         : N              
-DataIn_TA[1][8]              : 233       : input  : 2.5 V             :         : 8         : N              
-CLK25_                       : 234       : output : 2.5 V             :         : 8         : N              
+CLK25_                       : 230       : output : 2.5 V             :         : 8         : N              
+RESERVED_INPUT_WITH_WEAK_PULLUP : 231       :        :                   :         : 8         :                
+DataIn_TA[1][2]              : 232       : input  : 2.5 V             :         : 8         : N              
+DataIn_TA[1][4]              : 233       : input  : 2.5 V             :         : 8         : N              
+RESERVED_INPUT_WITH_WEAK_PULLUP : 234       :        :                   :         : 8         :                
 Rsync                        : 235       : input  : 2.5 V             :         : 8         : Y              
 Test[1]                      : 236       : output : 2.5 V             :         : 8         : Y              
 Test[2]                      : 237       : output : 2.5 V             :         : 8         : Y              
