@@ -38,14 +38,14 @@ INCLUDE "altsyncram.inc";
 
 SUBDESIGN WFhist_ram
 (
-	data[9..0]	 : INPUT;
+	data[11..0]	 : INPUT;
 	rdaddress[7..0]	 : INPUT;
 	rdclock	 : INPUT;
 	rden	 : INPUT = VCC;
 	wraddress[7..0]	 : INPUT;
 	wrclock	 : INPUT = VCC;
 	wren	 : INPUT = GND;
-	q[9..0]	 : OUTPUT;
+	q[11..0]	 : OUTPUT;
 )
 
 VARIABLE
@@ -67,21 +67,21 @@ VARIABLE
 			RDCONTROL_REG_B = "CLOCK1",
 			WIDTHAD_A = 8,
 			WIDTHAD_B = 8,
-			WIDTH_A = 10,
-			WIDTH_B = 10,
+			WIDTH_A = 12,
+			WIDTH_B = 12,
 			WIDTH_BYTEENA_A = 1
 			);
 
 BEGIN
 
-	q[9..0] = altsyncram_component.q_b[9..0];
+	q[11..0] = altsyncram_component.q_b[11..0];
 	altsyncram_component.wren_a = wren;
 	altsyncram_component.clock0 = wrclock;
 	altsyncram_component.clock1 = rdclock;
 	altsyncram_component.address_a[7..0] = wraddress[7..0];
 	altsyncram_component.address_b[7..0] = rdaddress[7..0];
 	altsyncram_component.rden_b = rden;
-	altsyncram_component.data_a[9..0] = data[9..0];
+	altsyncram_component.data_a[11..0] = data[11..0];
 END;
 
 
@@ -120,7 +120,7 @@ END;
 -- Retrieval info: PRIVATE: JTAG_ENABLED NUMERIC "0"
 -- Retrieval info: PRIVATE: JTAG_ID STRING "NONE"
 -- Retrieval info: PRIVATE: MAXIMUM_DEPTH NUMERIC "0"
--- Retrieval info: PRIVATE: MEMSIZE NUMERIC "2560"
+-- Retrieval info: PRIVATE: MEMSIZE NUMERIC "3072"
 -- Retrieval info: PRIVATE: MEM_IN_BITS NUMERIC "0"
 -- Retrieval info: PRIVATE: MIFfilename STRING ""
 -- Retrieval info: PRIVATE: OPERATION_MODE NUMERIC "2"
@@ -140,10 +140,10 @@ END;
 -- Retrieval info: PRIVATE: USE_DIFF_CLKEN NUMERIC "0"
 -- Retrieval info: PRIVATE: UseDPRAM NUMERIC "1"
 -- Retrieval info: PRIVATE: VarWidth NUMERIC "0"
--- Retrieval info: PRIVATE: WIDTH_READ_A NUMERIC "10"
--- Retrieval info: PRIVATE: WIDTH_READ_B NUMERIC "10"
--- Retrieval info: PRIVATE: WIDTH_WRITE_A NUMERIC "10"
--- Retrieval info: PRIVATE: WIDTH_WRITE_B NUMERIC "10"
+-- Retrieval info: PRIVATE: WIDTH_READ_A NUMERIC "12"
+-- Retrieval info: PRIVATE: WIDTH_READ_B NUMERIC "12"
+-- Retrieval info: PRIVATE: WIDTH_WRITE_A NUMERIC "12"
+-- Retrieval info: PRIVATE: WIDTH_WRITE_B NUMERIC "12"
 -- Retrieval info: PRIVATE: WRADDR_ACLR_B NUMERIC "0"
 -- Retrieval info: PRIVATE: WRADDR_REG_B NUMERIC "0"
 -- Retrieval info: PRIVATE: WRCTRL_ACLR_B NUMERIC "0"
@@ -165,20 +165,20 @@ END;
 -- Retrieval info: CONSTANT: RDCONTROL_REG_B STRING "CLOCK1"
 -- Retrieval info: CONSTANT: WIDTHAD_A NUMERIC "8"
 -- Retrieval info: CONSTANT: WIDTHAD_B NUMERIC "8"
--- Retrieval info: CONSTANT: WIDTH_A NUMERIC "10"
--- Retrieval info: CONSTANT: WIDTH_B NUMERIC "10"
+-- Retrieval info: CONSTANT: WIDTH_A NUMERIC "12"
+-- Retrieval info: CONSTANT: WIDTH_B NUMERIC "12"
 -- Retrieval info: CONSTANT: WIDTH_BYTEENA_A NUMERIC "1"
--- Retrieval info: USED_PORT: data 0 0 10 0 INPUT NODEFVAL data[9..0]
--- Retrieval info: USED_PORT: q 0 0 10 0 OUTPUT NODEFVAL q[9..0]
+-- Retrieval info: USED_PORT: data 0 0 12 0 INPUT NODEFVAL data[11..0]
+-- Retrieval info: USED_PORT: q 0 0 12 0 OUTPUT NODEFVAL q[11..0]
 -- Retrieval info: USED_PORT: rdaddress 0 0 8 0 INPUT NODEFVAL rdaddress[7..0]
 -- Retrieval info: USED_PORT: rdclock 0 0 0 0 INPUT NODEFVAL rdclock
 -- Retrieval info: USED_PORT: rden 0 0 0 0 INPUT VCC rden
 -- Retrieval info: USED_PORT: wraddress 0 0 8 0 INPUT NODEFVAL wraddress[7..0]
 -- Retrieval info: USED_PORT: wrclock 0 0 0 0 INPUT VCC wrclock
 -- Retrieval info: USED_PORT: wren 0 0 0 0 INPUT GND wren
--- Retrieval info: CONNECT: @data_a 0 0 10 0 data 0 0 10 0
+-- Retrieval info: CONNECT: @data_a 0 0 12 0 data 0 0 12 0
 -- Retrieval info: CONNECT: @wren_a 0 0 0 0 wren 0 0 0 0
--- Retrieval info: CONNECT: q 0 0 10 0 @q_b 0 0 10 0
+-- Retrieval info: CONNECT: q 0 0 12 0 @q_b 0 0 12 0
 -- Retrieval info: CONNECT: @address_a 0 0 8 0 wraddress 0 0 8 0
 -- Retrieval info: CONNECT: @address_b 0 0 8 0 rdaddress 0 0 8 0
 -- Retrieval info: CONNECT: @rden_b 0 0 0 0 rden 0 0 0 0

@@ -171,7 +171,7 @@ ReadWFhist					: SRFF;
 DataCount					: lpm_counter with (lpm_width = 8, lpm_direction="up"); -- счетчик данных из памяти канала для передачи по линку в ИПТ
 ChannelCount				: lpm_counter with (lpm_width = 3, lpm_direction="up"); -- счетчик каналов для передачи по линку в ИПТ
 StopCount					: node;
-NWordCount					: lpm_counter with (lpm_width = 1, lpm_direction="up"); -- счетчик номера слова передаваемого по линку в ИПТ
+NWordCount					: lpm_counter with (lpm_width = 2, lpm_direction="up"); -- счетчик номера слова передаваемого по линку в ИПТ
 
 %
 OutData						: LVDS_Out;
@@ -727,28 +727,35 @@ IF (ChannelCount.q == b"101" AND DataCount.q[] == VCC )
 END IF;
 
 NWordCount.(clock, cnt_en) = (Clk25, VCC);
-FLink_Data_BUS.data[11..10] = (!NWordCount.q[], NWordCount.q[]);
+FLink_Data_BUS.data[11..10] = NWordCount.q[];
 FLink_Data_BUS.clock = Clk25;
 
-IF (ReadWFhist.q == GND) THEN --Link_IFace.LinkMessage == GND Then
+IF (ReadWFhist.q == GND) Then --Link_IFace.LinkMessage == GND Then
 	--FLink_Data_BUS.data[5..0]	= (VCC,GND,VCC,GND,VCC,GND);--TA6Channel[5..0].EventFound;	-- Trigger efficiency check
 	--FLink_Data_BUS.data[9..6]	= (VCC,GND,VCC,GND);--TA6Channel[4..0].EventFound;
 	SerDataOut[9..0] = (VCC,GND,VCC,GND,VCC,GND,VCC,GND,VCC,GND);
+	NWordFLink[] = NWordCount.q;
 Else 
 	--SerDataOut[9..0] = (DataCount.q[], VCC, GND);--TestLinkCt.q[9..0];
 	CASE ChannelCount.q[] IS 
 		 When b"000" => TA6Channel[0].DAQAddrBus_In[] = DataCount.q[];
-						%FLink_Data_BUS.data[9..0]%SerDataOut[9..0] = TA6Channel[0].DAQDataBusOut[];
+						%FLink_Data_BUS.data[9..0]%SerDataOut[9..0] = TA6Channel[0].DAQDataBusOut[9..0];
+						NWordFLink[] = TA6Channel[0].DAQDataBusOut[11..10];
 		 When b"001" => TA6Channel[1].DAQAddrBus_In[] = DataCount.q[];
-						%FLink_Data_BUS.data[9..0]%SerDataOut[9..0] = TA6Channel[1].DAQDataBusOut[];
+						%FLink_Data_BUS.data[9..0]%SerDataOut[9..0] = TA6Channel[1].DAQDataBusOut[9..0];
+						NWordFLink[] = TA6Channel[1].DAQDataBusOut[11..10];
 		 When b"010" => TA6Channel[2].DAQAddrBus_In[] = DataCount.q[];
-						%FLink_Data_BUS.data[9..0]%SerDataOut[9..0] = TA6Channel[2].DAQDataBusOut[];
+						%FLink_Data_BUS.data[9..0]%SerDataOut[9..0] = TA6Channel[2].DAQDataBusOut[9..0];
+						NWordFLink[] = TA6Channel[2].DAQDataBusOut[11..10];
 		 When b"011" => TA6Channel[3].DAQAddrBus_In[] = DataCount.q[];
-						%FLink_Data_BUS.data[9..0]%SerDataOut[9..0] = TA6Channel[3].DAQDataBusOut[];
+						%FLink_Data_BUS.data[9..0]%SerDataOut[9..0] = TA6Channel[3].DAQDataBusOut[9..0];
+						NWordFLink[] = TA6Channel[3].DAQDataBusOut[11..10];
 		 When b"100" => TA6Channel[4].DAQAddrBus_In[] = DataCount.q[];
-						%FLink_Data_BUS.data[9..0]%SerDataOut[9..0] = TA6Channel[4].DAQDataBusOut[];
+						%FLink_Data_BUS.data[9..0]%SerDataOut[9..0] = TA6Channel[4].DAQDataBusOut[9..0];
+						NWordFLink[] = TA6Channel[4].DAQDataBusOut[11..10];
 		 When b"101" => TA6Channel[5].DAQAddrBus_In[] = DataCount.q[];
-						%FLink_Data_BUS.data[9..0]%SerDataOut[9..0] = TA6Channel[5].DAQDataBusOut[];
+						%FLink_Data_BUS.data[9..0]%SerDataOut[9..0] = TA6Channel[5].DAQDataBusOut[9..0];
+						NWordFLink[] = TA6Channel[5].DAQDataBusOut[11..10];
 		 WHEN OTHERS => FLink_Error = VCC;
 	END CASE;
 END IF;
@@ -757,7 +764,7 @@ END IF;
 --FLink_Data_BUS.data[11..0] = (!ADC_In_Data[1][11],ADC_In_Data[1][10..0]);
 
 --SerDataOut[9..0] = FLink_Data_BUS.q[9..0]; --TestLinkCt.q[9..0];--
-NWordFLink[] = (GND,VCC);--FLink_Data_BUS.q[11..10];--
+--FLink_Data_BUS.q[11..10];--
 
 TestLinkCt.(clock, clk_en)	= (Clk25, VCC); -- Test Counter, can be used to drive LED blinking
 TestLinkCt.cnt_en			= PowerUp0;

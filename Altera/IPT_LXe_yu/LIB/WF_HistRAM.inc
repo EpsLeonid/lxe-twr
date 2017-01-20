@@ -15,15 +15,19 @@
 
 FUNCTION WF_HistRAM 
 (
-	data[15..0],
-	rdaddress[9..0],
-	rdclock,
-	rden,
-	wraddress[9..0],
-	wrclock,
-	wren
+	address_a[7..0],
+	address_b[7..0],
+	clock_a,
+	clock_b,
+	data_a[9..0],
+	data_b[9..0],
+	enable_a,
+	enable_b,
+	wren_a,
+	wren_b
 )
 
 RETURNS (
-	q[15..0]
+	q_a[9..0],
+	q_b[9..0]
 );

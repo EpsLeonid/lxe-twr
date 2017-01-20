@@ -84,7 +84,7 @@ BEGIN
 	IF LnkMess == GND Then
 		DataHistRAM.data_a[11..0] = TALink_Data_BUS.q[11..0]; -- 
 	Else 
-		WF_DataHistRAM.data[9..0] = TALink_Data_BUS.q[9..0]; -- 
+		WF_DataHistRAM.data_a[9..0] = TALink_Data_BUS.q[9..0]; -- 
 	END IF;
 
 	DataHistRAM.(address_a[], clock_a, wren_a) = (DataHist_Ct.q[9..0], clock, !LnkMess);
@@ -100,9 +100,10 @@ BEGIN
 	DataHist_RAMAddrBus.(data[], clock, load, enable) = (DataHist_Ct.q[], Clock, VCC, LnkMess);
 	DataHist_RAMAddr[9..0] = DataHist_RAMAddrBus.q[9..0] + 1 + AddrBus_In[9..0]; -- выставление адреса в 0 для текущего значения счетчика адресса
 
-	WF_DataHistRAM.(wraddress[], wrclock, wren) = (DataCountWR.q[9..0], Clock, LnkMess);
-	WF_DataHistRAM.(rdaddress[], rdclock, rden) = (DataCountRD.q[9..0], Clock, EtherMess);
-	WFTAdata[9..0] = WF_DataHistRAM.q[9..0];
+	WF_DataHistRAM.data_b[] = GND;
+	WF_DataHistRAM.(address_a[], clock_a, wren_a) = (DataCountWR.q[7..0], Clock, LnkMess);
+	WF_DataHistRAM.(address_b[], clock_b, wren_b) = (DataCountRD.q[7..0], Clock, EtherMess);
+	WFTAdata[9..0] = WF_DataHistRAM.q_b[9..0];
 
 	DataCountWR.(clock, cnt_en, sclr) = (Clock, (LnkMess AND !StopWrite), !LnkMess);
 	DataCountRD.(clock, cnt_en, sclr) = (Clock, (EtherMess AND StopWrite AND !StopRead), !LnkMess);

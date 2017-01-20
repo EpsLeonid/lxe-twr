@@ -15,7 +15,7 @@
 
 FUNCTION WFhist_ram 
 (
-	data[9..0],
+	data[11..0],
 	rdaddress[7..0],
 	rdclock,
 	rden,
@@ -25,5 +25,5 @@ FUNCTION WFhist_ram
 )
 
 RETURNS (
-	q[9..0]
+	q[11..0]
 );

@@ -26,7 +26,7 @@ INCLUDE "TestRAM2P.inc";     -- ^^ replaced with 2-port RAM (temporarily ?)
 INCLUDE "Arbiter.inc" ;
 
 INCLUDE "TAData_processing.inc";
-INCLUDE "WF_HistRAM.inc";
+INCLUDE "WFTA_HistRAM.inc";
 INCLUDE "ErrorCounters.inc";
 
 --============================================================================
@@ -346,11 +346,11 @@ ZERO_cs			: node;
 --******** 7. Rx Data from TA12 **********************************************
 --FLink_TA12[NUM_CH-1..0]		: Fast_Link_TA12;
 
-Reg_InData[NUM_board-1..0]			: lpm_shiftreg with (lpm_width=10, lpm_direction="unused");
+Reg_InData[NUM_board-1..0]			: lpm_shiftreg with (lpm_width=12, lpm_direction="unused");
 TA_proces[NUM_board-1..0]			: TAData_processing;
 TA_DataStrobe						: lpm_shiftreg with (lpm_width=1, lpm_direction="unused");
 TA_HistRAM_cs[NUM_board-1..0]		: node;
-TAWF_HistRAM						: WF_HistRAM;
+TAWF_HistRAM						: WFTA_HistRAM;
 TAWF_HistRAM_Cnt					: lpm_counter with (lpm_width = 10, lpm_direction="up");
 TAproces_Error[NUM_board-1..0]		: node;
 
@@ -729,7 +729,7 @@ Ether.Clock = Clk100; -- Clock Frequency MUST BE > 50MHz !!!!
 --    = Ether.RdWr_out;         -- Connected at "Bus Handler" sub-section
 IF ((!TA_DataStrobe.q and Link_IFace.LinkMessage) == GND) Then 
 	Ether.DataBus_in[15..0] = TestRAM.q_a[];    -- data:  TestRAM -> Ethernet
-	Else Ether.DataBus_in[15..0] = TAWF_HistRAM.q[];
+	Else Ether.DataBus_in[15..0] = TAWF_HistRAM.q_b[];
 END IF;
 Ether.Select  = Addr_Settled;   -- Ethernet is selected for local data reading/writing
 Ether.RdWr_in = RdWr;           -- RdWr=0 => data will be read from Ethernet / RdWr=1 => data will be written to Ethernet
@@ -789,10 +789,9 @@ DeSerClk = Clk25;
 
 FOR i in NUM_board-1 to 0 Generate
 
-	Reg_InData[i].(data, clock, enable, load) = (DataIn_TA[i][], NChStrobe0, VCC, VCC);
+	Reg_InData[i].(data, clock, enable, load) = ((NWordFLink_TA[i][],DataIn_TA[i][]), NChStrobe0, VCC, VCC);
 	TA_proces[i].Clock				= Clk25;
-	TA_proces[i].TAdata[9..0]		= Reg_InData[i].q[];
-	TA_proces[i].TAdata[11..10]		= NWordFLink_TA[i][];
+	TA_proces[i].TAdata[11..0]		= Reg_InData[i].q[];
 
 	TA_proces[i].LnkMess			= Link_IFace.LinkMessage;
 	TA_proces[i].EtherMess			= Ether.IORq; -- Data_ready or Data_required;
@@ -815,16 +814,17 @@ END GENERATE;
 	--************ WF TA Memory (2-port RAM) **************************************
 
 TA_DataStrobe.(data, clock, enable, load) = (TAWF_DataStrobe, Clk25, VCC, VCC);
-
-TAWF_HistRAM.data[9..0] = Reg_InData[0].q[];
-TAWF_HistRAM.(wraddress[],			wren		,    wrclock) =			--\ for common
-			 (TAWF_HistRAM_Cnt.q[], TA_DataStrobe.q, Clk25);	-- > access
---      = TestRAM.q_b[];  -- connected in DataBus section					--/ (except "Ethernet")
-
 TAWF_HistRAM_Cnt.(clock, cnt_en, sclr) = (Clk25, (TA_DataStrobe.q and Link_IFace.LinkMessage), !(TA_DataStrobe.q and Link_IFace.LinkMessage));
 
-TAWF_HistRAM.(rdaddress[],		 rden	,    rdclock) =	--\ for local access 
-			 (EthAddrCt.q[9..0], EthWord_Rd, Clk25);	--/ from inside of "Ethernet" section
+TAWF_HistRAM.data_a[11..0] = Reg_InData[0].q[];
+TAWF_HistRAM.data_a[15..12] = GND;
+TAWF_HistRAM.(address_a[],			wren_a		,    clock_a) =	--\ for common
+			 (TAWF_HistRAM_Cnt.q[], TA_DataStrobe.q, Clk25);	-- > access
+TAWF_HistRAM.(enable_b) = (VCC); 
+
+TAWF_HistRAM.(address_b[9..0],   data_b[],            wren_b ) =     --\ for local access 
+			 (EthAddrCt.q[9..0], Ether.DataBus_out[], EthWord_Rd);   --/ from inside of "Ethernet" section
+TAWF_HistRAM.(clock_b, enable_b) = (Clk100, VCC);
 
 --============================================================================
 --******** 8. Processor ******************************************************
