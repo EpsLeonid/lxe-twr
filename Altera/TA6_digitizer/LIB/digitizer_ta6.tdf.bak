@@ -59,7 +59,7 @@ SUBDESIGN Digitizer_TA6
 		DataBusStrobe           : input;  -- строб приема/передачи данных наружу (высокий уровень, используя его как Enable, "защелкиваем" по заднему фронту
 
 		Flink_clock				: input; -- частота передачи слов по линку в ИПТ-LXe
-		ReadWFhist				: input;
+		ReadWFhist				: input; -- сигнал на чтение форм сигналов
 		DAQAddrBus_In[7..0]		: input; -- адрес данных для передачи по быстрому линку, когда пришла команда чтения
 		DAQDataBusOut[11..0]	: output; -- данные для передачи по быстрому линку, когда пришла команда чтения
 
@@ -583,7 +583,7 @@ END IF;
 	WFhist_RAMAddrBus.(data[], clock, load, enable) = (WFhist_ADCCt.q[], ADC_Clock, VCC, LinkMessage);
 	WFhist_RAMAddr[7..0] = WFhist_RAMAddrBus.q[7..0] + 1 + DAQAddrBus_In[7..0]; -- выставление адреса в 0 для текущего значения счетчика адресса
 
-	DAQDataBusOut[9..0] = WFhist.q[];--TestLinkCt.q[9..0];--
+	DAQDataBusOut[] = WFhist.q[];--TestLinkCt.q[9..0];--
 
 -----------------------------------------------------------
 -- Тестовая память для проверки данных --

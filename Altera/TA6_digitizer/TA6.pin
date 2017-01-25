@@ -76,7 +76,7 @@ GNDA3                        : 2         : gnd    :                   :         
 VCCA3                        : 3         : power  :                   : 2.5V    :           :                
 PLL_ExtOut                   : 4         : output : 3.3-V LVTTL       :         : 1         : Y              
 ExtReset                     : 5         : input  : 3.3-V LVTTL       :         : 1         : Y              
-RESERVED_INPUT_WITH_WEAK_PULLUP : 6         :        :                   :         : 1         :                
+Test[10]                     : 6         : output : 3.3-V LVTTL       :         : 1         : N              
 VCCIO1                       : 7         : power  :                   : 3.3V    : 1         :                
 GND                          : 8         : gnd    :                   :         :           :                
 RESERVED_INPUT_WITH_WEAK_PULLUP : 9         :        :                   :         : 1         :                
@@ -215,7 +215,7 @@ GND                          : 141       : gnd    :                   :         
 ADC_In_Data[2][10]           : 142       : input  : 3.3-V LVTTL       :         : 5         : Y              
 ADC_In_Data[2][11]           : 143       : input  : 3.3-V LVTTL       :         : 5         : Y              
 ADC_OR[2]                    : 144       : input  : 3.3-V LVTTL       :         : 5         : Y              
-Test[10]                     : 145       : output : 3.3-V LVTTL       :         : 5         : N              
+RESERVED_INPUT_WITH_WEAK_PULLUP : 145       :        :                   :         : 5         :                
 Test[8]                      : 146       : output : 3.3-V LVTTL       :         : 5         : Y              
 Test[9]                      : 147       : output : 3.3-V LVTTL       :         : 5         : Y              
 Test_in                      : 148       : input  : 3.3-V LVTTL       :         : 5         : Y              

@@ -637,7 +637,7 @@ FOR i IN 0 TO (NUM_CH-1) GENERATE
 
 	TA6Channel[i].Bus_Clock			= Clk100; -- Clock 100MHz
 	TA6Channel[i].ADC_Clock			= Clk100; -- Clock 100MHz
-	TA6Channel[i].Flink_clock		= Clk75;
+	TA6Channel[i].Flink_clock		= Clk25;
 
 	TA6Channel[i].DigitInit			= StartADC_Link;--PwrUpSet1;-- initiates Cycle: Digitizing and store the results in ADC_RAM
 	TA6Channel[i].RegInit			= PwrUpSet1;
@@ -649,7 +649,8 @@ FOR i IN 0 TO (NUM_CH-1) GENERATE
 	TA6Channel[i].DataBusStrobe	    = DataStrobe ;
 	TA6Channel[i].DirectIn			= RW;
 	TA6Channel[i].Select			= DevSel[5+i].q ;
-	TA6Channel[i].LinkMessage		= ReadWFhist.q;--TestLinkCt.q[11];--Link_IFace.LinkMessage;
+	TA6Channel[i].ReadWFhist		= ReadWFhist.q;--TestLinkCt.q[11];--Link_IFace.LinkMessage;
+	TA6Channel[i].LinkMessage		= Link_IFace.LinkMessage;
 	TA6Channel[i].WriteRAM			= SelCommdList_Trig.q;--SelCommdList_Count.q;
 --END GENERATE;
 --	Digitizer1.ADCdata[] = DDRin.dataout_h[9..0];  -- input of parallel data from ADC
