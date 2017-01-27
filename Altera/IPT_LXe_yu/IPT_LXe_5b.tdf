@@ -1080,11 +1080,11 @@ StartADC    = StartADC_Camac.q                  -- Compulsive START by CAMAC ..
 
 -- "RxEndFrame" appears ONLY in case that the received Frame is addressed to ThisDevice. 
 -- Ethernet' Transmitting START is delayed after the Ethernet' Receiving Cycle :
-Delay_StEthTx.(D,clk,reset) = ((St_EthTx_Ether & Ether.RxEndFrame),CLK100,RESET);  -- Delay of Compulsive START
+Delay_StEthTx.(D,clk,reset) = ((St_EthTx_Ether & Ether.RxEndFrame),Clk100,RESET);  -- Delay of Compulsive START
 --StartEthTx_Ether.(D, clk,reset) =(Delay_StEthTx.q, Clk100, RESET);--PulseShaper
 
 StartEthTx  = (%StartEthTx_Camac   OR%              -- Start Transmit by CAMAC .. 
-    --((StartOne # StartMulti)& StartEthTx_Link.q))OR -- .. or Start by Link, if allowed
+    ((StartOne # StartMulti)& StartEthTx_Link.q))OR -- .. or Start by Link, if allowed
 --     (StartOne # StartMulti)& (TestCt.q[25..4]==H"3FFF0") OR  -- For TEST ONLY !!
     ((StartOne # StartMulti)& Delay_StEthTx.q))     -- .. or Start by Ethernet, if allowed
     AND !Ether.TX_EN ;                              -- if a Transmit is NOT in progress
