@@ -23,8 +23,8 @@ CONSTANT	DelayTime= 30;	-- Время задержки в разностном сигнале
 --CONSTANT	PopravDelTime = 52; -- Время задержки = DelayTime - 22 (момент вычитывания значения амплитуды для поиска поправки)
 								-- **нужно протестировать на симуляторе и подобрать время задержки!!!
 -- Only test --
-Constant	Piedistal_def = 480;
-Constant	Threshold_def = 350;
+Constant	Piedistal_def = 120;
+Constant	Threshold_def = 200;
 ---------------
 
 SUBDESIGN Digitizer_TA6
@@ -322,7 +322,7 @@ END IF;
 
 --	SUB_Ped.(dataa[ADC_WIDTH-1..0], datab[ADC_WIDTH-1..0]) = (Multiplex.result[], (Piedistal_Reg.q[11..0]));
 	SUB_Ped.(dataa[ADC_WIDTH-1..0], datab[ADC_WIDTH-1..0]) = (ADCdata[11..0], Piedistal_Reg.q[11..0]);
-	SUB_Ped.aclr = AllReset.q;--!Working;
+	SUB_Ped.aclr = !Working;--AllReset.q;--
 	SUB_ped.(clock, clken) = (ADC_Clock, VCC);
 
 	RegSum[0].(data[11..0],clock,load,enable) = (SUB_Ped.result[11..0], ADC_Clock, VCC, VCC);
@@ -547,9 +547,9 @@ END IF;
 						ELSE Hist_ADC.data_a[9..0] = Zero_div1.quotient[9..0];
 							 Hist_ADC.data_a[15..10] = GND;
 END IF;
-%	Hist_ADC.data_a[11..0] = RegSum[0].q[];--ADCdata[11..0];--SUMMATOR.result[14..0];--SampleRAM.q_b[13..0];--(GND,GND,Div1.result[13..2]);--Sub.result[13..0];--
-	Hist_ADC.data_a[14..12] = GND;
-	Hist_ADC.data_a[15] = SUB_ped.cout;
+%	Hist_ADC.data_a[11..0] = ADCdata[11..0];--RegSum[0].q[];--SUMMATOR.result[14..0];--SampleRAM.q_b[13..0];--(GND,GND,Div1.result[13..2]);--Sub.result[13..0];--
+	Hist_ADC.data_a[15..12] = GND;
+--	Hist_ADC.data_a[15] = SUB_ped.cout;
 	Hist_ADC.(address_a[], clock_a, wren_a) = (Hist_ADCCt.q[8..0], ADC_clock, !StopWrite_trig.q);--AND SaveRam));
 
 	StopWrite.(d,clk,reset) = (WriteRam, ADC_Clock, Reset);
@@ -571,7 +571,8 @@ END IF;
 
 	WFhist.data[11..0] = RegSum[0].q[11..0];--TestLinkCt.q[9..0];--ADCdata[9..0];--
 	WFhist.(wraddress[], wrclock, wren) = (WFhist_ADCCt.q[7..0], ADC_clock, !LinkMessage);--AND SaveRam));
-	WFhist.(rdaddress[], rdclock, rden) = (WFhist_RAMAddr[7..0], Flink_clock, LinkMessage);--AND SaveRam));
+	WFhist.(rdaddress[], rdclock, rden) = (DAQAddrBus_In[7..0], Flink_clock, ReadWFhist);--AND SaveRam));
+--	WFhist.(rdaddress[], rdclock, rden) = (WFhist_RAMAddr[7..0], Flink_clock, ReadWFhist);--AND SaveRam));
 
 --	StopWriteWFhist.(s,r,clk) = (EdgeSensing(.D= LinkMessage, .clk=ADC_clock, .reset=RESET), !WriteRAM, ADC_Clock);
 
