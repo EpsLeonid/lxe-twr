@@ -251,27 +251,29 @@ StartMulti_En	: EdgeSensing;  -- _/~\_ sets StartMulti to =1
 
 --Start_Link      : PulseShaper with (DurationCode=4);--Start whatever by Link command
 
-StartADC_Camac  : PulseShaper with (DurationCode=4);--Start ADC by "Compulsive_Start"
-St_ADC_Link     : node;
+StartADC_Camac	: PulseShaper with (DurationCode=4);--Start ADC by "Compulsive_Start"
+St_ADC_Link		: node;
 --StartADC_Link   : node;
-StartADC_Link   : PulseShaper with (DurationCode=4);--Start Digitizer by Link command
+StartADC_Link	: PulseShaper with (DurationCode=4);--Start Digitizer by Link command
 --StartADC_Ext    : PulseShaper with (DurationCode=4);-- Start ADC by external Start pulse
-StartADC        : node; -- all sources of Start ADC combined
+StartADC		: node; -- all sources of Start ADC combined
 
-StartProc_Camac : node;
-St_Proc_Link    : node;
+StartProc_Camac	: node;
+St_Proc_Link	: node;
 --StartProc_Link  : node;
-StartProc_Link  : PulseShaper with (DurationCode=4);--Start Processor by Link command
-StartProc       : node; -- all sources of Start_Processor combined
+StartProc_Link	: PulseShaper with (DurationCode=4);--Start Processor by Link command
+StartProc		: node; -- all sources of Start_Processor combined
 
-St_EthTx_Ether  : node;
-Delay_StEthTx   : DelayLine with (DelayCode = 200,  -- to delay the real start of Processor 
+St_EthTx_Ether	: node;
+Delay_StEthTx	: DelayLine with (DelayCode = 200,  -- to delay the real start of Processor 
                                   DurationCode= 4); --  after CAMAC-cycle
 --StartEthTx_Ether: PulseShaper with (DurationCode=4);--Start Ethernet' Transmit by Ethernet command
-StartEthTx      : node; -- all sources of Start_EthernetTx combined
-Eth_WRITE,              -- flag: Ethernet' "Write" command is received 
-EtherWRITE      : node; -- flag: Ethernet' "Write" command is received, registered 
---EtherWR_we      : node; -- Upon Ether' "WRITE" command, enables ETHERNET -> TestRAM
+StartEthTx_Link	: DelayLine with (DelayCode = 200,  -- to delay the real start of Processor 
+                                  DurationCode= 4); --  after Link-cycle
+StartEthTx		: node; -- all sources of Start_EthernetTx combined
+Eth_WRITE,				-- flag: Ethernet' "Write" command is received 
+EtherWRITE		: node; -- flag: Ethernet' "Write" command is received, registered 
+--EtherWR_we		: node; -- Upon Ether' "WRITE" command, enables ETHERNET -> TestRAM
 
 SelCommdList_Reg: lpm_shiftreg with (lpm_width=16, lpm_direction="unused");
 SelCommdList_Count: lpm_counter with (lpm_width = 1, lpm_direction="up");
@@ -281,10 +283,10 @@ SelCommdList_cs	: node;
 --LinkErr_Ct      : lpm_counter with (lpm_width=16, lpm_direction="up") ; -- counts Link's errors
 --Servo_Mux[15..0]: node; -- additional "multiplexor" of DataBus among servo_objects
 
-Busy            : node; -- flag: Action in progress (Digitizing, Link cycle, ...)
-Error           : node;
+Busy			: node; -- flag: Action in progress (Digitizing, Link cycle, ...)
+Error			: node;
 RESET, 
-Reset2          : node;
+Reset2			: node;
 
 --============================================================================
 --******** 5. Processor, RAM blocks and registers ****************************
@@ -810,7 +812,7 @@ FOR i in NUM_board-1 to 0 Generate
 	TALed[i] = NChLock[i];
 
 END GENERATE;
-	
+
 	--************ WF TA Memory (2-port RAM) **************************************
 
 TA_DataStrobe.(data, clock, enable, load) = (TAWF_DataStrobe, Clk25, VCC, VCC);
@@ -1082,6 +1084,9 @@ StartADC    = StartADC_Camac.q                  -- Compulsive START by CAMAC ..
 -- Ethernet' Transmitting START is delayed after the Ethernet' Receiving Cycle :
 Delay_StEthTx.(D,clk,reset) = ((St_EthTx_Ether & Ether.RxEndFrame),Clk100,RESET);  -- Delay of Compulsive START
 --StartEthTx_Ether.(D, clk,reset) =(Delay_StEthTx.q, Clk100, RESET);--PulseShaper
+
+Delay_LinkMessage.(D,clk,reset) = (Link_IFace.LinkMessage, Clk100, RESET);
+StartEthTx_Link.(D, clk, resset) = ((!Link_IFace.LinkMessage & Delay_LinkMessage.q), Clk100, RESET);
 
 StartEthTx  = (%StartEthTx_Camac   OR%              -- Start Transmit by CAMAC .. 
     ((StartOne # StartMulti)& StartEthTx_Link.q))OR -- .. or Start by Link, if allowed

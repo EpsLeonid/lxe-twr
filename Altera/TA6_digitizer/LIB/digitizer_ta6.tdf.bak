@@ -322,7 +322,7 @@ END IF;
 
 --	SUB_Ped.(dataa[ADC_WIDTH-1..0], datab[ADC_WIDTH-1..0]) = (Multiplex.result[], (Piedistal_Reg.q[11..0]));
 	SUB_Ped.(dataa[ADC_WIDTH-1..0], datab[ADC_WIDTH-1..0]) = (ADCdata[11..0], Piedistal_Reg.q[11..0]);
-	SUB_Ped.aclr = !Working;--AllReset.q;--
+	SUB_Ped.aclr = AllReset.q;--!Working;
 	SUB_ped.(clock, clken) = (ADC_Clock, VCC);
 
 	RegSum[0].(data[11..0],clock,load,enable) = (SUB_Ped.result[11..0], ADC_Clock, VCC, VCC);
@@ -547,10 +547,10 @@ END IF;
 						ELSE Hist_ADC.data_a[9..0] = Zero_div1.quotient[9..0];
 							 Hist_ADC.data_a[15..10] = GND;
 END IF;
-%	Hist_ADC.data_a[11..0] = ADCdata[11..0];--RegSum[0].q[];--SUMMATOR.result[14..0];--SampleRAM.q_b[13..0];--(GND,GND,Div1.result[13..2]);--Sub.result[13..0];--
+%	Hist_ADC.data_a[11..0] = RegSum[0].q[];--Hist_ADCCt.q[];--ADCdata[11..0];--SUMMATOR.result[14..0];--SampleRAM.q_b[13..0];--(GND,GND,Div1.result[13..2]);--Sub.result[13..0];--
 	Hist_ADC.data_a[15..12] = GND;
 --	Hist_ADC.data_a[15] = SUB_ped.cout;
-	Hist_ADC.(address_a[], clock_a, wren_a) = (Hist_ADCCt.q[8..0], ADC_clock, !StopWrite_trig.q);--AND SaveRam));
+	Hist_ADC.(address_a[], clock_a, wren_a) = (Hist_ADCCt.q[8..0], ADC_clock, !(StopWrite_trig.q OR LinkMessage));--AND SaveRam));
 
 	StopWrite.(d,clk,reset) = (WriteRam, ADC_Clock, Reset);
 	StopWrite_trig.(s,r,clk) = (StopWrite.q, !WriteRAM, ADC_Clock);
@@ -560,9 +560,9 @@ END IF;
 	Hist_ADC.wren_b = DataBusStrobe and  DirectIn AND Select AND Ram_Sel;
 
 	Hist_ADCCt.clock = ADC_Clock;
-	Hist_ADCCt.sclr = GND;--(EdgeSensing(.D= LinkMessage, .clk=ADC_clock, .reset=RESET) & WriteRAM);
+	Hist_ADCCt.sclr = (EdgeSensing(.D= LinkMessage, .clk=ADC_clock, .reset=RESET) & StopWrite_trig.q);
 	Hist_ADCCt.clk_en = VCC;
-	Hist_ADCCt.cnt_en = !StopWrite_trig.q;
+	Hist_ADCCt.cnt_en = !StopWrite_trig.q OR !LinkMessage;
 
 	Hist_RAMAddrBus.(data[], clock, load, enable) = (Hist_ADCCt.q[], ADC_Clock, VCC, EdgeSensing(.D=WriteRAM, .clk=ADC_Clock, .reset=RESET));
 	Hist_RAMAddr[8..0] = Hist_RAMAddrBus.q[8..0] +1 + AddrBus_In[8..0]; -- выставление адреса в 0 для текущего значения счетчика адресса
@@ -611,7 +611,8 @@ IF(AddrBus_In[] >= 0 AND AddrBus_In[] <= 255)   THEN DataBusOut[15..0] = Im_ADC.
 												ELSE RAM_Sel[0] = GND;
 END IF;%
 -- 4352 - 4607 начальный адрес "памяти истории"
-IF(AddrBus_In[] >= 0 AND AddrBus_In[] <= 767) THEN DataBusOut[15..0] = Hist_ADC.q_b[]; RAM_Sel = VCC;
+IF(AddrBus_In[] >= 0 AND AddrBus_In[] <= 767) THEN DataBusOut[11..0] = Hist_ADC.q_b[]; RAM_Sel = VCC;
+													DataBusOut[15..12] = GND;
 											  ELSE RAM_Sel = GND;
 END IF;
 
