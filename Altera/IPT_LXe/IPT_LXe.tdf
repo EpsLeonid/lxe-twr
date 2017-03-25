@@ -111,8 +111,9 @@ SerDataOut[7..0]					: output; -- данные для передачи с помощью Serializer-а
 NWord[1..0]							: output; -- номер слова в данных для передачи с помощью Serializer-а
 %
 -- 3. Signals from TA6/12
-DataIn_TA[NUM_board-1..0][TA_Bits-1..0]	: input;	-- данные полученные с помощью Deserializer-а 
-NWordFLink_TA[NUM_board-1..0][1..0]			: input;	-- номер слова в данных полученных с помощью Deserializer-a 
+DataIn_TA[NUM_board-1..0][TA_Bits-1..0]	: input; -- данные полученные с помощью Deserializer-а 
+NWordFLink_TA[NUM_board-1..0][1..0]		: input; -- номер слова в данных полученных с помощью Deserializer-a 
+WFDataMessage							: input; -- сигнал о том, что передаются данные вэйформы
 
 NChLock[NUM_board-1..0]				: input;
 NChStrobe[NUM_board-1..0]			: input;
@@ -241,47 +242,48 @@ Delay_StMulti   : DelayLine with (DelayCode = 600,  -- to delay the real Start o
 Delay_StProc    : DelayLine with (DelayCode = 110,  -- to delay the real start of Processor 
                                   DurationCode= 4); --  after CAMAC-cycle
 
-StartOne        : node;         -- Trigger of One-Shot_Start
-StartOne_En     : EdgeSensing;  -- _/~\_ sets StartOne to =1
-StartMulti      : node;         -- Trigger of Multiple_Start
-StartMulti_En   : EdgeSensing;  -- _/~\_ sets StartMulti to =1
+StartOne		: node;         -- Trigger of One-Shot_Start
+StartOne_En		: EdgeSensing;  -- _/~\_ sets StartOne to =1
+StartMulti		: node;         -- Trigger of Multiple_Start
+StartMulti_En	: EdgeSensing;  -- _/~\_ sets StartMulti to =1
 
---Start_Link      : PulseShaper with (DurationCode=4);--Start whatever by Link command
+--Start_Link		: PulseShaper with (DurationCode=4);--Start whatever by Link command
 
-StartADC_Camac  : PulseShaper with (DurationCode=4);--Start ADC by "Compulsive_Start"
-St_ADC_Link     : node;
---StartADC_Link   : node;
-StartADC_Link   : PulseShaper with (DurationCode=4);--Start Digitizer by Link command
---StartADC_Ext    : PulseShaper with (DurationCode=4);-- Start ADC by external Start pulse
-StartADC        : node; -- all sources of Start ADC combined
+StartADC_Camac	: PulseShaper with (DurationCode=4);--Start ADC by "Compulsive_Start"
+St_ADC_Link		: node;
+--StartADC_Link	: node;
+StartADC_Link	: PulseShaper with (DurationCode=4);--Start Digitizer by Link command
+--StartADC_Ext	: PulseShaper with (DurationCode=4);-- Start ADC by external Start pulse
+StartADC		: node; -- all sources of Start ADC combined
 
-StartProc_Camac : node;
-St_Proc_Link    : node;
+StartProc_Camac	: node;
+St_Proc_Link	: node;
 --StartProc_Link  : node;
-StartProc_Link  : PulseShaper with (DurationCode=4);--Start Processor by Link command
-StartProc       : node; -- all sources of Start_Processor combined
+StartProc_Link	: PulseShaper with (DurationCode=4);--Start Processor by Link command
+StartProc		: node; -- all sources of Start_Processor combined
 
-St_EthTx_Ether  : node;
-Delay_StEthTx   : DelayLine with (DelayCode = 200,  -- to delay the real start of Processor 
-                                  DurationCode= 4); --  after CAMAC-cycle
+St_EthTx_Ether	: node;
+Delay_StEthTx	: DelayLine with (DelayCode = 200,  -- to delay the real start of Processor 
+								  DurationCode= 4); --  after CAMAC-cycle
 --StartEthTx_Ether: PulseShaper with (DurationCode=4);--Start Ethernet' Transmit by Ethernet command
-StartEthTx      : node; -- all sources of Start_EthernetTx combined
-Eth_WRITE,              -- flag: Ethernet' "Write" command is received 
-EtherWRITE      : node; -- flag: Ethernet' "Write" command is received, registered 
---EtherWR_we      : node; -- Upon Ether' "WRITE" command, enables ETHERNET -> TestRAM
+StartEthTx_Link	: PulseShaper with (DurationCode= 4); --Start Ethernet' Transmit by end of Link command
+StartEthTx		: node; -- all sources of Start_EthernetTx combined
+Eth_WRITE,				-- flag: Ethernet' "Write" command is received 
+EtherWRITE		: node; -- flag: Ethernet' "Write" command is received, registered 
+--EtherWR_we		: node; -- Upon Ether' "WRITE" command, enables ETHERNET -> TestRAM
 
 SelCommdList_Reg: lpm_shiftreg with (lpm_width=16, lpm_direction="unused");
 SelCommdList_Count: lpm_counter with (lpm_width = 1, lpm_direction="up");
 SelCommdList_cs	: node;
 
---PhSwErr_Ct      : lpm_counter with (lpm_width=16, lpm_direction="up") ; -- counts PhaseSwitch's flips
---LinkErr_Ct      : lpm_counter with (lpm_width=16, lpm_direction="up") ; -- counts Link's errors
+--PhSwErr_Ct		: lpm_counter with (lpm_width=16, lpm_direction="up") ; -- counts PhaseSwitch's flips
+--LinkErr_Ct		: lpm_counter with (lpm_width=16, lpm_direction="up") ; -- counts Link's errors
 --Servo_Mux[15..0]: node; -- additional "multiplexor" of DataBus among servo_objects
 
-Busy            : node; -- flag: Action in progress (Digitizing, Link cycle, ...)
-Error           : node;
+Busy			: node; -- flag: Action in progress (Digitizing, Link cycle, ...)
+Error			: node;
 RESET, 
-Reset2          : node;
+Reset2			: node;
 
 --============================================================================
 --******** 5. Processor, RAM blocks and registers ****************************
@@ -357,10 +359,11 @@ PLL_PS						: PulseShaper;
 
 --============================================================================
 --******** 9a. Up_Link *******************************************************
-Link_IFace      : UpLink with (RefClock = 100);
-Reg_OpCode      : LPM_SHIFTREG with (lpm_width=(CommandSize+Pause), -- contains Command
-                                     lpm_direction="unused"); -- not important
-OpCode_load     : node; -- puts Reg_OpCode into "load" mode
+Link_IFace					: UpLink with (RefClock = 100);
+Dealy_LinkMessage			: node;
+Reg_OpCode					: LPM_SHIFTREG with (lpm_width=(CommandSize+Pause), -- contains Command
+												 lpm_direction="unused"); -- not important
+OpCode_load					: node; -- puts Reg_OpCode into "load" mode
 --InDataSave, InDataSaved : node; -- for TEST Only!!
 %
 --============================================================================
@@ -798,13 +801,14 @@ FOR i in NUM_board-1 to 0 Generate
 	TA_proces[i].TAdata[9..0]		= Reg_InData[i].q[];--DataIn_TA[i][];
 	TA_proces[i].TAdata[11..10]		= NWordFLink_TA[i][];
 
-    TA_proces[i].LnkMess        = Link_IFace.LinkMessage;
-    TA_proces[i].EtherMess      = Ether.IORq; -- Data_ready or Data_required;
+	TA_proces[i].WFDataMes			= WFDataMessage;
+	TA_proces[i].LnkMess			= Link_IFace.LinkMessage;
+	TA_proces[i].EtherMess			= Ether.IORq; -- Data_ready or Data_required;
 
---    TA_proces[i].DigitInit      = StartADC_Link;--PwrUpSet1;-- initiates Cycle: Digitizing and store the results in ADC_RAM
-    TA_proces[i].DigitInit      = StartADC; --PwrUpSet1;-- initiates Cycle: Digitizing and store the results in ADC_RAM
-    TA_proces[i].RegInit        = PwrUpSet1;
-    TA_proces[i].Reset          = RESET;    -- reset by MainRESET
+--	TA_proces[i].DigitInit			= StartADC_Link;--PwrUpSet1;-- initiates Cycle: Digitizing and store the results in ADC_RAM
+	TA_proces[i].DigitInit			= StartADC; --PwrUpSet1;-- initiates Cycle: Digitizing and store the results in ADC_RAM
+	TA_proces[i].RegInit			= PwrUpSet1;
+	TA_proces[i].Reset				= RESET;    -- reset by MainRESET
 
 	TA_proces[i].DataBus_In[15..0]	= DataBus[15..0];
 	TA_proces[i].AddrBus_In[9..0]	= AddrBus[9..0] ;
@@ -982,32 +986,34 @@ SelCommdList_Count.(clock,clk_en) = (Clk100, VCC);
 ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
 --**************** ETHERNET Cycle proceeding units *****************************
 
-    CASE  Reg_EthOpCode.q[7..0] is  -- recognizing the particular Operation :
-        WHEN  H"01" =>  -- "PING" command
-                        St_EthTx_Ether  = VCC;  -- Start up the Transmit
-                        Ether.TxLength[]=  64;  -- DataBlock length = 64Bytes
-                        Eth_InitAddr[]  = 128;  -- initial addr of data to be transmitted 
+	CASE  Reg_EthOpCode.q[7..0] is  -- recognizing the particular Operation :
+		WHEN  H"01" =>  -- "PING" command
+						St_EthTx_Ether  = VCC;  -- Start up the Transmit
+						Ether.TxLength[]=  64;  -- DataBlock length = 64Bytes
+						Eth_InitAddr[]  = 128;  -- initial addr of data to be transmitted 
+%
+		WHEN  H"03" =>  -- "StartMulti" for sending Ethernet' frames" 
+						
+		WHEN  H"04" =>  -- "STOP sending Ethernet' frames" 
+						
+%
+		WHEN  H"05" =>  -- "Set LinkMask and TimeGap" 
+						Eth_WRITE       = VCC;  -- Ethernet' "Write" Command received 
+						--St_EthTx_Ether  = GND;  -- NO Transmit 
 
-        --WHEN  H"03" =>  -- "StartMulti" for sending Ethernet' frames" 
-        --WHEN  H"04" =>  -- "STOP sending Ethernet' frames" 
+		WHEN  H"08" =>  -- "Write" data to TestRAM
+						Eth_WRITE       = VCC;  -- Ethernet' "Write" Command received 
+						--St_EthTx_Ether  = GND;  -- NO Transmit 
 
-        WHEN  H"05" =>  -- "Set LinkMask and TimeGap" 
-                        Eth_WRITE       = VCC;  -- Ethernet' "Write" Command received 
-                        --St_EthTx_Ether  = GND;  -- NO Transmit 
+		WHEN  H"09" =>  -- "Read" data from TestRAM
+						St_EthTx_Ether  = VCC;  -- Start up the Transmit
+						--Ether.TxLength[]= 255;  -- DataBlock length = 256Bytes
+						Ether.TxLength[]=  64;  -- DataBlock length - temporary
+						Eth_InitAddr[]  = 128;  -- initial addr of data to be transmitted 
 
-        WHEN  H"08" =>  -- "Write" data to TestRAM
-                        Eth_WRITE       = VCC;  -- Ethernet' "Write" Command received 
-                        --St_EthTx_Ether  = GND;  -- NO Transmit 
-
-        WHEN  H"09" =>  -- "Read" data from TestRAM
-                        St_EthTx_Ether  = VCC;  -- Start up the Transmit
-                        --Ether.TxLength[]= 255;  -- DataBlock length = 256Bytes
-                        Ether.TxLength[]=  64;  -- DataBlock length - temporary
-                        Eth_InitAddr[]  = 128;  -- initial addr of data to be transmitted 
-
-        WHEN OTHERS => St_EthTx_Ether   = GND;
-                       Ether.TxLength[]=   48;  -- Minimal DataBlock length
-    End CASE;
+		WHEN OTHERS =>  St_EthTx_Ether   = GND;
+						Ether.TxLength[]=   48;  -- Minimal DataBlock length
+	End CASE;
 
 ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
 ------------------- ENABLING of Action_Initializing ----------------------------
@@ -1071,14 +1077,17 @@ StartADC    = StartADC_Camac.q                  -- Compulsive START by CAMAC ..
 
 -- "RxEndFrame" appears ONLY in case that the received Frame is addressed to ThisDevice. 
 -- Ethernet' Transmitting START is delayed after the Ethernet' Receiving Cycle :
-Delay_StEthTx.(D,clk,reset) = ((St_EthTx_Ether & Ether.RxEndFrame),CLK100,RESET);  -- Delay of Compulsive START
+Delay_StEthTx.(D,clk,reset) = ((St_EthTx_Ether & Ether.RxEndFrame),CLK100,RESET); -- Delay of Compulsive START
 --StartEthTx_Ether.(D, clk,reset) =(Delay_StEthTx.q, Clk100, RESET);--PulseShaper
 
-StartEthTx  = (%StartEthTx_Camac   OR%              -- Start Transmit by CAMAC .. 
-    --((StartOne # StartMulti)& StartEthTx_Link.q))OR -- .. or Start by Link, if allowed
---     (StartOne # StartMulti)& (TestCt.q[25..4]==H"3FFF0") OR  -- For TEST ONLY !!
-    ((StartOne # StartMulti)& Delay_StEthTx.q))     -- .. or Start by Ethernet, if allowed
-    AND !Ether.TX_EN ;                              -- if a Transmit is NOT in progress
+Dealy_LinkMessage = DFF(.D = Link_IFace.LinkMessage, .clk = CLK100);
+StartEthTx_Link.(D,clk,reset) = ((!Link_IFace.LinkMessage & Dealy_LinkMessage),CLK100,RESET); -- Start Ethernet transmit at the end of LinkMessage
+
+StartEthTx = (%StartEthTx_Camac   OR%              -- Start Transmit by CAMAC .. 
+	((StartOne # StartMulti)& StartEthTx_Link.q)OR -- .. or Start by Link, if allowed
+--	(StartOne # StartMulti)& (TestCt.q[25..4]==H"3FFF0") OR  -- For TEST ONLY !!
+	((StartOne # StartMulti)& Delay_StEthTx.q))     -- .. or Start by Ethernet, if allowed
+	AND !Ether.TX_EN ;                              -- if a Transmit is NOT in progress
 
 -- Counter which contains address for exchange between ETHERNET and TestRAM
 EthAddrCt.(clock, clk_en) = (Clk100, VCC);
