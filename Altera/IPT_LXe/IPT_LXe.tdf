@@ -748,9 +748,9 @@ AcsRqDetect = EdgeSensing(.D=Ether.IORq, .clk=Clk100, .reset=RESET);
 AccessGrtd	=SRFF(.S=AcsRqDetect,.clk=Clk100,.R=Data_Strobe, .clrn=!RESET); --=1 during whole Operation
 Addr_Settled=SRFF(.S=(AccessGrtd & !Addr_Settled),                          --flag; enables "DevSel[]" triggers
 						.clk=Clk100, .R=Data_Strobe, .clrn=!RESET); 
-BusOper1    = DFF(.D=Addr_Settled,.clk=Clk100,.clrn=!(RESET OR Data_Strobe));-- delay by 1 clock
-BusOper2    = DFF(.D=BusOper1,    .clk=Clk100,.clrn=!(RESET OR Data_Strobe));-- delay by 1 clock
-BusOper3    = DFF(.D=BusOper2,    .clk=Clk100,.clrn=!(RESET OR Data_Strobe));-- delay by 1 clock
+BusOper1	= DFF(.D=Addr_Settled,.clk=Clk100,.clrn=!(RESET OR Data_Strobe));-- delay by 1 clock
+BusOper2	= DFF(.D=BusOper1,    .clk=Clk100,.clrn=!(RESET OR Data_Strobe));-- delay by 1 clock
+BusOper3	= DFF(.D=BusOper2,    .clk=Clk100,.clrn=!(RESET OR Data_Strobe));-- delay by 1 clock
 Data_Strobe = DFF(.D=BusOper3,    .clk=Clk100,.clrn=!RESET); -- 1-clk pulse
 
 -- Ether.RW_out=0 => Data: MainProj -> Ethernet ("write") => RdWr=1 
@@ -1048,16 +1048,16 @@ StartMulti  = SRFF(.clk=CLK100,                         --<< Multi-shot Start >>
 --**************** START of a PROCESSOR operation ******************************
 Delay_StProc.(d,clk,reset) = (St_Proc, Clk100, RESET); -- Delay of Processor starting
 StartProc_Camac = SRFF(.s=Delay_StProc.q, .clk=Clk100, -- Processor start delayed after the CAMAC-cycle
-                       .r=CPU.Working, .clrn=!RESET ); --
+					   .r=CPU.Working, .clrn=!RESET ); --
 -- Processor is started by CAMAC command FOR TEST ONLY!!  =A special BaseAddr= is to be used !
 IF (StartProc_Camac == VCC)  
-    then  BaseAd[7..0] = Reg_BaseAddr.q[7..0];
+	then  BaseAd[7..0] = Reg_BaseAddr.q[7..0];
 End IF;
 
-StartProc   = (StartProc_Camac   OR             -- Start Work by CAMAC .. 
-    ((StartOne # StartMulti)& StartProc_Link.q))-- .. or Start by Link, if allowed
-    AND !CPU.Working                    -- if Processor is NOT working
-    %AND !Digitizer.Working%;           -- if Digitizing is NOT in progress 
+StartProc	= (StartProc_Camac OR				-- Start Work by CAMAC .. 
+	((StartOne # StartMulti)& StartProc_Link.q))-- .. or Start by Link, if allowed
+	AND !CPU.Working                    -- if Processor is NOT working
+	%AND !Digitizer.Working%;           -- if Digitizing is NOT in progress 
 
 ------------------- START of a DIGITIZING Cycle --------------------------------
 Delay_StCompuls.(D,clk,reset) = (St_Compuls,CLK100,RESET);  -- Delay of Compulsive START
@@ -1067,10 +1067,10 @@ StartADC_Camac.(D, clk,reset) =(Delay_StCompuls.q, Clk100, RESET);--PulseShaper
 ---- START by external Start pulse
 --StartADC_Ext.(D, clk,reset)   =(NIM_in, Clk100, RESET);     --PulseShaper
 
-StartADC    = StartADC_Camac.q                  -- Compulsive START by CAMAC ..
-    OR((StartOne # StartMulti)& StartADC_Link.q)-- or START by Link' Command ..
-    --OR((StartOne # StartMulti)& StartADC_Ext.q )-- or START by external Start pulse 
-    %AND !Digitizer.Working% ;            -- if Digitizing is NOT in progress 
+StartADC	= StartADC_Camac.q                  -- Compulsive START by CAMAC ..
+	OR((StartOne # StartMulti)& StartADC_Link.q)-- or START by Link' Command ..
+	--OR((StartOne # StartMulti)& StartADC_Ext.q )-- or START by external Start pulse 
+	%AND !Digitizer.Working% ;            -- if Digitizing is NOT in progress 
 
 ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
 --**************** START of an ETHERNET operation ******************************
@@ -1094,10 +1094,10 @@ EthAddrCt.(clock, clk_en) = (Clk100, VCC);
 EthAddrCt.cnt_en= EthWord_Rd OR EthWord_Wr; -- increments simultaneously with real "Read" or "Write"
 EthAddrCt.data[]= Eth_InitAddr[];
 --EthAddrCt.sclr  = EdgeSensing(.D=(Ether.RxDataBlck  -- before receiving 1st DWord of Data Block
-EthAddrCt.sclr  = EdgeSensing(.D=Ether.RxDestAddr,  -- before receiving 1st DWord of RxFrame
-                    .clk=Clk100, .reset=RESET) OR RESET;
+EthAddrCt.sclr = EdgeSensing(.D=Ether.RxDestAddr,  -- before receiving 1st DWord of RxFrame
+				 .clk=Clk100, .reset=RESET) OR RESET;
 EthAddrCt.sload = EdgeSensing(.D=Ether.TX_EN, -- at the beginning of Transmit Cycle
-                    .clk=Clk100, .reset=RESET);
+				 .clk=Clk100, .reset=RESET);
 
 --When ETHERNET' "WRITE" command => EtherWRITE=1 => write to TestRAM enabled 
 EtherWRITE  = DFF(.D=Eth_WRITE, .clk=Clk100, .clrn=!(Ether.RxEndFrame # RESET)); 
@@ -1129,10 +1129,10 @@ RESET	= PwrUpReset OR ExtReset ;
 	ErrorCounters_IFace.ErrorInputs[1]	=	Bus_Arbiter.Error;
 	ErrorCounters_IFace.ErrorInputs[2]	=	CAMAC_IFace.Error;
 	ErrorCounters_IFace.ErrorInputs[3]	=	Link_IFace.Error;
-    ErrorCounters_IFace.ErrorInputs[4]  =   Ether.TxError;
-    ErrorCounters_IFace.ErrorInputs[5]  =   Ether.RxError;
---    ErrorCounters_IFace.ErrorInputs[6]  =   Ether.Error;--Sync_ES.q;
-    ErrorCounters_IFace.ErrorInputs[6]  =   Error;--Sync_ES.q;
+	ErrorCounters_IFace.ErrorInputs[4]	=	Ether.TxError;
+	ErrorCounters_IFace.ErrorInputs[5]	=	Ether.RxError;
+--	ErrorCounters_IFace.ErrorInputs[6]	=	Ether.Error;--Sync_ES.q;
+	ErrorCounters_IFace.ErrorInputs[6]	=	Error;--Sync_ES.q;
 
 --============================================================================
 -- 11. Internal Bus of Project & Data transfer control ************************
