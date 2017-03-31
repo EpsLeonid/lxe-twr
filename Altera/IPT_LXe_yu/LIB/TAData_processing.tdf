@@ -20,6 +20,7 @@ SUBDESIGN TAData_processing
 	TAdata[11..0]			: input; -- Входные данные с АЦП
 	WFTAdata[9..0]			: output; -- Форма сигналов для передачи по Ethernet
 
+	WFDataMes				: input; -- сигнал о том, что передаются данные вэйформы
 	LnkMess					: input; -- приход команды по С-Линку
 	EtherMess				: input; -- запрос 1слова данных от модуля Ethernet
 	Data_ready				: output; --данные готовы для чтения через Ethernet
@@ -84,7 +85,7 @@ BEGIN
 	IF LnkMess == GND Then
 		DataHistRAM.data_a[11..0] = TALink_Data_BUS.q[11..0]; -- 
 	Else 
-		WF_DataHistRAM.data_a[9..0] = TALink_Data_BUS.q[9..0]; -- 
+		WF_DataHistRAM.data[9..0] = TALink_Data_BUS.q[9..0]; -- 
 	END IF;
 
 	DataHistRAM.(address_a[], clock_a, wren_a) = (DataHist_Ct.q[9..0], clock, !LnkMess);
@@ -100,15 +101,14 @@ BEGIN
 	DataHist_RAMAddrBus.(data[], clock, load, enable) = (DataHist_Ct.q[], Clock, VCC, LnkMess);
 	DataHist_RAMAddr[9..0] = DataHist_RAMAddrBus.q[9..0] + 1 + AddrBus_In[9..0]; -- выставление адреса в 0 для текущего значения счетчика адресса
 
-	WF_DataHistRAM.data_b[] = GND;
-	WF_DataHistRAM.(address_a[], clock_a, wren_a) = (DataCountWR.q[7..0], Clock, LnkMess);
-	WF_DataHistRAM.(address_b[], clock_b, wren_b) = (DataCountRD.q[7..0], Clock, EtherMess);
-	WFTAdata[9..0] = WF_DataHistRAM.q_b[9..0];
+	WF_DataHistRAM.(wraddress[], wrclock, wren) = (DataCountWR.q[9..0], Clock, LnkMess AND WFDataMes);
+	WF_DataHistRAM.(rdaddress[], rdclock, rden) = (DataCountRD.q[9..0], Clock, EtherMess);
+	WFTAdata[9..0] = WF_DataHistRAM.q[9..0];
 
-	DataCountWR.(clock, cnt_en, sclr) = (Clock, (LnkMess AND !StopWrite), !LnkMess);
-	DataCountRD.(clock, cnt_en, sclr) = (Clock, (EtherMess AND StopWrite AND !StopRead), !LnkMess);
+	DataCountWR.(clock, cnt_en, sclr) = (Clock, (LnkMess AND !StopWrite AND WFDataMes), !LnkMess);
+	DataCountRD.(clock, cnt_en, sclr) = (Clock, (EtherMess AND StopWrite AND !StopRead AND !WFDataMes), !LnkMess);
 	
-	Data_ready = StopWrite AND LnkMess AND !StopRead;
+	Data_ready = StopWrite AND LnkMess AND !StopRead AND !WFDataMes;
 	
 	IF DataCountWR.q[] == b"1100000000" THEN StopWrite = VCC;
 										ELSE StopWrite = GND;

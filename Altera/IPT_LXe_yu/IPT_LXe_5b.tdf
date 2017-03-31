@@ -268,8 +268,7 @@ St_EthTx_Ether	: node;
 Delay_StEthTx	: DelayLine with (DelayCode = 200,  -- to delay the real start of Processor 
                                   DurationCode= 4); --  after CAMAC-cycle
 --StartEthTx_Ether: PulseShaper with (DurationCode=4);--Start Ethernet' Transmit by Ethernet command
-StartEthTx_Link	: DelayLine with (DelayCode = 200,  -- to delay the real start of Processor 
-                                  DurationCode= 4); --  after Link-cycle
+StartEthTx_Link	: PulseShaper with (DurationCode= 4); --Start Ethernet' Transmit by end of Link command
 StartEthTx		: node; -- all sources of Start_EthernetTx combined
 Eth_WRITE,				-- flag: Ethernet' "Write" command is received 
 EtherWRITE		: node; -- flag: Ethernet' "Write" command is received, registered 
@@ -365,10 +364,11 @@ PLL_PS						: PulseShaper;
 
 --============================================================================
 --******** 9a. Up_Link *******************************************************
-Link_IFace      : UpLink with (RefClock = 100);
-Reg_OpCode      : LPM_SHIFTREG with (lpm_width=(CommandSize+Pause), -- contains Command
-                                     lpm_direction="unused"); -- not important
-OpCode_load     : node; -- puts Reg_OpCode into "load" mode
+Link_IFace				: UpLink with (RefClock = 100);
+Delay_LinkMessage		: DFF;
+Reg_OpCode				: LPM_SHIFTREG with (lpm_width=(CommandSize+Pause), -- contains Command
+											 lpm_direction="unused"); -- not important
+OpCode_load				: node; -- puts Reg_OpCode into "load" mode
 --InDataSave, InDataSaved : node; -- for TEST Only!!
 %
 --============================================================================
@@ -581,7 +581,7 @@ R_Flash.(clock, event)  =(Clk100,Error);-- Error is defined in Control Unit sect
 --	Serial Port
 LinkData    = TRI (!Link_IFace.LinkData_out, Link_IFace.TxRx);-- Output to Pin
 Link_IFace.LinkData_in = !LinkData ;                          -- Input from Pin
-LinkTxRx    =  ( Link_IFace.TxRx );     -- Tx/Rx control, High => Tx
+LinkTxRx    =  ( Link_IFace.TxRx AND (StartOne # StartMulti));     -- Tx/Rx control, High => Tx
 	
 -- Project Bus Port
 Link_IFace.Clock	=	Clk100 ;
@@ -795,6 +795,7 @@ FOR i in NUM_board-1 to 0 Generate
 	TA_proces[i].Clock				= Clk25;
 	TA_proces[i].TAdata[11..0]		= Reg_InData[i].q[];
 
+	TA_proces[i].WFDataMes			= TAWF_DataStrobe;
 	TA_proces[i].LnkMess			= Link_IFace.LinkMessage;
 	TA_proces[i].EtherMess			= Ether.IORq; -- Data_ready or Data_required;
 
@@ -819,7 +820,8 @@ TA_DataStrobe.(data, clock, enable, load) = (TAWF_DataStrobe, Clk25, VCC, VCC);
 TAWF_HistRAM_Cnt.(clock, cnt_en, sclr) = (Clk25, (TA_DataStrobe.q and Link_IFace.LinkMessage), !(TA_DataStrobe.q and Link_IFace.LinkMessage));
 
 TAWF_HistRAM.data_a[11..0] = Reg_InData[0].q[];
-TAWF_HistRAM.data_a[15..12] = GND;
+TAWF_HistRAM.data_a[14..12] = GND;
+TAWF_HistRAM.data_a[15] = TA_DataStrobe.q;
 TAWF_HistRAM.(address_a[],			wren_a		,    clock_a) =	--\ for common
 			 (TAWF_HistRAM_Cnt.q[], TA_DataStrobe.q, Clk25);	-- > access
 TAWF_HistRAM.(enable_b) = (VCC); 
@@ -1085,14 +1087,14 @@ StartADC    = StartADC_Camac.q                  -- Compulsive START by CAMAC ..
 Delay_StEthTx.(D,clk,reset) = ((St_EthTx_Ether & Ether.RxEndFrame),Clk100,RESET);  -- Delay of Compulsive START
 --StartEthTx_Ether.(D, clk,reset) =(Delay_StEthTx.q, Clk100, RESET);--PulseShaper
 
-Delay_LinkMessage.(D,clk,reset) = (Link_IFace.LinkMessage, Clk100, RESET);
-StartEthTx_Link.(D, clk, resset) = ((!Link_IFace.LinkMessage & Delay_LinkMessage.q), Clk100, RESET);
+Delay_LinkMessage.(D,clk) = (Link_IFace.LinkMessage, Clk100);
+StartEthTx_Link.(D, clk, reset) = ((!Link_IFace.LinkMessage & Delay_LinkMessage.q), Clk100, RESET);
 
 StartEthTx  = (%StartEthTx_Camac   OR%              -- Start Transmit by CAMAC .. 
-    ((StartOne # StartMulti)& StartEthTx_Link.q))OR -- .. or Start by Link, if allowed
---     (StartOne # StartMulti)& (TestCt.q[25..4]==H"3FFF0") OR  -- For TEST ONLY !!
-    ((StartOne # StartMulti)& Delay_StEthTx.q))     -- .. or Start by Ethernet, if allowed
-    AND !Ether.TX_EN ;                              -- if a Transmit is NOT in progress
+	((StartOne # StartMulti)& StartEthTx_Link.q)OR -- .. or Start by Link, if allowed
+--	(StartOne # StartMulti)& (TestCt.q[25..4]==H"3FFF0") OR  -- For TEST ONLY !!
+	((StartOne # StartMulti)& Delay_StEthTx.q))     -- .. or Start by Ethernet, if allowed
+	AND !Ether.TX_EN ;                              -- if a Transmit is NOT in progress
 
 -- Counter which contains address for exchange between ETHERNET and TestRAM
 EthAddrCt.(clock, clk_en) = (Clk100, VCC);
@@ -1134,10 +1136,10 @@ RESET	= PwrUpReset OR ExtReset ;
 	ErrorCounters_IFace.ErrorInputs[1]	=	Bus_Arbiter.Error;
 	ErrorCounters_IFace.ErrorInputs[2]	=	CAMAC_IFace.Error;
 	ErrorCounters_IFace.ErrorInputs[3]	=	Link_IFace.Error;
-    ErrorCounters_IFace.ErrorInputs[4]  =   Ether.TxError;
-    ErrorCounters_IFace.ErrorInputs[5]  =   Ether.RxError;
---    ErrorCounters_IFace.ErrorInputs[6]  =   Ether.Error;--Sync_ES.q;
-    ErrorCounters_IFace.ErrorInputs[6]  =   Error;--Sync_ES.q;
+	ErrorCounters_IFace.ErrorInputs[4]  =   Ether.TxError;
+	ErrorCounters_IFace.ErrorInputs[5]  =   Ether.RxError;
+--	ErrorCounters_IFace.ErrorInputs[6]  =   Ether.Error;--Sync_ES.q;
+	ErrorCounters_IFace.ErrorInputs[6]  =   Error;--Sync_ES.q;
 
 --============================================================================
 -- 11. Internal Bus of Project & Data transfer control ************************
@@ -1325,18 +1327,18 @@ Else					-- Master will read from
 			When 1 => DataBus[]= Link_IFace.DataBus_out[];
 			--When  2 => DataBus[7..0]= Link_IFace.OpCode_out[];
 		End CASE;
-        WHEN b"00000000010000" => DataBus[]     = Reg_OpCode.q[7..0];   -- Link's OpCode
-        WHEN b"00000000100000" => DataBus[1..0] = (StartMulti,StartOne);--CtrlStat "reg" 
-        WHEN b"00000001000000" => DataBus[]     = SelCommdList_Reg.q[];
-        WHEN b"00000010000000" => DataBus[7..0]	= Reg_BaseAddr.q[7..0];
-        --WHEN b"00000100000000" => DataBus[]     = TestRAM.q[];  --MainProj <- TestRAM 
+		WHEN b"00000000010000" => DataBus[]     = Reg_OpCode.q[7..0];   -- Link's OpCode
+		WHEN b"00000000100000" => DataBus[1..0] = (StartMulti,StartOne);--CtrlStat "reg" 
+		WHEN b"00000001000000" => DataBus[]     = SelCommdList_Reg.q[];
+		WHEN b"00000010000000" => DataBus[7..0]	= Reg_BaseAddr.q[7..0];
+		--WHEN b"00000100000000" => DataBus[]     = TestRAM.q[];  --MainProj <- TestRAM 
 		WHEN b"00000100000000" => DataBus[]     = TestRAM.q_b[];--MainProj <- TestRAM 
-        WHEN b"00001000000000" => DataBus[7..0] = Reg_EthOpCode.q[7..0];--Ether's OpCode
-        WHEN b"00010000000000" => DataBus[]     = TA_proces0.DataBusOut[] ; --AddrMux[]  = 2;
-        WHEN b"00100000000000" => DataBus[]     = TA_proces1.DataBusOut[] ; --AddrMux[]  = 2;
-        WHEN b"01000000000000" => DataBus[]     = ErrorCounters_IFace.DataBusOut[];                        -- ????
-        WHEN b"10000000000000" => DataBus[]     = 0; -- ZERO word temporary ?
-        WHEN OTHERS => DataBus[] = 0;
+		WHEN b"00001000000000" => DataBus[7..0] = Reg_EthOpCode.q[7..0];--Ether's OpCode
+		WHEN b"00010000000000" => DataBus[]     = TA_proces0.DataBusOut[] ; --AddrMux[]  = 2;
+		WHEN b"00100000000000" => DataBus[]     = TA_proces1.DataBusOut[] ; --AddrMux[]  = 2;
+		WHEN b"01000000000000" => DataBus[]     = ErrorCounters_IFace.DataBusOut[];                        -- ????
+		WHEN b"10000000000000" => DataBus[]     = 0; -- ZERO word temporary ?
+		WHEN OTHERS => DataBus[] = 0;
 	End CASE;
 End IF;
 
@@ -1353,14 +1355,14 @@ TestCt.(clock, clk_en)	= (FQuartz, VCC); -- Test Counter, can be used to drive L
 TestCt.cnt_en			= PowerUp0;
 TestCt.aclr				= !PowerUp0;    -- even if NO clock - Reset does occur
 
-Test1 = Ether.TX_EN;        --Ether.test[1];    --Ether.TX_EN;      -- Pin236
-Test2 = Ether.TxStFrmDel;   --Ether.RxWaitSFD;  --Ether.TxStFrmDel; -- Pin237
-Test3 = Ether.test[2];      --Ether.RxDestAddr; --Ether.test[2];    -- Pin238
-Test4 = Ether.test[3];      --Ether.RxSourAddr; --Ether.test[3];    -- Pin239
-Test5 = Ether.test[4];      --Ether.test[3];    --Ether.test[4];    -- Pin240
-Test6 = Ether.test[6];      --Ether.test[5];    --Ether.test[6];    -- Pin__4
-Test7 = Ether.test[7];      --EthOpCode_save;   --Ether.test[7];    -- Pin__5
-Test8 = Ether.test[8];      --EthOpCode_saved;  --Ether.test[8];    -- Pin__6
+Test1 = Link_IFace.test[1];        --Ether.test[1];    --Ether.TX_EN;      -- Pin236
+Test2 = Link_IFace.test[2];   --Ether.RxWaitSFD;  --Ether.TxStFrmDel; -- Pin237
+Test3 = Link_IFace.test[3]; --Ether.test[2];      --Ether.RxDestAddr; --Ether.test[2];    -- Pin238
+Test4 = Link_IFace.LinkMessage; --Ether.test[3];      --Ether.RxSourAddr; --Ether.test[3];    -- Pin239
+Test5 = Link_IFace.TxRx; --Ether.test[4];      --Ether.test[3];    --Ether.test[4];    -- Pin240
+Test6 = Reg_InData[0].q[5]; --Ether.test[6];      --Ether.test[5];    --Ether.test[6];    -- Pin__4
+Test7 = Reg_InData[0].q[6]; --Ether.test[7];      --EthOpCode_save;   --Ether.test[7];    -- Pin__5
+Test8 = Reg_InData[0].q[7]; --Ether.test[8];      --EthOpCode_saved;  --Ether.test[8];    -- Pin__6
 Test9 = Clk25;        --DataIn_TA[0][8];                              -- Pin
 Test10= DataStrobe;   --DataIn_TA[0][9];                              -- Pin
 

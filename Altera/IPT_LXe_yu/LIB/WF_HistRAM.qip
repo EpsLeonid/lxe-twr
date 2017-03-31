@@ -1,4 +1,4 @@
 set_global_assignment -name IP_TOOL_NAME "RAM: 2-PORT"
 set_global_assignment -name IP_TOOL_VERSION "9.1"
-set_global_assignment -name MISC_FILE [file join $::quartus(qip_path) "WF_HistRAM.tdf"]
-set_global_assignment -name MISC_FILE [file join $::quartus(qip_path) "WF_HistRAM.inc"]
+set_global_assignment -name MISC_FILE [file join $::quartus(qip_path) "TA6_HistRAM.tdf"]
+set_global_assignment -name MISC_FILE [file join $::quartus(qip_path) "TA6_HistRAM.inc"]
