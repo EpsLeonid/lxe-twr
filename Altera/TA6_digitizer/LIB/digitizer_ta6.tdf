@@ -17,8 +17,8 @@ INCLUDE "DelayLine.inc" ;
 
 CONSTANT	ADC_WIDTH = 12;	-- Кол-во битов АЦП
 CONSTANT	REG_SUM = 4;	-- Кол-во регистров для суммирования
-CONSTANT	MaxTime = 400;  -- Maximal Valid time (1.2mks)
-CONSTANT	TimeRead = 300;  -- Maximal Valid time (1.2mks)
+CONSTANT	MaxTime = 250;  -- Maximal Valid time (2.5mks)
+CONSTANT	TimeRead = 300;  -- Maximal Valid time (3mks)
 CONSTANT	DelayTime= 30;	-- Время задержки в разностном сигнале
 --CONSTANT	PopravDelTime = 52; -- Время задержки = DelayTime - 22 (момент вычитывания значения амплитуды для поиска поправки)
 								-- **нужно протестировать на симуляторе и подобрать время задержки!!!
@@ -517,7 +517,7 @@ End IF;
 
 -- Общий сброс
 -- максимальное время в течении которого ищем пороги и затем стоят флаги найденных порогов
-	NSampleCt.(clock,cnt_en,clk_en,sclr) = (ADC_Clock, Thr_Trig.q, VCC, WriteRAM); --счетчик тактов от момента пересечения порога
+	NSampleCt.(clock,cnt_en,clk_en,sclr) = (ADC_Clock, Thr_Trig.q AND !LinkMessage, VCC, WriteRAM); --счетчик тактов от момента пересечения порога
 
 IF(( NSampleCt.q[] >= MaxTime) AND (Max_Trig.q == VCC) AND (Zero_Trig.q == VCC)) THEN TimeOutSch = VCC; 
 																				 ELSE TimeOutSch = GND; 
@@ -571,8 +571,8 @@ END IF;
 
 	WFhist.data[11..0] = RegSum[0].q[11..0];--TestLinkCt.q[9..0];--ADCdata[9..0];--
 	WFhist.(wraddress[], wrclock, wren) = (WFhist_ADCCt.q[7..0], ADC_clock, !LinkMessage);--AND SaveRam));
-	WFhist.(rdaddress[], rdclock, rden) = (DAQAddrBus_In[7..0], Flink_clock, ReadWFhist);--AND SaveRam));
---	WFhist.(rdaddress[], rdclock, rden) = (WFhist_RAMAddr[7..0], Flink_clock, ReadWFhist);--AND SaveRam));
+--	WFhist.(rdaddress[], rdclock, rden) = (DAQAddrBus_In[7..0], Flink_clock, ReadWFhist);--AND SaveRam));
+	WFhist.(rdaddress[], rdclock, rden) = (WFhist_RAMAddr[7..0], Flink_clock, ReadWFhist);--AND SaveRam));
 
 --	StopWriteWFhist.(s,r,clk) = (EdgeSensing(.D= LinkMessage, .clk=ADC_clock, .reset=RESET), !WriteRAM, ADC_Clock);
 
@@ -582,7 +582,7 @@ END IF;
 	WFhist_ADCCt.cnt_en = !LinkMessage;
 
 	WFhist_RAMAddrBus.(data[], clock, load, enable) = (WFhist_ADCCt.q[], ADC_Clock, VCC, LinkMessage);
-	WFhist_RAMAddr[7..0] = WFhist_RAMAddrBus.q[7..0] + 1 + DAQAddrBus_In[7..0]; -- выставление адреса в 0 для текущего значения счетчика адресса
+	WFhist_RAMAddr[7..0] = WFhist_RAMAddrBus.q[7..0] - NSampleCt.q[7..0] - 20 + DAQAddrBus_In[7..0]; -- выставление адреса в момент, когда начался сигнал с запасом в несколько тактов
 
 	DAQDataBusOut[] = WFhist.q[];--TestLinkCt.q[9..0];--
 

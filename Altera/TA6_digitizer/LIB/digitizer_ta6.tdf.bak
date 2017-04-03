@@ -611,8 +611,8 @@ IF(AddrBus_In[] >= 0 AND AddrBus_In[] <= 255)   THEN DataBusOut[15..0] = Im_ADC.
 												ELSE RAM_Sel[0] = GND;
 END IF;%
 -- 4352 - 4607 начальный адрес "памяти истории"
-IF(AddrBus_In[] >= 0 AND AddrBus_In[] <= 767) THEN DataBusOut[11..0] = Hist_ADC.q_b[]; RAM_Sel = VCC;
-													DataBusOut[15..12] = GND;
+IF(AddrBus_In[] >= 0 AND AddrBus_In[] <= 767) THEN DataBusOut[15..0] = Hist_ADC.q_b[]; RAM_Sel = VCC;
+													--DataBusOut[15..12] = GND;
 											  ELSE RAM_Sel = GND;
 END IF;
 

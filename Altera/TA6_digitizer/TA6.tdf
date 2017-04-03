@@ -160,6 +160,7 @@ LinkFlash			: LightPulser with (Duration = 50, RefClock = 100000); -- Green
 --============================================================================
 --******** 3a. Up_Link
 Link_IFace			: UpLink with (RefClock = 100);
+Delay_LinkMessage	: DFF;
 
 --============================================================================
 --******** 3b. Fast_Link TA6/12->IPT
@@ -167,8 +168,8 @@ Link_IFace			: UpLink with (RefClock = 100);
 FLink_Data_BUS				: lpm_shiftreg with (lpm_width=12, lpm_direction="unused");
 --FLink_cnt					: lpm_counter with (lpm_width = 8, lpm_direction="up"); -- счетчик времени для синхронизации
 
-ReadWFhist					: SRFF;
-DataCount					: lpm_counter with (lpm_width = 8, lpm_direction="up"); -- счетчик данных из памяти канала для передачи по линку в ИПТ
+TxWFhist					: SRFF;
+DataCount					: lpm_counter with (lpm_width = 7, lpm_direction="up"); -- счетчик данных из памяти канала для передачи по линку в ИПТ
 ChannelCount				: lpm_counter with (lpm_width = 3, lpm_direction="up"); -- счетчик каналов для передачи по линку в ИПТ
 StopCount					: node;
 NWordCount					: lpm_counter with (lpm_width = 2, lpm_direction="up"); -- счетчик номера слова передаваемого по линку в ИПТ
@@ -649,7 +650,7 @@ FOR i IN 0 TO (NUM_CH-1) GENERATE
 	TA6Channel[i].DataBusStrobe	    = DataStrobe ;
 	TA6Channel[i].DirectIn			= RW;
 	TA6Channel[i].Select			= DevSel[5+i].q ;
-	TA6Channel[i].ReadWFhist		= ReadWFhist.q;--TestLinkCt.q[11];--Link_IFace.LinkMessage;
+	TA6Channel[i].ReadWFhist		= TxWFhist.q;--TestLinkCt.q[11];--Link_IFace.LinkMessage;
 	TA6Channel[i].LinkMessage		= Link_IFace.LinkMessage;
 	TA6Channel[i].WriteRAM			= SelCommdList_Trig.q;--SelCommdList_Count.q;
 --END GENERATE;
@@ -717,11 +718,12 @@ END GENERATE;
 
 Clk37_5 = DFF (.d = !Clk37_5, .clk = Clk75);
 SerClk = Clk25;--Clk37_5;--
-ReadWFhist.(S, clk, R, clrn) = (Test_in%TestLinkCt.q[11] Link_IFace.LinkMessage% AND !StopCount, Clk25, GND, !StopCount);
+Delay_LinkMessage.(D,clk) = (Link_IFace.LinkMessage, Clk100);
+TxWFhist.(S, clk, R, clrn) = (Link_IFace.LinkMessage AND !Delay_LinkMessage.q, Clk25, GND, !StopCount);
 --DataCount.(clock, cnt_en, sclr) = (Clk25, Link_IFace.LinkMessage, !Link_IFace.LinkMessage);
 --ChannelCount.(clock, cnt_en, sclr) = (Clk25, DataCount.cout, !Link_IFace.LinkMessage);
-DataCount.(clock, cnt_en, sclr) = (Clk25, ReadWFhist.q AND !StopCount, !Test_in%!TestLinkCt.q[11]%);
-ChannelCount.(clock, cnt_en, sclr) = (Clk25, DataCount.cout AND !StopCount, !Test_in%!TestLinkCt.q[11]%);
+DataCount.(clock, cnt_en, sclr) = (Clk25, TxWFhist.q, StopCount);
+ChannelCount.(clock, cnt_en, sclr) = (Clk25, DataCount.cout, StopCount);
 IF (ChannelCount.q == b"101" AND DataCount.q[] == VCC )
 	THEN StopCount = VCC;
 	ELSE StopCount = GND;
@@ -731,7 +733,7 @@ NWordCount.(clock, cnt_en) = (Clk25, VCC);
 FLink_Data_BUS.data[11..10] = NWordCount.q[];
 FLink_Data_BUS.clock = Clk25;
 
-IF (ReadWFhist.q == GND) Then --Link_IFace.LinkMessage == GND Then
+IF (TxWFhist.q == GND) Then --Link_IFace.LinkMessage == GND Then
 	--FLink_Data_BUS.data[5..0]	= (VCC,GND,VCC,GND,VCC,GND);--TA6Channel[5..0].EventFound;	-- Trigger efficiency check
 	--FLink_Data_BUS.data[9..6]	= (VCC,GND,VCC,GND);--TA6Channel[4..0].EventFound;
 	SerDataOut[9..0] = (VCC,GND,VCC,GND,VCC,GND,VCC,GND,VCC,GND);
@@ -739,22 +741,22 @@ IF (ReadWFhist.q == GND) Then --Link_IFace.LinkMessage == GND Then
 Else 
 	--SerDataOut[9..0] = (DataCount.q[], VCC, GND);--TestLinkCt.q[9..0];
 	CASE ChannelCount.q[] IS 
-		 When b"000" => TA6Channel[0].DAQAddrBus_In[] = DataCount.q[];
+		 When b"000" => TA6Channel[0].DAQAddrBus_In[7..0] = (GND,DataCount.q[]);
 						%FLink_Data_BUS.data[9..0]%SerDataOut[9..0] = TA6Channel[0].DAQDataBusOut[9..0];
 						NWordFLink[] = TA6Channel[0].DAQDataBusOut[11..10];
-		 When b"001" => TA6Channel[1].DAQAddrBus_In[] = DataCount.q[];
+		 When b"001" => TA6Channel[1].DAQAddrBus_In[7..0] = (GND,DataCount.q[]);
 						%FLink_Data_BUS.data[9..0]%SerDataOut[9..0] = TA6Channel[1].DAQDataBusOut[9..0];
 						NWordFLink[] = TA6Channel[1].DAQDataBusOut[11..10];
-		 When b"010" => TA6Channel[2].DAQAddrBus_In[] = DataCount.q[];
+		 When b"010" => TA6Channel[2].DAQAddrBus_In[7..0] = (GND,DataCount.q[]);
 						%FLink_Data_BUS.data[9..0]%SerDataOut[9..0] = TA6Channel[2].DAQDataBusOut[9..0];
 						NWordFLink[] = TA6Channel[2].DAQDataBusOut[11..10];
-		 When b"011" => TA6Channel[3].DAQAddrBus_In[] = DataCount.q[];
+		 When b"011" => TA6Channel[3].DAQAddrBus_In[7..0] = (GND,DataCount.q[]);
 						%FLink_Data_BUS.data[9..0]%SerDataOut[9..0] = TA6Channel[3].DAQDataBusOut[9..0];
 						NWordFLink[] = TA6Channel[3].DAQDataBusOut[11..10];
-		 When b"100" => TA6Channel[4].DAQAddrBus_In[] = DataCount.q[];
+		 When b"100" => TA6Channel[4].DAQAddrBus_In[7..0] = (GND,DataCount.q[]);
 						%FLink_Data_BUS.data[9..0]%SerDataOut[9..0] = TA6Channel[4].DAQDataBusOut[9..0];
 						NWordFLink[] = TA6Channel[4].DAQDataBusOut[11..10];
-		 When b"101" => TA6Channel[5].DAQAddrBus_In[] = DataCount.q[];
+		 When b"101" => TA6Channel[5].DAQAddrBus_In[7..0] = (GND,DataCount.q[]);
 						%FLink_Data_BUS.data[9..0]%SerDataOut[9..0] = TA6Channel[5].DAQDataBusOut[9..0];
 						NWordFLink[] = TA6Channel[5].DAQDataBusOut[11..10];
 		 WHEN OTHERS => FLink_Error = VCC;
@@ -1020,7 +1022,7 @@ Test3	= PLL.locked;--DDRenNequ1;                   --Start_Link.q;			-- pin 76
 Test4	= SelCommdList_Trig.q;--PowerUp0;--StartProc_Link;           	--StartADC_Link;		-- pin 80
 
 --IF((AddrBus[12] == VCC) and (AddrBus[9] == VCC) ) Then Test5 = VCC; Else Test5 = GND; End IF;
-Test5   = ReadWFhist.q;--SelCommdList_Trig3.q;--DDRenEqu2;                    --CPU.test4;            --DDRenEqu2;            -- pin 81
+Test5   = TxWFhist.q;--SelCommdList_Trig3.q;--DDRenEqu2;                    --CPU.test4;            --DDRenEqu2;            -- pin 81
 Test6	= DataCount.cout;--TA6Channel[3].test5;--TestCt.q[5];--PowerUp1;--CPU.AccessReq;                --CPU.AccessReq;        --DDRenNEqu2;           -- pin 137
 Test7	= StopCount;--TA6Channel[3].test1;--!Link_IFace.LinkMessage;					--AddrSettled;			--Digitizer1.Test3;		-- pin 139
 Test8	= FLink_Data_BUS.q[2];--TA6Channel[3].test1;				--DevSel[6] # DevSel[7];--Digitizer1.Test2;		-- pin 146
