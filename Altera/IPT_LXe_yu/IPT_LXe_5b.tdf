@@ -265,6 +265,7 @@ StartProc_Link	: PulseShaper with (DurationCode=4);--Start Processor by Link com
 StartProc		: node; -- all sources of Start_Processor combined
 
 St_EthTx_Ether	: node;
+St_Ether_Link	: node;
 Delay_StEthTx	: DelayLine with (DelayCode = 200,  -- to delay the real start of Processor 
                                   DurationCode= 4); --  after CAMAC-cycle
 --StartEthTx_Ether: PulseShaper with (DurationCode=4);--Start Ethernet' Transmit by Ethernet command
@@ -366,6 +367,7 @@ PLL_PS						: PulseShaper;
 --******** 9a. Up_Link *******************************************************
 Link_IFace				: UpLink with (RefClock = 100);
 Delay_LinkMessage		: DFF;
+Delay_St_Ether_Link		: SRFF;
 Reg_OpCode				: LPM_SHIFTREG with (lpm_width=(CommandSize+Pause), -- contains Command
 											 lpm_direction="unused"); -- not important
 OpCode_load				: node; -- puts Reg_OpCode into "load" mode
@@ -438,7 +440,7 @@ RPWDN	= VCC; -- включить/выключить Deserializer
 TPWDN	= GND; -- включить/выключить Serializer
 %
 St_Compuls = GND;   St_One = GND;       St_Multi = GND;     St_Load = GND;
-St_Proc_Link = GND; St_ADC_Link = GND;
+St_Proc_Link = GND; St_ADC_Link = GND;  St_Ether_Link = GND;
 
 Eth_WRITE = GND;    St_EthTx_Ether  = GND;
 
@@ -606,6 +608,83 @@ Reg_OpCode.data[(CommandSize+Pause-1)..0]= Link_IFace.OpCode_out[(CommandSize+Pa
 Reg_OpCode.(clock, enable, load)= (Clk100, OpCode_load, VCC); -- catch data when RxOpCodeReload=1 
 Reg_OpCode.(aclr, sclr)         = (RESET, GND );
 
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--**************** LINK Cycle proceeding units *******************************
+
+---- Start an Action by Link command  (4-clock pulse)
+--Start_Link.(D, clk, reset)  = (Link_IFace.LinkMessage, Clk100, RESET);--PulseShaper
+
+IF (Link_IFace.LinkMessage == VCC)  then -- If VALID command received, 
+    CASE  Link_IFace.OpCode_out[(CommandSize+Pause-1)..0] is -- recognizing the particular Operation :
+        WHEN  Read     => BaseAddr[]    = 80;   --#145-"Read" (=<8words) from Objects 
+                        St_Proc_Link    = VCC;
+        WHEN  Write    => BaseAddr[]      =192; --#154-"Write"(=<4words) to Objects
+                        St_Proc_Link    = VCC;
+        WHEN  Read62 => BaseAd[]        =  2;   --#130-"Read62": Read 62words from Object(s)
+                        St_Proc_Link    = VCC;
+        WHEN  Write8 => BaseAd[]        =160;   --#137-"Write8": Write 8 words  to Object(s)
+                        St_Proc_Link    = VCC;
+
+        WHEN  StartRegul     =>     -- #193-"START_Regular"        (+?oyoo Lst0)
+						BaseAd[]        = 24;	--Program: CommdList_Rd000
+						St_Proc_Link	= VCC;	--Start up the Program
+						St_Ether_Link	= VCC;	--Start up Ethernet transmition with waveforms
+						Ether.TxLength[]= 1440;	-- DataBlock length = 64Bytes
+						Eth_InitAddr[]  = 0;	-- initial addr of data to be transmitted 
+
+        WHEN  CommdLst_Wr001 =>     -- #202-"Blocking_Begin"       (¦?yo?? Lst1)
+                        BaseAd[]        =100;           --Program: CommdList_Wr001
+                        St_Proc_Link    = VCC;          --Start up the Program
+
+        WHEN  StartAlter     =>     -- #210-"START_Alternative"    (+?oyoo Lst2)
+                        BaseAd[]        = 28;           --Program: CommdList_Rd010
+                        St_Proc_Link    = VCC;          --Start up the Program
+                        --St_ADC_Link     = VCC;          --Start up ADC
+        WHEN  CommdLst_Wr011 =>     -- #217-"Blocking_End"         (¦?yo?? Lst3)
+                        BaseAd[]        =106;           --Program: CommdList_Wr011
+                        St_Proc_Link    = VCC;          --Start up the Program
+
+        WHEN  CommdLst_Rd100 =>     -- #226-"Read  by CommdLst100" (+?oyoo Lst4)
+                        BaseAd[]        = 32;           --Program: CommdList_Rd100
+                        St_Proc_Link    = VCC;          --Start up the Program
+        WHEN  CommdLst_Wr101 =>     -- #233-"Write by CommdLst101" (¦?yo?? Lst5)
+                        BaseAd[]        =112;           --Program: CommdList_Wr101
+                        St_Proc_Link    = VCC;          --Start up the Program
+
+        WHEN  CommdLst_Rd110 =>     -- #241-"Read  by CommdLst110" (+?oyoo3)
+                        BaseAd[]        = 36;           --Program: CommdList_Rd110;
+                        St_Proc_Link    = VCC;          --Start up the Program
+        WHEN  CommdLst_Wr111 =>     -- #250-"Write by CommdLst111" (¦?yo??3)
+                        BaseAd[]        =118;           --Program: CommdList_Wr111
+                        St_Proc_Link    = VCC;          --Start up the Program
+
+        WHEN  Rd_SelCommdLst =>     -- #198-"Read  by CommdLst_selected_by_InData"
+                        BaseAd[]        = 72;           --Program: Rd_SelCommdList
+                        St_Proc_Link    = VCC;          --Start up the Program
+        WHEN  Wr_SelCommdLst =>     -- #205-"Write by CommdLst_selected_by_InData"
+                        BaseAd[]        =153;           --Program: Wr_SelCommdList
+                        St_Proc_Link    = VCC;          --Start up the Program
+
+        WHEN OTHERS            => St_Proc_Link = GND;
+                                  St_ADC_Link  = GND;
+    End CASE;
+End IF ;
+
+For i in 0 to 7  GENERATE
+BaseAddr[i] = DFF(.D=BaseAd[i], .clk=Clk100);
+End GENERATE;
+
+--StartProc_Link  = DFF(.D=St_Proc_Link, .clk=Clk100);
+StartProc_Link.(D,clk,reset)= (St_Proc_Link, Clk100, RESET);    --PulseShaper
+--StartADC_Link   = DFF(.D=St_ADC_Link,  .clk=Clk100);
+StartADC_Link.(D,clk,reset) = (St_ADC_Link,  Clk100, RESET);    --PulseShaper
+
+-- Circuitry for sending 124 DataWords related to 1 event in 2 consecutive LinkCycles (Temporary)
+SelCommdList_Reg.(data[15..8],data[7],data[6..0]) = (B"00001100",SelCommdList_Count.q,B"0000000");
+SelCommdList_Reg.(clock,load,enable) = (Clk100,VCC,VCC);
+SelCommdList_Count.cnt_en = EdgeSensing(.D= !Link_IFace.LinkMessage, .clk=Clk100, .reset=RESET);
+SelCommdList_Count.(clock,clk_en) = (Clk100, VCC);
+
 --============================================================================
 --******** 4. CAMAC Interface I/O connection *********************************
 
@@ -657,8 +736,37 @@ END GENERATE;
 Cam_Rd_Enable   =  CAMAC_IFace.R_OE; -- Enable external buffers of CAMAC_R
 Cam_Wr_Enable   = !CAMAC_IFace.W_OE; -- Enable external buffers of CAMAC_W
 
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+-- Start an Action by CAMAC command
+IF (CAMAC_IFace.Start == VCC)  then -- If "Start" (F25Axx) command received, 
+    CASE CAMAC_IFace.Aout[]  IS     -- recognizing the particular Operation :
+        WHEN 0  => St_Compuls= VCC;     -- Compulsive Start (one-shot)
+                   Confirm   = VCC;     -- command confirmed
+        WHEN 1  => St_One    = VCC;     -- Start by external "Start" (one-shot)
+                   Confirm   = VCC;     -- command confirmed
+        WHEN 2  => St_Multi  = VCC;     -- Start by external "Start" (multiple)
+                   Confirm   = VCC;     -- command confirmed
+        WHEN 8  => St_Load   = VCC;     -- Load Att.Codes & Masks
+                   Confirm   = VCC;     -- command confirmed
+        WHEN 12 => St_Proc   = VCC;     -- Start Processor, BaseAddr in ????
+                   Confirm   = VCC;     -- command confirmed
+        WHEN OTHERS =>  Confirm = GND;  -- command INvalid
+    END CASE;
+END IF ;
+
+-- RESET of all/some Objects by CAMAC command
+IF (CAMAC_IFace.Reset == VCC)  then -- If "Reset" (F30Axx) command received, 
+    CASE CAMAC_IFace.Aout[]  IS     -- recognizing the particular Operation :
+        WHEN 0  => Reset_all = VCC;     -- Main RESET by CAMAC command
+                   Confirm   = VCC;     -- command confirmed
+        WHEN 1  => Reset2    = VCC;     -- Partial Reset by CAMAC command
+                   Confirm   = VCC;     -- command confirmed
+        WHEN OTHERS =>  Confirm = GND;  -- command INvalid
+    END CASE;
+END IF ;
+
 --============================================================================
---******** 5. ETHERNET Interface *********************************************
+--******** 4. ETHERNET Interface *********************************************
 
 ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
 --************  RECEIVER section  ************
@@ -729,10 +837,9 @@ Ether.Clock = Clk100; -- Clock Frequency MUST BE > 50MHz !!!!
 
 --    = Ether.IORq;             -- Connected at "Bus Handler" sub-section
 --    = Ether.RdWr_out;         -- Connected at "Bus Handler" sub-section
-IF ((!TA_DataStrobe.q and Link_IFace.LinkMessage) == GND) Then 
-	Ether.DataBus_in[15..0] = TestRAM.q_a[];    -- data:  TestRAM -> Ethernet
-	Else Ether.DataBus_in[15..0] = TAWF_HistRAM.q_b[];
-END IF;
+--Ether.DataBus_in[15..0] = TestRAM.q_a[];    -- data:  TestRAM -> Ethernet
+Ether.DataBus_in[15..0] = TAWF_HistRAM.q_b[];
+
 Ether.Select  = Addr_Settled;   -- Ethernet is selected for local data reading/writing
 Ether.RdWr_in = RdWr;           -- RdWr=0 => data will be read from Ethernet / RdWr=1 => data will be written to Ethernet
 Ether.DataStrobe = Data_Strobe; -- input data must be latched while DataStrobe=1 
@@ -752,86 +859,38 @@ Data_Strobe = DFF(.D=BusOper3,    .clk=Clk100,.clrn=!RESET); -- 1-clk pulse
 -- Ether.RW_out=1 => Data: MainProj <- Ethernet ("read")  => RdWr=0
 RdWr   = DFF(.D=!Ether.RdWr_out, .clk=Clk100);  
 
---============================================================================
---******** 6. Fast LINK's Interface *******************************************
-%
-CLK150_  = CLK150;				
-CLK37_5_ = BC_Sample_Enable;			   
-CLK12_5_ = BC_Fast_Link_Start;	
-CLK25_   = CLK25;			
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--**************** ETHERNET Cycle proceeding units *****************************
 
-FastSerLed				: output;	-- drives the LED				-> Pin
-FastDeserLed			: output;	-- drives the LED				-> Pin
+    CASE  Reg_EthOpCode.q[7..0] is  -- recognizing the particular Operation :
+        WHEN  H"01" =>  -- "PING" command
+                        St_EthTx_Ether  = VCC;  -- Start up the Transmit
+                        Ether.TxLength[]=  64;  -- DataBlock length = 64Bytes
+                        Eth_InitAddr[]  = 896;  -- initial addr of data to be transmitted 
 
-FLink.Data_To_Ser[23..0] = FLink_Data_BUS[23..0]; --CAMAC_R_In_Pin_Buffer.q[];
-FLink.(Clock , Bunch_Crossing_Data_Sample, Bunch_Crossing_Fast_Link_Start) = 
-	  (CLK150,     BC_Sample_Enable      ,       BC_Fast_Link_Start      );
+        --WHEN  H"03" =>  -- "StartMulti" for sending Ethernet' frames" 
+        --WHEN  H"04" =>  -- "STOP sending Ethernet' frames" 
 
--- Inferring of Fast output Buffers
-SerDataOut[7..0]  = SerDataOut_Out_Pin_Buffer.q[];
-NWord[1..0]       = NWord_Out_Pin_Buffer.q[];  
+        WHEN  H"05" =>  -- "Set LinkMask and TimeGap" 
+                        Eth_WRITE       = VCC;  -- Ethernet' "Write" Command received 
+                        --St_EthTx_Ether  = GND;  -- NO Transmit 
 
-SerDataOut_Out_Pin_Buffer.(data[],clock,enable,load) = (FLink.SerDataOut[7..0],CLK150,VCC,VCC);
-NWord_Out_Pin_Buffer.(data[],clock,enable,load)      = (FLink.NumberWord[1..0],CLK150,VCC,VCC);
+        WHEN  H"08" =>  -- "Write" data to TestRAM
+                        Eth_WRITE       = VCC;  -- Ethernet' "Write" Command received 
+                        --St_EthTx_Ether  = GND;  -- NO Transmit 
 
-3PH_CLK_Out_Pin_Buffer.(d,clk) = (FLink.3xPH_Clk, CLK150);
---3PH_CLK_Out_Pin_Buffer.(d,clk) = (3PH_CLK_Int, CLK150);
--- 3PH_CLK_Out_Pin_Buffer.(d,clk) = (DFF(.d=FLink.3xPH_Clk,.clk=CLK150), CLK150);
-------------------      
- 
--- сигналы управления для Serializer/Deserializer
-3PH_CLK = 3PH_CLK_Out_Pin_Buffer.q;
-PWRDN   = VCC;  -- включить Serializer/Deserializer 
-%
+        WHEN  H"09" =>  -- "Read" data from TestRAM
+                        St_EthTx_Ether  = VCC;  -- Start up the Transmit
+                        --Ether.TxLength[]= 255;  -- DataBlock length = 256Bytes
+                        Ether.TxLength[]=  64;  -- DataBlock length - temporary
+                        Eth_InitAddr[]  = 128;  -- initial addr of data to be transmitted 
+
+        WHEN OTHERS => St_EthTx_Ether   = GND;
+                       Ether.TxLength[]=   48;  -- Minimal DataBlock length
+    End CASE;
 
 --============================================================================
---******** 7. TA6/12 data Interface ******************************************************
-
-DeSerClk = Clk25;
-
-FOR i in NUM_board-1 to 0 Generate
-
-	Reg_InData[i].(data, clock, enable, load) = ((NWordFLink_TA[i][],DataIn_TA[i][]), NChStrobe0, VCC, VCC);
-	TA_proces[i].Clock				= Clk25;
-	TA_proces[i].TAdata[11..0]		= Reg_InData[i].q[];
-
-	TA_proces[i].WFDataMes			= TAWF_DataStrobe;
-	TA_proces[i].LnkMess			= Link_IFace.LinkMessage;
-	TA_proces[i].EtherMess			= Ether.IORq; -- Data_ready or Data_required;
-
-	TA_proces[i].DigitInit			= StartADC; --PwrUpSet1;-- initiates Cycle: Digitizing and store the results in ADC_RAM
-	TA_proces[i].RegInit			= PwrUpSet1;
-	TA_proces[i].Reset				= RESET;    -- reset by MainRESET
-
-	TA_proces[i].DataBus_In[15..0]	= DataBus[15..0];
-	TA_proces[i].AddrBus_In[9..0]	= AddrBus[9..0] ;
-	TA_proces[i].DataBusStrobe		= DataStrobe ;
-	TA_proces[i].DirectIn			= RW;
-	TA_proces[i].Select				= DevSel[11+i].q ;
-	TA_proces[i].WriteRAM			= SelCommdList_Count.q[];
-
-	TALed[i] = NChLock[i];
-
-END GENERATE;
-
-	--************ WF TA Memory (2-port RAM) **************************************
-
-TA_DataStrobe.(data, clock, enable, load) = (TAWF_DataStrobe, Clk25, VCC, VCC);
-TAWF_HistRAM_Cnt.(clock, cnt_en, sclr) = (Clk25, (TA_DataStrobe.q and Link_IFace.LinkMessage), !(TA_DataStrobe.q and Link_IFace.LinkMessage));
-
-TAWF_HistRAM.data_a[11..0] = Reg_InData[0].q[];
-TAWF_HistRAM.data_a[14..12] = GND;
-TAWF_HistRAM.data_a[15] = TA_DataStrobe.q;
-TAWF_HistRAM.(address_a[],			wren_a		,    clock_a) =	--\ for common
-			 (TAWF_HistRAM_Cnt.q[], TA_DataStrobe.q, Clk25);	-- > access
-TAWF_HistRAM.(enable_b) = (VCC); 
-
-TAWF_HistRAM.(address_b[9..0],   data_b[],            wren_b ) =     --\ for local access 
-			 (EthAddrCt.q[9..0], Ether.DataBus_out[], EthWord_Rd);   --/ from inside of "Ethernet" section
-TAWF_HistRAM.(clock_b, enable_b) = (Clk100, VCC);
-
---============================================================================
---******** 8. Processor ******************************************************
+--******** 5. Processor ******************************************************
 CPU.Clock   = Clk100;   CPU.Sync    = Synchro25; 
 CPU.ProgInit        = StartProc ; 
 CPU.BaseAddr[7..0]  = BaseAddr[7..0];
@@ -887,140 +946,7 @@ Reg_BaseAddr.(clock,enable) =(Clk100, (DataStrobe & DevSel[8] & RW));
 Reg_BaseAddr.(load, aclr)   = (VCC, RESET);
 
 --============================================================================
---******** 9. Control Unit section *******************************************
-
-----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
--- Start an Action by CAMAC command
-IF (CAMAC_IFace.Start == VCC)  then -- If "Start" (F25Axx) command received, 
-    CASE CAMAC_IFace.Aout[]  IS     -- recognizing the particular Operation :
-        WHEN 0  => St_Compuls= VCC;     -- Compulsive Start (one-shot)
-                   Confirm   = VCC;     -- command confirmed
-        WHEN 1  => St_One    = VCC;     -- Start by external "Start" (one-shot)
-                   Confirm   = VCC;     -- command confirmed
-        WHEN 2  => St_Multi  = VCC;     -- Start by external "Start" (multiple)
-                   Confirm   = VCC;     -- command confirmed
-        WHEN 8  => St_Load   = VCC;     -- Load Att.Codes & Masks
-                   Confirm   = VCC;     -- command confirmed
-        WHEN 12 => St_Proc   = VCC;     -- Start Processor, BaseAddr in ????
-                   Confirm   = VCC;     -- command confirmed
-        WHEN OTHERS =>  Confirm = GND;  -- command INvalid
-    END CASE;
-END IF ;
-
--- RESET of all/some Objects by CAMAC command
-IF (CAMAC_IFace.Reset == VCC)  then -- If "Reset" (F30Axx) command received, 
-    CASE CAMAC_IFace.Aout[]  IS     -- recognizing the particular Operation :
-        WHEN 0  => Reset_all = VCC;     -- Main RESET by CAMAC command
-                   Confirm   = VCC;     -- command confirmed
-        WHEN 1  => Reset2    = VCC;     -- Partial Reset by CAMAC command
-                   Confirm   = VCC;     -- command confirmed
-        WHEN OTHERS =>  Confirm = GND;  -- command INvalid
-    END CASE;
-END IF ;
-
-----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
---**************** LINK Cycle proceeding units *******************************
-
----- Start an Action by Link command  (4-clock pulse)
---Start_Link.(D, clk, reset)  = (Link_IFace.LinkMessage, Clk100, RESET);--PulseShaper
-
-IF (Link_IFace.LinkMessage == VCC)  then -- If VALID command received, 
-    CASE  Link_IFace.OpCode_out[(CommandSize+Pause-1)..0] is -- recognizing the particular Operation :
-        WHEN  Read     => BaseAddr[]    = 80;   --#145-"Read" (=<8words) from Objects 
-                        St_Proc_Link    = VCC;
-        WHEN  Write    => BaseAddr[]      =192; --#154-"Write"(=<4words) to Objects
-                        St_Proc_Link    = VCC;
-        WHEN  Read62 => BaseAd[]        =  2;   --#130-"Read62": Read 62words from Object(s)
-                        St_Proc_Link    = VCC;
-        WHEN  Write8 => BaseAd[]        =160;   --#137-"Write8": Write 8 words  to Object(s)
-                        St_Proc_Link    = VCC;
-
-        WHEN  StartRegul     =>     -- #193-"START_Regular"        (+Єхэшх Lst0)
-                        BaseAd[]        = 24;           --Program: CommdList_Rd000
-                        St_Proc_Link    = VCC;          --Start up the Program
-                        St_ADC_Link     = VCC;          --Start up ADC
-        WHEN  CommdLst_Wr001 =>     -- #202-"Blocking_Begin"       (¦ряшё№ Lst1)
-                        BaseAd[]        =100;           --Program: CommdList_Wr001
-                        St_Proc_Link    = VCC;          --Start up the Program
-
-        WHEN  StartAlter     =>     -- #210-"START_Alternative"    (+Єхэшх Lst2)
-                        BaseAd[]        = 28;           --Program: CommdList_Rd010
-                        St_Proc_Link    = VCC;          --Start up the Program
-                        --St_ADC_Link     = VCC;          --Start up ADC
-        WHEN  CommdLst_Wr011 =>     -- #217-"Blocking_End"         (¦ряшё№ Lst3)
-                        BaseAd[]        =106;           --Program: CommdList_Wr011
-                        St_Proc_Link    = VCC;          --Start up the Program
-
-        WHEN  CommdLst_Rd100 =>     -- #226-"Read  by CommdLst100" (+Єхэшх Lst4)
-                        BaseAd[]        = 32;           --Program: CommdList_Rd100
-                        St_Proc_Link    = VCC;          --Start up the Program
-        WHEN  CommdLst_Wr101 =>     -- #233-"Write by CommdLst101" (¦ряшё№ Lst5)
-                        BaseAd[]        =112;           --Program: CommdList_Wr101
-                        St_Proc_Link    = VCC;          --Start up the Program
-
-        WHEN  CommdLst_Rd110 =>     -- #241-"Read  by CommdLst110" (+Єхэшх3)
-                        BaseAd[]        = 36;           --Program: CommdList_Rd110;
-                        St_Proc_Link    = VCC;          --Start up the Program
-        WHEN  CommdLst_Wr111 =>     -- #250-"Write by CommdLst111" (¦ряшё№3)
-                        BaseAd[]        =118;           --Program: CommdList_Wr111
-                        St_Proc_Link    = VCC;          --Start up the Program
-
-        WHEN  Rd_SelCommdLst =>     -- #198-"Read  by CommdLst_selected_by_InData"
-                        BaseAd[]        = 72;           --Program: Rd_SelCommdList
-                        St_Proc_Link    = VCC;          --Start up the Program
-        WHEN  Wr_SelCommdLst =>     -- #205-"Write by CommdLst_selected_by_InData"
-                        BaseAd[]        =153;           --Program: Wr_SelCommdList
-                        St_Proc_Link    = VCC;          --Start up the Program
-
-        WHEN OTHERS            => St_Proc_Link = GND;
-                                  St_ADC_Link  = GND;
-    End CASE;
-End IF ;
-
-For i in 0 to 7  GENERATE
-BaseAddr[i] = DFF(.D=BaseAd[i], .clk=Clk100);
-End GENERATE;
-
---StartProc_Link  = DFF(.D=St_Proc_Link, .clk=Clk100);
-StartProc_Link.(D,clk,reset)= (St_Proc_Link, Clk100, RESET);    --PulseShaper
---StartADC_Link   = DFF(.D=St_ADC_Link,  .clk=Clk100);
-StartADC_Link.(D,clk,reset) = (St_ADC_Link,  Clk100, RESET);    --PulseShaper
-
--- Circuitry for sending 124 DataWords related to 1 event in 2 consecutive LinkCycles (Temporary)
-SelCommdList_Reg.(data[15..8],data[7],data[6..0]) = (B"00001100",SelCommdList_Count.q,B"0000000");
-SelCommdList_Reg.(clock,load,enable) = (Clk100,VCC,VCC);
-SelCommdList_Count.cnt_en = EdgeSensing(.D= !Link_IFace.LinkMessage, .clk=Clk100, .reset=RESET);
-SelCommdList_Count.(clock,clk_en) = (Clk100, VCC);
-
-----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
---**************** ETHERNET Cycle proceeding units *****************************
-
-    CASE  Reg_EthOpCode.q[7..0] is  -- recognizing the particular Operation :
-        WHEN  H"01" =>  -- "PING" command
-                        St_EthTx_Ether  = VCC;  -- Start up the Transmit
-                        Ether.TxLength[]=  64;  -- DataBlock length = 64Bytes
-                        Eth_InitAddr[]  = 128;  -- initial addr of data to be transmitted 
-
-        --WHEN  H"03" =>  -- "StartMulti" for sending Ethernet' frames" 
-        --WHEN  H"04" =>  -- "STOP sending Ethernet' frames" 
-
-        WHEN  H"05" =>  -- "Set LinkMask and TimeGap" 
-                        Eth_WRITE       = VCC;  -- Ethernet' "Write" Command received 
-                        --St_EthTx_Ether  = GND;  -- NO Transmit 
-
-        WHEN  H"08" =>  -- "Write" data to TestRAM
-                        Eth_WRITE       = VCC;  -- Ethernet' "Write" Command received 
-                        --St_EthTx_Ether  = GND;  -- NO Transmit 
-
-        WHEN  H"09" =>  -- "Read" data from TestRAM
-                        St_EthTx_Ether  = VCC;  -- Start up the Transmit
-                        --Ether.TxLength[]= 255;  -- DataBlock length = 256Bytes
-                        Ether.TxLength[]=  64;  -- DataBlock length - temporary
-                        Eth_InitAddr[]  = 128;  -- initial addr of data to be transmitted 
-
-        WHEN OTHERS => St_EthTx_Ether   = GND;
-                       Ether.TxLength[]=   48;  -- Minimal DataBlock length
-    End CASE;
+--******** 6. Control Unit section *******************************************
 
 ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
 ------------------- ENABLING of Action_Initializing ----------------------------
@@ -1074,10 +1000,10 @@ StartADC_Camac.(D, clk,reset) =(Delay_StCompuls.q, Clk100, RESET);--PulseShaper
 ---- START by external Start pulse
 --StartADC_Ext.(D, clk,reset)   =(NIM_in, Clk100, RESET);     --PulseShaper
 
-StartADC    = StartADC_Camac.q                  -- Compulsive START by CAMAC ..
-    OR((StartOne # StartMulti)& StartADC_Link.q)-- or START by Link' Command ..
-    --OR((StartOne # StartMulti)& StartADC_Ext.q )-- or START by external Start pulse 
-    %AND !Digitizer.Working% ;            -- if Digitizing is NOT in progress 
+StartADC = StartADC_Camac.q						-- Compulsive START by CAMAC ..
+	OR((StartOne # StartMulti)& StartADC_Link.q)-- or START by Link' Command ..
+	--OR((StartOne # StartMulti)& StartADC_Ext.q )-- or START by external Start pulse 
+	%AND !Digitizer.Working% ;            -- if Digitizing is NOT in progress 
 
 ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
 --**************** START of an ETHERNET operation ******************************
@@ -1087,8 +1013,9 @@ StartADC    = StartADC_Camac.q                  -- Compulsive START by CAMAC ..
 Delay_StEthTx.(D,clk,reset) = ((St_EthTx_Ether & Ether.RxEndFrame),Clk100,RESET);  -- Delay of Compulsive START
 --StartEthTx_Ether.(D, clk,reset) =(Delay_StEthTx.q, Clk100, RESET);--PulseShaper
 
+Delay_St_Ether_Link.(S,clk,R,clrn) = (St_Ether_Link, Clk100,RESET, !StartEthTx_Link.q);
 Delay_LinkMessage.(D,clk) = (Link_IFace.LinkMessage, Clk100);
-StartEthTx_Link.(D, clk, reset) = ((!Link_IFace.LinkMessage & Delay_LinkMessage.q), Clk100, RESET);
+StartEthTx_Link.(D, clk, reset) = ((!Link_IFace.LinkMessage & Delay_LinkMessage.q) AND Delay_St_Ether_Link.q, Clk100, RESET);
 
 StartEthTx  = (%StartEthTx_Camac   OR%              -- Start Transmit by CAMAC .. 
 	((StartOne # StartMulti)& StartEthTx_Link.q)OR -- .. or Start by Link, if allowed
@@ -1111,7 +1038,6 @@ EtherWRITE  = DFF(.D=Eth_WRITE, .clk=Clk100, .clrn=!(Ether.RxEndFrame # RESET));
 --EtherWR_we  = EtherWRITE    -- Upon Ether' "WRITE" command, enables ETHERNET -> TestRAM
 --            AND(Addr_Settled & !RdWr & Data_Strobe);-- RdWr=0 => "Read" from ETHERNET
 
-
 --Ether.StTransmit = TA_proces[0].Data_ready; -- noa?o ia?aaa?e iaeaoa
 --Ether.TxLength[15..0] = B"0000001100000000"; -- aeeia iaeaoa aaiiuo (noa?oee ?ac?ya anaaaa = 0)!
 
@@ -1122,7 +1048,85 @@ Error	= Link_IFace.Error OR CPU.Error OR Ether.RxError;--OR Ether.TxError ;
 RESET	= PwrUpReset OR ExtReset ;
 
 --============================================================================
---******** 10. Error counter ******************************************************
+--******** 7. Fast LINK's Interface *******************************************
+%
+CLK150_  = CLK150;				
+CLK37_5_ = BC_Sample_Enable;			   
+CLK12_5_ = BC_Fast_Link_Start;	
+CLK25_   = CLK25;			
+
+FastSerLed				: output;	-- drives the LED				-> Pin
+FastDeserLed			: output;	-- drives the LED				-> Pin
+
+FLink.Data_To_Ser[23..0] = FLink_Data_BUS[23..0]; --CAMAC_R_In_Pin_Buffer.q[];
+FLink.(Clock , Bunch_Crossing_Data_Sample, Bunch_Crossing_Fast_Link_Start) = 
+	  (CLK150,     BC_Sample_Enable      ,       BC_Fast_Link_Start      );
+
+-- Inferring of Fast output Buffers
+SerDataOut[7..0]  = SerDataOut_Out_Pin_Buffer.q[];
+NWord[1..0]       = NWord_Out_Pin_Buffer.q[];  
+
+SerDataOut_Out_Pin_Buffer.(data[],clock,enable,load) = (FLink.SerDataOut[7..0],CLK150,VCC,VCC);
+NWord_Out_Pin_Buffer.(data[],clock,enable,load)      = (FLink.NumberWord[1..0],CLK150,VCC,VCC);
+
+3PH_CLK_Out_Pin_Buffer.(d,clk) = (FLink.3xPH_Clk, CLK150);
+--3PH_CLK_Out_Pin_Buffer.(d,clk) = (3PH_CLK_Int, CLK150);
+-- 3PH_CLK_Out_Pin_Buffer.(d,clk) = (DFF(.d=FLink.3xPH_Clk,.clk=CLK150), CLK150);
+------------------      
+ 
+-- сигналы управления для Serializer/Deserializer
+3PH_CLK = 3PH_CLK_Out_Pin_Buffer.q;
+PWRDN   = VCC;  -- включить Serializer/Deserializer 
+%
+
+--============================================================================
+--******** 8. TA6/12 data Interface ******************************************************
+
+DeSerClk = Clk25;
+
+FOR i in NUM_board-1 to 0 Generate
+
+	Reg_InData[i].(data, clock, enable, load) = ((NWordFLink_TA[i][],DataIn_TA[i][]), NChStrobe0, VCC, VCC);
+	TA_proces[i].Clock				= Clk25;
+	TA_proces[i].TAdata[11..0]		= Reg_InData[i].q[];
+
+	TA_proces[i].WFDataMes			= TAWF_DataStrobe;
+	TA_proces[i].LnkMess			= Link_IFace.LinkMessage;
+	TA_proces[i].EtherMess			= Ether.IORq; -- Data_ready or Data_required;
+
+	TA_proces[i].DigitInit			= StartADC; --PwrUpSet1;-- initiates Cycle: Digitizing and store the results in ADC_RAM
+	TA_proces[i].RegInit			= PwrUpSet1;
+	TA_proces[i].Reset				= RESET;    -- reset by MainRESET
+
+	TA_proces[i].DataBus_In[15..0]	= DataBus[15..0];
+	TA_proces[i].AddrBus_In[9..0]	= AddrBus[9..0] ;
+	TA_proces[i].DataBusStrobe		= DataStrobe ;
+	TA_proces[i].DirectIn			= RW;
+	TA_proces[i].Select				= DevSel[11+i].q ;
+	TA_proces[i].WriteRAM			= SelCommdList_Count.q[];
+
+	TALed[i] = NChLock[i];
+
+END GENERATE;
+
+	--************ WF TA Memory (2-port RAM) **************************************
+
+TA_DataStrobe.(data, clock, enable, load) = (TAWF_DataStrobe, Clk25, VCC, VCC);
+TAWF_HistRAM_Cnt.(clock, cnt_en, sclr) = (Clk25, (TA_DataStrobe.q and Link_IFace.LinkMessage), !(TA_DataStrobe.q and Link_IFace.LinkMessage));
+
+TAWF_HistRAM.data_a[11..0] = Reg_InData[0].q[];
+TAWF_HistRAM.data_a[14..12] = GND;
+TAWF_HistRAM.data_a[15] = TA_DataStrobe.q;
+TAWF_HistRAM.(address_a[],			wren_a		,    clock_a) =	--\ for common
+			 (TAWF_HistRAM_Cnt.q[], TA_DataStrobe.q, Clk25);	-- > access
+TAWF_HistRAM.(enable_b) = (VCC); 
+
+TAWF_HistRAM.(address_b[9..0],   data_b[],            wren_b ) =     --\ for local access 
+			 (EthAddrCt.q[9..0], Ether.DataBus_out[], EthWord_Rd);   --/ from inside of "Ethernet" section
+TAWF_HistRAM.(clock_b, enable_b) = (Clk100, VCC);
+
+--============================================================================
+--******** 9. Error counter ******************************************************
 
 -- Project Bus Port, common
 	ErrorCounters_IFace.clock 			=	CLK100;
@@ -1142,7 +1146,7 @@ RESET	= PwrUpReset OR ExtReset ;
 	ErrorCounters_IFace.ErrorInputs[6]  =   Error;--Sync_ES.q;
 
 --============================================================================
--- 11. Internal Bus of Project & Data transfer control ************************
+-- 10. Internal Bus of Project & Data transfer control ************************
 %
 AddrBus[15..0]	= CPU.AddrOut[15..0];   -- CPU is the only Master, rules forever
 RW				= CPU.RdWr ;            -- эряЁртыхэшх яхЁхфрўш
@@ -1356,8 +1360,8 @@ TestCt.cnt_en			= PowerUp0;
 TestCt.aclr				= !PowerUp0;    -- even if NO clock - Reset does occur
 
 Test1 = Link_IFace.LinkMessage;	--Link_IFace.test[1];	--Ether.test[1];	--Ether.TX_EN;		-- Pin236
-Test2 = Reg_InData[0].q[1];	--Link_IFace.test[2];	--Ether.RxWaitSFD;	--Ether.TxStFrmDel;	-- Pin237
-Test3 = Reg_InData[0].q[2];	--Link_IFace.test[3];	--Ether.test[2];	--Ether.RxDestAddr;	-- Pin238
+Test2 = StartEthTx;	--Link_IFace.test[2];	--Ether.RxWaitSFD;	--Ether.TxStFrmDel;	-- Pin237
+Test3 = TAWF_DataStrobe;	--Link_IFace.test[3];	--Ether.test[2];	--Ether.RxDestAddr;	-- Pin238
 Test4 = Reg_InData[0].q[3];	--Link_IFace.LinkMessage; --Ether.test[3];	--Ether.RxSourAddr;	-- Pin239
 Test5 = Reg_InData[0].q[4];	--Link_IFace.TxRx;	--Ether.test[4];		--Ether.test[3];	-- Pin240
 Test6 = Reg_InData[0].q[5];	--Ether.test[6];	--Ether.test[5];	-- Pin__4

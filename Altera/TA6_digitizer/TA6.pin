@@ -76,7 +76,7 @@ GNDA3                        : 2         : gnd    :                   :         
 VCCA3                        : 3         : power  :                   : 2.5V    :           :                
 PLL_ExtOut                   : 4         : output : 3.3-V LVTTL       :         : 1         : Y              
 ExtReset                     : 5         : input  : 3.3-V LVTTL       :         : 1         : Y              
-RESERVED_INPUT_WITH_WEAK_PULLUP : 6         :        :                   :         : 1         :                
+TAWF_DataStrobe              : 6         : output : 3.3-V LVTTL       :         : 1         : Y              
 VCCIO1                       : 7         : power  :                   : 3.3V    : 1         :                
 GND                          : 8         : gnd    :                   :         :           :                
 RESERVED_INPUT_WITH_WEAK_PULLUP : 9         :        :                   :         : 1         :                
@@ -296,11 +296,11 @@ GND                          : 222       : gnd    :                   :         
 ADC_In_Data[5][11]           : 223       : input  : 3.3-V LVTTL       :         : 8         : Y              
 ADC_OR[5]                    : 224       : input  : 3.3-V LVTTL       :         : 8         : Y              
 VCCIO8                       : 225       : power  :                   : 3.3V    : 8         :                
-Test[10]                     : 226       : output : 3.3-V LVTTL       :         : 8         : N              
+RESERVED_INPUT_WITH_WEAK_PULLUP : 226       :        :                   :         : 8         :                
 GND                          : 227       : gnd    :                   :         :           :                
 VCCINT                       : 228       : power  :                   : 1.2V    :           :                
 GND                          : 229       : gnd    :                   :         :           :                
-RESERVED_INPUT_WITH_WEAK_PULLUP : 230       :        :                   :         : 8         :                
+Test[10]                     : 230       : output : 3.3-V LVTTL       :         : 8         : N              
 Test[1]                      : 231       : output : 3.3-V LVTTL       :         : 8         : Y              
 Test[2]                      : 232       : output : 3.3-V LVTTL       :         : 8         : Y              
 Test[3]                      : 233       : output : 3.3-V LVTTL       :         : 8         : Y              

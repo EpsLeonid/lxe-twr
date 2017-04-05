@@ -109,7 +109,7 @@ REN							: output;  -- вкл/выкл Serializer-а
 DEN							: output;  -- вкл/выкл Serializer-а
 SerClk						: output;  -- тактовый сигнал Serializer-а
 FLink_Sync					: input;  -- сигнал синхронизации Serializer-а/Deserializer-а
---DataOutLVDS_TA				: output;
+TAWF_DataStrobe				: output;
 
 -- 3. Digitizers  
 ADC_In_Data[NUM_CH-1..0][ADC_Bits-1..0]	: input;    -- input of data from ADC Pin197..219, Pin110..123,...
@@ -720,6 +720,7 @@ Clk37_5 = DFF (.d = !Clk37_5, .clk = Clk75);
 SerClk = Clk25;--Clk37_5;--
 Delay_LinkMessage.(D,clk) = (Link_IFace.LinkMessage, Clk100);
 TxWFhist.(S, clk, R, clrn) = (Link_IFace.LinkMessage AND !Delay_LinkMessage.q, Clk25, GND, !StopCount);
+TAWF_DataStrobe = TxWFhist.q;
 --DataCount.(clock, cnt_en, sclr) = (Clk25, Link_IFace.LinkMessage, !Link_IFace.LinkMessage);
 --ChannelCount.(clock, cnt_en, sclr) = (Clk25, DataCount.cout, !Link_IFace.LinkMessage);
 DataCount.(clock, cnt_en, sclr) = (Clk25, TxWFhist.q, StopCount);
