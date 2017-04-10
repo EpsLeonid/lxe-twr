@@ -215,7 +215,7 @@ GND                          : 141       : gnd    :                   :         
 ADC_In_Data[2][10]           : 142       : input  : 3.3-V LVTTL       :         : 5         : Y              
 ADC_In_Data[2][11]           : 143       : input  : 3.3-V LVTTL       :         : 5         : Y              
 ADC_OR[2]                    : 144       : input  : 3.3-V LVTTL       :         : 5         : Y              
-RESERVED_INPUT_WITH_WEAK_PULLUP : 145       :        :                   :         : 5         :                
+Test[10]                     : 145       : output : 3.3-V LVTTL       :         : 5         : N              
 Test[8]                      : 146       : output : 3.3-V LVTTL       :         : 5         : Y              
 Test[9]                      : 147       : output : 3.3-V LVTTL       :         : 5         : Y              
 Test_in                      : 148       : input  : 3.3-V LVTTL       :         : 5         : Y              
@@ -300,7 +300,7 @@ RESERVED_INPUT_WITH_WEAK_PULLUP : 226       :        :                   :      
 GND                          : 227       : gnd    :                   :         :           :                
 VCCINT                       : 228       : power  :                   : 1.2V    :           :                
 GND                          : 229       : gnd    :                   :         :           :                
-Test[10]                     : 230       : output : 3.3-V LVTTL       :         : 8         : N              
+RESERVED_INPUT_WITH_WEAK_PULLUP : 230       :        :                   :         : 8         :                
 Test[1]                      : 231       : output : 3.3-V LVTTL       :         : 8         : Y              
 Test[2]                      : 232       : output : 3.3-V LVTTL       :         : 8         : Y              
 Test[3]                      : 233       : output : 3.3-V LVTTL       :         : 8         : Y              

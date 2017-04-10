@@ -570,7 +570,7 @@ END IF;
 -----------------------------------------------------------
 
 	WFhist.data[11..0] = RegSum[0].q[11..0];--TestLinkCt.q[9..0];--ADCdata[9..0];--
-	WFhist.(wraddress[], wrclock, wren) = (WFhist_ADCCt.q[7..0], ADC_clock, !LinkMessage);--AND SaveRam));
+	WFhist.(wraddress[], wrclock, wren) = (WFhist_ADCCt.q[7..0], ADC_clock, LinkMessage);--AND SaveRam));
 --	WFhist.(rdaddress[], rdclock, rden) = (DAQAddrBus_In[7..0], Flink_clock, ReadWFhist);--AND SaveRam));
 	WFhist.(rdaddress[], rdclock, rden) = (WFhist_RAMAddr[7..0], Flink_clock, ReadWFhist);--AND SaveRam));
 

@@ -351,6 +351,7 @@ ZERO_cs			: node;
 Reg_InData[NUM_board-1..0]			: lpm_shiftreg with (lpm_width=12, lpm_direction="unused");
 TA_proces[NUM_board-1..0]			: TAData_processing;
 TA_DataStrobe						: lpm_shiftreg with (lpm_width=1, lpm_direction="unused");
+Delay_TA_DataStrobe					: lpm_shiftreg with (lpm_width=1, lpm_direction="unused");
 TA_HistRAM_cs[NUM_board-1..0]		: node;
 TAWF_HistRAM						: WFTA_HistRAM;
 TAWF_HistRAM_Cnt					: lpm_counter with (lpm_width = 10, lpm_direction="up");
@@ -366,9 +367,12 @@ PLL_PS						: PulseShaper;
 --============================================================================
 --******** 9a. Up_Link *******************************************************
 Link_IFace				: UpLink with (RefClock = 100);
-Delay_LinkMessage		: DFF;
+Delay_LinkMessage		: DelayLine with (DelayCode = 2000,  -- to delay after the LinkMessage 
+										  DurationCode= 4);
 Delay_St_Ether_Link		: SRFF;
 Reg_OpCode				: LPM_SHIFTREG with (lpm_width=(CommandSize+Pause), -- contains Command
+											 lpm_direction="unused"); -- not important
+Eth_Reg_LinkOpCode		: LPM_SHIFTREG with (lpm_width=(CommandSize+Pause), -- contains Command
 											 lpm_direction="unused"); -- not important
 OpCode_load				: node; -- puts Reg_OpCode into "load" mode
 --InDataSave, InDataSaved : node; -- for TEST Only!!
@@ -628,9 +632,6 @@ IF (Link_IFace.LinkMessage == VCC)  then -- If VALID command received,
         WHEN  StartRegul     =>     -- #193-"START_Regular"        (+?oyoo Lst0)
 						BaseAd[]        = 24;	--Program: CommdList_Rd000
 						St_Proc_Link	= VCC;	--Start up the Program
-						St_Ether_Link	= VCC;	--Start up Ethernet transmition with waveforms
-						Ether.TxLength[]= 1440;	-- DataBlock length = 64Bytes
-						Eth_InitAddr[]  = 0;	-- initial addr of data to be transmitted 
 
         WHEN  CommdLst_Wr001 =>     -- #202-"Blocking_Begin"       (¦?yo?? Lst1)
                         BaseAd[]        =100;           --Program: CommdList_Wr001
@@ -671,7 +672,7 @@ IF (Link_IFace.LinkMessage == VCC)  then -- If VALID command received,
 End IF ;
 
 For i in 0 to 7  GENERATE
-BaseAddr[i] = DFF(.D=BaseAd[i], .clk=Clk100);
+	BaseAddr[i] = DFF(.D=BaseAd[i], .clk=Clk100);
 End GENERATE;
 
 --StartProc_Link  = DFF(.D=St_Proc_Link, .clk=Clk100);
@@ -1013,12 +1014,25 @@ StartADC = StartADC_Camac.q						-- Compulsive START by CAMAC ..
 Delay_StEthTx.(D,clk,reset) = ((St_EthTx_Ether & Ether.RxEndFrame),Clk100,RESET);  -- Delay of Compulsive START
 --StartEthTx_Ether.(D, clk,reset) =(Delay_StEthTx.q, Clk100, RESET);--PulseShaper
 
+Eth_Reg_LinkOpCode.data[(CommandSize+Pause-1)..0]= Link_IFace.OpCode_out[(CommandSize+Pause-1)..0];
+Eth_Reg_LinkOpCode.(clock, enable, load)= (Clk100, OpCode_load, VCC); -- catch data when RxOpCodeReload=1 
+Eth_Reg_LinkOpCode.(aclr, sclr)			= (RESET, StartEthTx);
+
+IF (Eth_Reg_LinkOpCode.q[7..0] == b"11000001") then
+	St_Ether_Link	= VCC;	--Start up Ethernet transmition with waveforms
+	Ether.TxLength[]= 1530;	-- DataBlock length = 1536Bytes = 768 words
+	Eth_InitAddr[]  = 0;	-- initial addr of data to be transmitted 
+Else
+	St_Ether_Link	= GND;
+END IF;
+
 Delay_St_Ether_Link.(S,clk,R,clrn) = (St_Ether_Link, Clk100,RESET, !StartEthTx_Link.q);
-Delay_LinkMessage.(D,clk) = (Link_IFace.LinkMessage, Clk100);
-StartEthTx_Link.(D, clk, reset) = ((!Link_IFace.LinkMessage & Delay_LinkMessage.q) AND Delay_St_Ether_Link.q, Clk100, RESET);
+Delay_LinkMessage.(D,clk,reset) = (Link_IFace.LinkMessage, Clk100, StartEthTx);
+--StartEthTx_Link.(D, clk, reset) = ((!Link_IFace.LinkMessage & Delay_LinkMessage.q) AND Delay_St_Ether_Link.q, Clk100, RESET);
+StartEthTx_Link.(D, clk, reset) = ((!TA_DataStrobe.q AND Delay_TA_DataStrobe.q) AND Delay_St_Ether_Link.q, Clk100, RESET);
 
 StartEthTx  = (%StartEthTx_Camac   OR%              -- Start Transmit by CAMAC .. 
-	((StartOne # StartMulti)& StartEthTx_Link.q)OR -- .. or Start by Link, if allowed
+	((StartOne # StartMulti)& StartEthTx_Link.q) OR -- .. or Start by Link, if allowed
 --	(StartOne # StartMulti)& (TestCt.q[25..4]==H"3FFF0") OR  -- For TEST ONLY !!
 	((StartOne # StartMulti)& Delay_StEthTx.q))     -- .. or Start by Ethernet, if allowed
 	AND !Ether.TX_EN ;                              -- if a Transmit is NOT in progress
@@ -1030,7 +1044,7 @@ EthAddrCt.data[]= Eth_InitAddr[];
 --EthAddrCt.sclr  = EdgeSensing(.D=(Ether.RxDataBlck  -- before receiving 1st DWord of Data Block
 EthAddrCt.sclr  = EdgeSensing(.D=Ether.RxDestAddr,  -- before receiving 1st DWord of RxFrame
                     .clk=Clk100, .reset=RESET) OR RESET;
-EthAddrCt.sload = EdgeSensing(.D=Ether.TX_EN, -- at the beginning of Transmit Cycle
+EthAddrCt.sload = EdgeSensing(.D=StartEthTx, -- at the beginning of Transmit Cycle
                     .clk=Clk100, .reset=RESET);
 
 --When ETHERNET' "WRITE" command => EtherWRITE=1 => write to TestRAM enabled 
@@ -1112,7 +1126,8 @@ END GENERATE;
 	--************ WF TA Memory (2-port RAM) **************************************
 
 TA_DataStrobe.(data, clock, enable, load) = (TAWF_DataStrobe, Clk25, VCC, VCC);
-TAWF_HistRAM_Cnt.(clock, cnt_en, sclr) = (Clk25, (TA_DataStrobe.q and Link_IFace.LinkMessage), !(TA_DataStrobe.q and Link_IFace.LinkMessage));
+Delay_TA_DataStrobe.(data, clock, enable, load) = (TA_DataStrobe.q, Clk25, VCC, VCC);
+TAWF_HistRAM_Cnt.(clock, cnt_en, sclr) = (Clk25, TA_DataStrobe.q, !TA_DataStrobe.q AND Delay_TA_DataStrobe.q);
 
 TAWF_HistRAM.data_a[11..0] = Reg_InData[0].q[];
 TAWF_HistRAM.data_a[14..12] = GND;
@@ -1360,13 +1375,13 @@ TestCt.cnt_en			= PowerUp0;
 TestCt.aclr				= !PowerUp0;    -- even if NO clock - Reset does occur
 
 Test1 = Link_IFace.LinkMessage;	--Link_IFace.test[1];	--Ether.test[1];	--Ether.TX_EN;		-- Pin236
-Test2 = StartEthTx;	--Link_IFace.test[2];	--Ether.RxWaitSFD;	--Ether.TxStFrmDel;	-- Pin237
-Test3 = TAWF_DataStrobe;	--Link_IFace.test[3];	--Ether.test[2];	--Ether.RxDestAddr;	-- Pin238
-Test4 = Reg_InData[0].q[3];	--Link_IFace.LinkMessage; --Ether.test[3];	--Ether.RxSourAddr;	-- Pin239
-Test5 = Reg_InData[0].q[4];	--Link_IFace.TxRx;	--Ether.test[4];		--Ether.test[3];	-- Pin240
-Test6 = Reg_InData[0].q[5];	--Ether.test[6];	--Ether.test[5];	-- Pin__4
-Test7 = Reg_InData[0].q[6];	--Ether.test[7];	--EthOpCode_save;	-- Pin__5
-Test8 = Reg_InData[0].q[7];	--Ether.test[8];	--EthOpCode_saved;	-- Pin__6
+Test2 = TAWF_DataStrobe;	--Link_IFace.test[2];	--Ether.RxWaitSFD;	--Ether.TxStFrmDel;	-- Pin237
+Test3 = St_Ether_Link;	--Link_IFace.test[3];	--Ether.test[2];	--Ether.RxDestAddr;	-- Pin238
+Test4 = StartEthTx_Link.q;	--Link_IFace.LinkMessage; --Ether.test[3];	--Ether.RxSourAddr;	-- Pin239
+Test5 = Ether.IORq;	--Link_IFace.TxRx;	--Ether.test[4];		--Ether.test[3];	-- Pin240
+Test6 = Data_Strobe;	--Ether.test[6];	--Ether.test[5];	-- Pin__4
+Test7 = EthAddrCt.q[1];	--Ether.test[7];	--EthOpCode_save;	-- Pin__5
+Test8 = Ether.TxDataBlck;	--Ether.test[8];	--EthOpCode_saved;	-- Pin__6
 Test9 = Clk25;				--DataIn_TA[0][8];	-- Pin
 Test10= DataStrobe;			--DataIn_TA[0][9];	-- Pin
 

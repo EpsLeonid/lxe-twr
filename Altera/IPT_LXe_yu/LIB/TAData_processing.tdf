@@ -81,14 +81,14 @@ BEGIN
 
 	TALink_Data_BUS.data[] = TAdata[11..0];
 	TALink_Data_BUS.(clock, load, enable) = (Clock, VCC, VCC);
+IF LnkMess == VCC Then
+	DataHistRAM.data_a[10..0] = TALink_Data_BUS.q[10..0]; -- 
+	DataHistRAM.data_a[11] = WFDataMes;
+	Else DataHistRAM.data_a[11..0] = (VCC,GND,VCC,GND,VCC,GND,VCC,GND,VCC,GND,VCC,GND);
+END IF;
+	WF_DataHistRAM.data[9..0] = TALink_Data_BUS.q[9..0]; -- 
 
-	IF LnkMess == GND Then
-		DataHistRAM.data_a[11..0] = TALink_Data_BUS.q[11..0]; -- 
-	Else 
-		WF_DataHistRAM.data[9..0] = TALink_Data_BUS.q[9..0]; -- 
-	END IF;
-
-	DataHistRAM.(address_a[], clock_a, wren_a) = (DataHist_Ct.q[9..0], clock, !LnkMess);
+	DataHistRAM.(address_a[], clock_a, wren_a) = (DataHist_Ct.q[9..0], clock, LnkMess);
 
 	DataHistRAM.(data_b[],address_b[], clock_b)= (DataBus_In[],AddrBus_In[9..0], Clock);
 	DataHistRAM.wren_b = DataBusStrobe and DirectIn AND Select AND Ram_Sel[0];
@@ -96,7 +96,7 @@ BEGIN
 	DataHist_Ct.clock = Clock;
 	DataHist_Ct.sclr = GND;
 	DataHist_Ct.clk_en = VCC;
-	DataHist_Ct.cnt_en = !LnkMess;
+	DataHist_Ct.cnt_en = LnkMess;
 
 	DataHist_RAMAddrBus.(data[], clock, load, enable) = (DataHist_Ct.q[], Clock, VCC, LnkMess);
 	DataHist_RAMAddr[9..0] = DataHist_RAMAddrBus.q[9..0] + 1 + AddrBus_In[9..0]; -- выставление адреса в 0 для текущего значения счетчика адресса

@@ -10,7 +10,7 @@ PARAMETERS
 --  RefClock      = 100,  -- clock frequency in MHz, default = 100(MHz)
   DelayCode     =  10,  -- delay in Clock periods, default = 10
   DurationCode  =   2,  -- duration of out_Pulse in Clock periods, default =2
-  MAX_DELAY     =1000   -- максимальная задержка в тактах
+  MAX_DELAY     =2000   -- максимальная задержка в тактах
 );
 
 CONSTANT CounterSize= FLOOR(LOG2(MAX_DELAY))+1; -- определение размера счетчика
