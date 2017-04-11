@@ -1018,7 +1018,7 @@ Eth_Reg_LinkOpCode.data[(CommandSize+Pause-1)..0]= Link_IFace.OpCode_out[(Comman
 Eth_Reg_LinkOpCode.(clock, enable, load)= (Clk100, OpCode_load, VCC); -- catch data when RxOpCodeReload=1 
 Eth_Reg_LinkOpCode.(aclr, sclr)			= (RESET, StartEthTx);
 
-IF (Eth_Reg_LinkOpCode.q[7..0] == b"11000001") then
+IF (Eth_Reg_LinkOpCode.q[(CommandSize+Pause-1)..0] == 193) then
 	St_Ether_Link	= VCC;	--Start up Ethernet transmition with waveforms
 	Ether.TxLength[]= 1530;	-- DataBlock length = 1536Bytes = 768 words
 	Eth_InitAddr[]  = 0;	-- initial addr of data to be transmitted 
@@ -1100,7 +1100,13 @@ DeSerClk = Clk25;
 
 FOR i in NUM_board-1 to 0 Generate
 
-	Reg_InData[i].(data, clock, enable, load) = ((NWordFLink_TA[i][],DataIn_TA[i][]), NChStrobe0, VCC, VCC);
+	Reg_InData[i].(clock, enable, load) = (NChStrobe0, VCC, VCC);
+
+	IF (NChLock[i] != GND) Then
+		Reg_InData[i].data[] = GND;
+	Else 
+		Reg_InData[i].data[] = (NWordFLink_TA[i][],DataIn_TA[i][]);
+	END IF;
 	TA_proces[i].Clock				= Clk25;
 	TA_proces[i].TAdata[11..0]		= Reg_InData[i].q[];
 
@@ -1378,7 +1384,7 @@ Test1 = Link_IFace.LinkMessage;	--Link_IFace.test[1];	--Ether.test[1];	--Ether.T
 Test2 = TAWF_DataStrobe;	--Link_IFace.test[2];	--Ether.RxWaitSFD;	--Ether.TxStFrmDel;	-- Pin237
 Test3 = St_Ether_Link;	--Link_IFace.test[3];	--Ether.test[2];	--Ether.RxDestAddr;	-- Pin238
 Test4 = StartEthTx_Link.q;	--Link_IFace.LinkMessage; --Ether.test[3];	--Ether.RxSourAddr;	-- Pin239
-Test5 = Ether.IORq;	--Link_IFace.TxRx;	--Ether.test[4];		--Ether.test[3];	-- Pin240
+Test5 = StartEthTx;--Ether.IORq;	--Link_IFace.TxRx;	--Ether.test[4];		--Ether.test[3];	-- Pin240
 Test6 = Data_Strobe;	--Ether.test[6];	--Ether.test[5];	-- Pin__4
 Test7 = EthAddrCt.q[1];	--Ether.test[7];	--EthOpCode_save;	-- Pin__5
 Test8 = Ether.TxDataBlck;	--Ether.test[8];	--EthOpCode_saved;	-- Pin__6
