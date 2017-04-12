@@ -354,7 +354,7 @@ TA_DataStrobe						: lpm_shiftreg with (lpm_width=1, lpm_direction="unused");
 Delay_TA_DataStrobe					: lpm_shiftreg with (lpm_width=1, lpm_direction="unused");
 TA_HistRAM_cs[NUM_board-1..0]		: node;
 TAWF_HistRAM						: WFTA_HistRAM;
-TAWF_HistRAM_Cnt					: lpm_counter with (lpm_width = 10, lpm_direction="up");
+TAWF_HistRAM_Cnt					: lpm_counter with (lpm_width = 11, lpm_direction="up");
 TAproces_Error[NUM_board-1..0]		: node;
 
 --============================================================================
@@ -632,6 +632,7 @@ IF (Link_IFace.LinkMessage == VCC)  then -- If VALID command received,
         WHEN  StartRegul     =>     -- #193-"START_Regular"        (+?oyoo Lst0)
 						BaseAd[]        = 24;	--Program: CommdList_Rd000
 						St_Proc_Link	= VCC;	--Start up the Program
+						St_Ether_Link	= VCC;	--Start up Ethernet transmition with waveforms
 
         WHEN  CommdLst_Wr001 =>     -- #202-"Blocking_Begin"       (¦?yo?? Lst1)
                         BaseAd[]        =100;           --Program: CommdList_Wr001
@@ -1016,18 +1017,15 @@ Delay_StEthTx.(D,clk,reset) = ((St_EthTx_Ether & Ether.RxEndFrame),Clk100,RESET)
 
 Eth_Reg_LinkOpCode.data[(CommandSize+Pause-1)..0]= Link_IFace.OpCode_out[(CommandSize+Pause-1)..0];
 Eth_Reg_LinkOpCode.(clock, enable, load)= (Clk100, OpCode_load, VCC); -- catch data when RxOpCodeReload=1 
-Eth_Reg_LinkOpCode.(aclr, sclr)			= (RESET, StartEthTx);
+Eth_Reg_LinkOpCode.(aclr, sclr)			= (RESET OR Ether.TxFrameCRC, GND);
 
 IF (Eth_Reg_LinkOpCode.q[(CommandSize+Pause-1)..0] == 193) then
-	St_Ether_Link	= VCC;	--Start up Ethernet transmition with waveforms
-	Ether.TxLength[]= 1530;	-- DataBlock length = 1536Bytes = 768 words
+	Ether.TxLength[]= 1024;	-- DataBlock length = 1536Bytes = 768 words
 	Eth_InitAddr[]  = 0;	-- initial addr of data to be transmitted 
-Else
-	St_Ether_Link	= GND;
 END IF;
 
-Delay_St_Ether_Link.(S,clk,R,clrn) = (St_Ether_Link, Clk100,RESET, !StartEthTx_Link.q);
-Delay_LinkMessage.(D,clk,reset) = (Link_IFace.LinkMessage, Clk100, StartEthTx);
+Delay_St_Ether_Link.(S,clk,R,clrn) = (St_Ether_Link, Clk100, RESET, !StartEthTx_Link.q);
+--Delay_LinkMessage.(D,clk,reset) = (Link_IFace.LinkMessage, Clk100, StartEthTx);
 --StartEthTx_Link.(D, clk, reset) = ((!Link_IFace.LinkMessage & Delay_LinkMessage.q) AND Delay_St_Ether_Link.q, Clk100, RESET);
 StartEthTx_Link.(D, clk, reset) = ((!TA_DataStrobe.q AND Delay_TA_DataStrobe.q) AND Delay_St_Ether_Link.q, Clk100, RESET);
 
@@ -1102,10 +1100,10 @@ FOR i in NUM_board-1 to 0 Generate
 
 	Reg_InData[i].(clock, enable, load) = (NChStrobe0, VCC, VCC);
 
-	IF (NChLock[i] != GND) Then
-		Reg_InData[i].data[] = GND;
-	Else 
+	IF (NChLock[i] == GND) Then
 		Reg_InData[i].data[] = (NWordFLink_TA[i][],DataIn_TA[i][]);
+	Else 
+		Reg_InData[i].data[] = GND;
 	END IF;
 	TA_proces[i].Clock				= Clk25;
 	TA_proces[i].TAdata[11..0]		= Reg_InData[i].q[];
@@ -1138,12 +1136,12 @@ TAWF_HistRAM_Cnt.(clock, cnt_en, sclr) = (Clk25, TA_DataStrobe.q, !TA_DataStrobe
 TAWF_HistRAM.data_a[11..0] = Reg_InData[0].q[];
 TAWF_HistRAM.data_a[14..12] = GND;
 TAWF_HistRAM.data_a[15] = TA_DataStrobe.q;
-TAWF_HistRAM.(address_a[],			wren_a		,    clock_a) =	--\ for common
+TAWF_HistRAM.(address_a[],			wren_a		,	 clock_a) =	--\ for common
 			 (TAWF_HistRAM_Cnt.q[], TA_DataStrobe.q, Clk25);	-- > access
 TAWF_HistRAM.(enable_b) = (VCC); 
 
-TAWF_HistRAM.(address_b[9..0],   data_b[],            wren_b ) =     --\ for local access 
-			 (EthAddrCt.q[9..0], Ether.DataBus_out[], EthWord_Rd);   --/ from inside of "Ethernet" section
+TAWF_HistRAM.(address_b[],				data_b[],			wren_b ) =     --\ for local access 
+			 ((GND,EthAddrCt.q[9..0]), Ether.DataBus_out[], EthWord_Rd);   --/ from inside of "Ethernet" section
 TAWF_HistRAM.(clock_b, enable_b) = (Clk100, VCC);
 
 --============================================================================
