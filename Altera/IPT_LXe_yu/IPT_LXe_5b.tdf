@@ -411,8 +411,8 @@ Reg_EthOpCode   : LPM_SHIFTREG with (lpm_width=8,  -- contains Command received 
                     lpm_direction="unused"); -- not important
 
 -- Counter which contains address for exchange between ETHERNET and TestRAM
-EthAddrCt       : lpm_counter with (lpm_width = 10, lpm_direction="up");
-Eth_InitAddr[9..0] : node; -- initial address of data to be Transmitted
+EthAddrCt       : lpm_counter with (lpm_width = 11, lpm_direction="up");
+Eth_InitAddr[10..0] : node; -- initial address of data to be Transmitted
 
 DataTrans       : node;
 CntBoard        : lpm_counter with (lpm_width = NUM_board-1, lpm_direction="up");
@@ -798,7 +798,7 @@ EthWord_Rd  = Addr_Settled & !RdWr & Data_Strobe;   --.. into TestRAM
 --************ Circuit which saves Ethernet' OpCode ****************************
 Reg_EthOpCode.data[7..0]= Ether.DataBus_out[15..8]; -- 1st Byte becomes the MSB of the 1st DWord !
 Reg_EthOpCode.(clock, enable, load) = (Clk100, EthOpCode_save, VCC); -- latch the 1st DWord received
-Reg_EthOpCode.(aclr, sclr)          = (RESET, GND );
+Reg_EthOpCode.(aclr, sclr)          = (RESET OR Ether.TxFrameCRC, GND );
 
 RxDBlkDel1  = DFF(.D=Ether.RxDataBlck, .clk=RxClk); --\_  RxDataBlck.. 
 RxDBlkDel2  = DFF(.D=RxDBlkDel1,       .clk=RxClk); --/ .. delayed by 2 RxClocks
@@ -868,7 +868,7 @@ RdWr   = DFF(.D=!Ether.RdWr_out, .clk=Clk100);
         WHEN  H"01" =>  -- "PING" command
                         St_EthTx_Ether  = VCC;  -- Start up the Transmit
                         Ether.TxLength[]=  64;  -- DataBlock length = 64Bytes
-                        Eth_InitAddr[]  = 896;  -- initial addr of data to be transmitted 
+                        Eth_InitAddr[]  = 2000;  -- initial addr of data to be transmitted 
 
         --WHEN  H"03" =>  -- "StartMulti" for sending Ethernet' frames" 
         --WHEN  H"04" =>  -- "STOP sending Ethernet' frames" 
@@ -1021,7 +1021,7 @@ Eth_Reg_LinkOpCode.(aclr, sclr)			= (RESET OR Ether.TxFrameCRC, GND);
 
 IF (Eth_Reg_LinkOpCode.q[(CommandSize+Pause-1)..0] == 193) then
 	Ether.TxLength[]= 1024;	-- DataBlock length = 1536Bytes = 768 words
-	Eth_InitAddr[]  = 0;	-- initial addr of data to be transmitted 
+	Eth_InitAddr[]  = 1;	-- initial addr of data to be transmitted 
 END IF;
 
 Delay_St_Ether_Link.(S,clk,R,clrn) = (St_Ether_Link, Clk100, RESET, !StartEthTx_Link.q);
@@ -1100,12 +1100,12 @@ FOR i in NUM_board-1 to 0 Generate
 
 	Reg_InData[i].(clock, enable, load) = (NChStrobe0, VCC, VCC);
 
-	IF (NChLock[i] == GND) Then
+--	IF (NChLock[i] == GND) Then
 		Reg_InData[i].data[] = (NWordFLink_TA[i][],DataIn_TA[i][]);
-	Else 
+%	Else 
 		Reg_InData[i].data[] = GND;
 	END IF;
-	TA_proces[i].Clock				= Clk25;
+%	TA_proces[i].Clock				= Clk25;
 	TA_proces[i].TAdata[11..0]		= Reg_InData[i].q[];
 
 	TA_proces[i].WFDataMes			= TAWF_DataStrobe;
@@ -1117,7 +1117,7 @@ FOR i in NUM_board-1 to 0 Generate
 	TA_proces[i].Reset				= RESET;    -- reset by MainRESET
 
 	TA_proces[i].DataBus_In[15..0]	= DataBus[15..0];
-	TA_proces[i].AddrBus_In[9..0]	= AddrBus[9..0] ;
+	TA_proces[i].AddrBus_In[10..0]	= AddrBus[10..0] ;
 	TA_proces[i].DataBusStrobe		= DataStrobe ;
 	TA_proces[i].DirectIn			= RW;
 	TA_proces[i].Select				= DevSel[11+i].q ;
@@ -1138,10 +1138,10 @@ TAWF_HistRAM.data_a[14..12] = GND;
 TAWF_HistRAM.data_a[15] = TA_DataStrobe.q;
 TAWF_HistRAM.(address_a[],			wren_a		,	 clock_a) =	--\ for common
 			 (TAWF_HistRAM_Cnt.q[], TA_DataStrobe.q, Clk25);	-- > access
-TAWF_HistRAM.(enable_b) = (VCC); 
+TAWF_HistRAM.(enable_a) = (VCC); 
 
 TAWF_HistRAM.(address_b[],				data_b[],			wren_b ) =     --\ for local access 
-			 ((GND,EthAddrCt.q[9..0]), Ether.DataBus_out[], EthWord_Rd);   --/ from inside of "Ethernet" section
+			 ((EthAddrCt.q[10..0]), Ether.DataBus_out[], EthWord_Rd);   --/ from inside of "Ethernet" section
 TAWF_HistRAM.(clock_b, enable_b) = (Clk100, VCC);
 
 --============================================================================

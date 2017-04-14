@@ -15,8 +15,8 @@
 
 FUNCTION HistRAM 
 (
-	address_a[9..0],
-	address_b[9..0],
+	address_a[10..0],
+	address_b[10..0],
 	clock_a,
 	clock_b,
 	data_a[15..0],

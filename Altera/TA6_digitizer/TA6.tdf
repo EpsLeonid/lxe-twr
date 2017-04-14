@@ -740,25 +740,26 @@ IF (TxWFhist.q == GND) Then --Link_IFace.LinkMessage == GND Then
 	SerDataOut[9..0] = (VCC,GND,VCC,GND,VCC,GND,VCC,GND,VCC,GND);
 	NWordFLink[] = NWordCount.q;
 Else 
-	--SerDataOut[9..0] = (DataCount.q[], VCC, GND);--TestLinkCt.q[9..0];
+--	SerDataOut[9..0] = (ChannelCount.q[1..0],DataCount.q[]);--TestLinkCt.q[9..0];--
+--	NWordFLink[] = (GND,ChannelCount.q[2]);
 	CASE ChannelCount.q[] IS 
 		 When b"000" => TA6Channel[0].DAQAddrBus_In[7..0] = DataCount.q[];
-						%FLink_Data_BUS.data[9..0]%SerDataOut[9..0] = TA6Channel[0].DAQDataBusOut[9..0];
+						SerDataOut[9..0] = TA6Channel[0].DAQDataBusOut[9..0];
 						NWordFLink[] = TA6Channel[0].DAQDataBusOut[11..10];
 		 When b"001" => TA6Channel[1].DAQAddrBus_In[7..0] = DataCount.q[];
-						%FLink_Data_BUS.data[9..0]%SerDataOut[9..0] = TA6Channel[1].DAQDataBusOut[9..0];
+						SerDataOut[9..0] = TA6Channel[1].DAQDataBusOut[9..0];
 						NWordFLink[] = TA6Channel[1].DAQDataBusOut[11..10];
 		 When b"010" => TA6Channel[2].DAQAddrBus_In[7..0] = DataCount.q[];
-						%FLink_Data_BUS.data[9..0]%SerDataOut[9..0] = TA6Channel[2].DAQDataBusOut[9..0];
+						SerDataOut[9..0] = TA6Channel[2].DAQDataBusOut[9..0];
 						NWordFLink[] = TA6Channel[2].DAQDataBusOut[11..10];
 		 When b"011" => TA6Channel[3].DAQAddrBus_In[7..0] = DataCount.q[];
-						%FLink_Data_BUS.data[9..0]%SerDataOut[9..0] = TA6Channel[3].DAQDataBusOut[9..0];
+						SerDataOut[9..0] = TA6Channel[3].DAQDataBusOut[9..0];
 						NWordFLink[] = TA6Channel[3].DAQDataBusOut[11..10];
 		 When b"100" => TA6Channel[4].DAQAddrBus_In[7..0] = DataCount.q[];
-						%FLink_Data_BUS.data[9..0]%SerDataOut[9..0] = TA6Channel[4].DAQDataBusOut[9..0];
+						SerDataOut[9..0] = TA6Channel[4].DAQDataBusOut[9..0];
 						NWordFLink[] = TA6Channel[4].DAQDataBusOut[11..10];
 		 When b"101" => TA6Channel[5].DAQAddrBus_In[7..0] = DataCount.q[];
-						%FLink_Data_BUS.data[9..0]%SerDataOut[9..0] = TA6Channel[5].DAQDataBusOut[9..0];
+						SerDataOut[9..0] = TA6Channel[5].DAQDataBusOut[9..0];
 						NWordFLink[] = TA6Channel[5].DAQDataBusOut[11..10];
 		 WHEN OTHERS => FLink_Error = VCC;
 	END CASE;

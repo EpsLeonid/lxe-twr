@@ -36,7 +36,7 @@ SUBDESIGN TAData_processing
 
 	Select					: input;  -- Выбор Модуля для работы с памятью Командного Листа в режиме Slave (с КАМАК-ом)
 	DirectIn				: input;  -- направление передачи данных, Если =GND, то данный Модуль читается, если =VCC, то пишется.
-	AddrBus_In[9..0]		: input;  -- адрес при операциях доступа чтения/записи Командного Листа с КАМАК-а
+	AddrBus_In[10..0]		: input;  -- адрес при операциях доступа чтения/записи Командного Листа с КАМАК-а
 	DataBusStrobe			: input;  -- строб приема/передачи данных наружу (высокий уровень, используя его как Enable, "защелкиваем" по заднему фронту
 
 	Error					: output; -- сигнал ошибки (неверная команда)
@@ -57,13 +57,12 @@ VARIABLE
 	TALink_Data_BUS			: lpm_shiftreg with (lpm_width=12, lpm_direction="unused");
 	DataHistRAM				: HistRAM;
 --	WF_Data					: lpm_shiftreg with (lpm_width=10, lpm_direction="unused");
-	WF_DataHistRAM			: WF_HistRAM;
 
 	DataCountWR				: lpm_counter with (lpm_width = 10, lpm_direction="up"); -- n?ao?ee aaiiuo ec iaiyoe eaiaea aey ia?aaa?e ii eeieo a EIO
 	DataCountRD				: lpm_counter with (lpm_width = 10, lpm_direction="up"); -- n?ao?ee aaiiuo ec iaiyoe eaiaea aey ia?aaa?e ii eeieo a EIO
 	NWordCount				: lpm_counter with (lpm_width = 1, lpm_direction="up"); -- n?ao?ee iiia?a neiaa ia?aaaaaaiiai ii eeieo a EIO
 
-	DataHist_Ct				: LPM_COUNTER with (lpm_width = 10, lpm_direction="up"); -- 
+	DataHist_Ct				: LPM_COUNTER with (lpm_width = 11, lpm_direction="up"); -- 
 	DataHist_RAMAddrBus		: lpm_shiftreg with (LPM_WIDTH = 10, LPM_DIRECTION="unused");
 	DataHist_RAMAddr[9..0]	: node;
 
@@ -79,43 +78,21 @@ BEGIN
 	
 	END DEFAULTS;
 
-	TALink_Data_BUS.data[] = TAdata[11..0];
-	TALink_Data_BUS.(clock, load, enable) = (Clock, VCC, VCC);
-IF LnkMess == VCC Then
-	DataHistRAM.data_a[10..0] = TALink_Data_BUS.q[10..0]; -- 
-	DataHistRAM.data_a[11] = WFDataMes;
-	Else DataHistRAM.data_a[11..0] = (VCC,GND,VCC,GND,VCC,GND,VCC,GND,VCC,GND,VCC,GND);
-END IF;
-	WF_DataHistRAM.data[9..0] = TALink_Data_BUS.q[9..0]; -- 
+	DataHistRAM.data_a[11..0] = TAdata[11..0]; -- 
+	DataHistRAM.data_a[14..12] = GND; -- 
+	DataHistRAM.data_a[15] = WFDataMes;
+	DataHistRAM.(address_a[], clock_a, wren_a) = (DataHist_Ct.q[10..0], clock, WFDataMes);
 
-	DataHistRAM.(address_a[], clock_a, wren_a) = (DataHist_Ct.q[9..0], clock, LnkMess);
-
-	DataHistRAM.(data_b[],address_b[], clock_b)= (DataBus_In[],AddrBus_In[9..0], Clock);
+	DataHistRAM.(data_b[],address_b[], clock_b)= (DataBus_In[],AddrBus_In[10..0], Clock);
 	DataHistRAM.wren_b = DataBusStrobe and DirectIn AND Select AND Ram_Sel[0];
 
 	DataHist_Ct.clock = Clock;
-	DataHist_Ct.sclr = GND;
+	DataHist_Ct.sclr = !WFDataMes;
 	DataHist_Ct.clk_en = VCC;
-	DataHist_Ct.cnt_en = LnkMess;
+	DataHist_Ct.cnt_en = WFDataMes;
 
-	DataHist_RAMAddrBus.(data[], clock, load, enable) = (DataHist_Ct.q[], Clock, VCC, LnkMess);
+	DataHist_RAMAddrBus.(data[], clock, load, enable) = (DataHist_Ct.q[9..0], Clock, VCC, LnkMess);
 	DataHist_RAMAddr[9..0] = DataHist_RAMAddrBus.q[9..0] + 1 + AddrBus_In[9..0]; -- выставление адреса в 0 для текущего значения счетчика адресса
-
-	WF_DataHistRAM.(wraddress[], wrclock, wren) = (DataCountWR.q[9..0], Clock, LnkMess AND WFDataMes);
-	WF_DataHistRAM.(rdaddress[], rdclock, rden) = (DataCountRD.q[9..0], Clock, EtherMess);
-	WFTAdata[9..0] = WF_DataHistRAM.q[9..0];
-
-	DataCountWR.(clock, cnt_en, sclr) = (Clock, (LnkMess AND !StopWrite AND WFDataMes), !LnkMess);
-	DataCountRD.(clock, cnt_en, sclr) = (Clock, (EtherMess AND StopWrite AND !StopRead AND !WFDataMes), !LnkMess);
-	
-	Data_ready = StopWrite AND LnkMess AND !StopRead AND !WFDataMes;
-	
-	IF DataCountWR.q[] == b"1100000000" THEN StopWrite = VCC;
-										ELSE StopWrite = GND;
-	END IF;
-	IF DataCountRD.q[] == b"1100000000" THEN StopRead = VCC;
-										ELSE StopRead = GND;
-	END IF;
 
 -- 4096 - 4351 начальный адрес памяти иммитирующей данные АЦП
 	IF(AddrBus_In[] >= 0 AND AddrBus_In[] <= 255)	THEN DataBusOut[15..0] = DataHistRAM.q_b[]; RAM_Sel[0] = VCC;

@@ -569,8 +569,8 @@ END IF;
 
 -----------------------------------------------------------
 
-	WFhist.data[11..0] = RegSum[0].q[11..0];--TestLinkCt.q[9..0];--ADCdata[9..0];--
-	WFhist.(wraddress[], wrclock, wren) = (WFhist_ADCCt.q[7..0], ADC_clock, LinkMessage);--AND SaveRam));
+	WFhist.data[11..0] = TestLinkCt.q[11..0];--RegSum[0].q[11..0];--ADCdata[9..0];--
+	WFhist.(wraddress[], wrclock, wren) = (WFhist_ADCCt.q[7..0], ADC_clock, !LinkMessage);--AND SaveRam));
 --	WFhist.(rdaddress[], rdclock, rden) = (DAQAddrBus_In[7..0], Flink_clock, ReadWFhist);--AND SaveRam));
 	WFhist.(rdaddress[], rdclock, rden) = (WFhist_RAMAddr[7..0], Flink_clock, ReadWFhist);--AND SaveRam));
 
@@ -582,7 +582,7 @@ END IF;
 	WFhist_ADCCt.cnt_en = !LinkMessage;
 
 	WFhist_RAMAddrBus.(data[], clock, load, enable) = (WFhist_ADCCt.q[], ADC_Clock, VCC, LinkMessage);
-	WFhist_RAMAddr[7..0] = WFhist_RAMAddrBus.q[7..0] - NSampleCt.q[7..0] - 20 + DAQAddrBus_In[7..0]; -- выставление адреса в момент, когда начался сигнал с запасом в несколько тактов
+	WFhist_RAMAddr[7..0] = WFhist_RAMAddrBus.q[7..0] - TestLinkCt.q[7..0]%NSampleCt.q[7..0] - 20% + DAQAddrBus_In[7..0]; -- выставление адреса в момент, когда начался сигнал с запасом в несколько тактов
 
 	DAQDataBusOut[] = WFhist.q[];--TestLinkCt.q[9..0];--
 
@@ -637,7 +637,7 @@ END IF;
 --=========================================================================================
 --only for test
 TestLinkCt.(clock, clk_en)	= (ADC_Clock, VCC); -- Test Counter, can be used to drive LED blinking
-TestLinkCt.cnt_en			= VCC;
+TestLinkCt.cnt_en			= !LinkMessage;
 TestLinkCt.aclr				= GND;    -- even if NO clock - Reset does occur
 
 
