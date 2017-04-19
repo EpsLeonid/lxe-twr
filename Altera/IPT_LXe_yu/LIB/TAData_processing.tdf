@@ -63,39 +63,31 @@ VARIABLE
 	NWordCount				: lpm_counter with (lpm_width = 1, lpm_direction="up"); -- n?ao?ee iiia?a neiaa ia?aaaaaaiiai ii eeieo a EIO
 
 	DataHist_Ct				: LPM_COUNTER with (lpm_width = 11, lpm_direction="up"); -- 
-	DataHist_RAMAddrBus		: lpm_shiftreg with (LPM_WIDTH = 10, LPM_DIRECTION="unused");
-	DataHist_RAMAddr[9..0]	: node;
+	DataHist_RAMAddrBus		: lpm_shiftreg with (LPM_WIDTH = 11, LPM_DIRECTION="unused");
+	DataHist_RAMAddr[10..0]	: node;
 
-	StopWrite				: node;
-	StopRead				: node;
 	Ram_Sel[1..0]			: node; -- выбор памяти на чтение
 
 BEGIN
-
-	DEFAULTS
-	
-		StopWrite = GND;
-	
-	END DEFAULTS;
 
 	DataHistRAM.data_a[11..0] = TAdata[11..0]; -- 
 	DataHistRAM.data_a[14..12] = GND; -- 
 	DataHistRAM.data_a[15] = WFDataMes;
 	DataHistRAM.(address_a[], clock_a, wren_a) = (DataHist_Ct.q[10..0], clock, WFDataMes);
 
-	DataHistRAM.(data_b[],address_b[], clock_b)= (DataBus_In[],AddrBus_In[10..0], Clock);
+	DataHistRAM.(data_b[],address_b[], clock_b)= (DataBus_In[],DataHist_RAMAddr[10..0], Clock);
 	DataHistRAM.wren_b = DataBusStrobe and DirectIn AND Select AND Ram_Sel[0];
 
 	DataHist_Ct.clock = Clock;
-	DataHist_Ct.sclr = !WFDataMes;
+	DataHist_Ct.sclr = EdgeSensing(.D= !WFDataMes, .clk=Clock, .reset=RESET);
 	DataHist_Ct.clk_en = VCC;
 	DataHist_Ct.cnt_en = WFDataMes;
 
-	DataHist_RAMAddrBus.(data[], clock, load, enable) = (DataHist_Ct.q[9..0], Clock, VCC, LnkMess);
-	DataHist_RAMAddr[9..0] = DataHist_RAMAddrBus.q[9..0] + 1 + AddrBus_In[9..0]; -- выставление адреса в 0 для текущего значения счетчика адресса
+	DataHist_RAMAddrBus.(data[], clock, load, enable) = (DataHist_Ct.q[10..0], Clock, VCC, VCC);
+	DataHist_RAMAddr[10..0] = DataHist_RAMAddrBus.q[10..0] + 1 + AddrBus_In[10..0]; -- выставление адреса в 0 для текущего значения счетчика адресса
 
 -- 4096 - 4351 начальный адрес памяти иммитирующей данные АЦП
-	IF(AddrBus_In[] >= 0 AND AddrBus_In[] <= 255)	THEN DataBusOut[15..0] = DataHistRAM.q_b[]; RAM_Sel[0] = VCC;
+	IF(AddrBus_In[] >= 0 AND AddrBus_In[] <= 2047)	THEN DataBusOut[15..0] = DataHistRAM.q_b[]; RAM_Sel[0] = VCC;
 													ELSE RAM_Sel[0] = GND;
 	END IF;
 %	-- 4352 - 4607 начальный адрес "памяти истории"

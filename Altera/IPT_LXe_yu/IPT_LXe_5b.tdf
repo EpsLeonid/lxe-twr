@@ -55,9 +55,9 @@ Constant BaseAddr_offset	= H"0802";	-- #2050  Base Address of Program to be star
 Constant CtrlStat_offset	= 2048+7;   -- #2055 "Control-Status Reg", composed of named Triggers
 
 Constant TA_HistRAM_Offset	= H"8000";	-- #
-Constant TA_HistRAM_Size	= 256;
-Constant WF_HistRAM_Offset	= H"8400";	-- #
-Constant WF_HistRAM_Size	= 256;
+Constant TA_HistRAM_Size	= 2048;
+Constant WF_HistRAM_Offset	= H"9000";	-- #
+Constant WF_HistRAM_Size	= 512;
 
 CONSTANT TA_Bits			= 10;   -- разрядность Приемо/передатчика ТА6/12
 CONSTANT NUM_board			=  2;   -- количество подсоединенных плат ТА6/12
@@ -1263,8 +1263,8 @@ End IF ;
 FOR i IN 0 TO (NUM_board-1) GENERATE
 	IF ((AddrBus[15..0] >=  TA_HistRAM_Offset + TA_HistRAM_Size*i ) AND 
 		(AddrBus[15..0] <= (TA_HistRAM_Offset + TA_HistRAM_Size*(i+1) - 1))) 
-		Then TA_HistRAM_cs = VCC;          -- Address belongs to HistRAM
-		Else TA_HistRAM_cs = GND;
+		Then TA_HistRAM_cs[i] = VCC;          -- Address belongs to HistRAM
+		Else TA_HistRAM_cs[i] = GND;
 	End IF;
 END GENERATE;
 
