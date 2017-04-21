@@ -64,7 +64,6 @@ set_location_assignment PIN_232 -to Test[2]
 # ==================
 set_global_assignment -name IGNORE_CLOCK_SETTINGS ON
 set_global_assignment -name TPD_REQUIREMENT "4 ns"
-set_global_assignment -name TSU_REQUIREMENT "0.5 ns"
 set_global_assignment -name FMAX_REQUIREMENT "100 MHz"
 
 # Analysis & Synthesis Assignments
@@ -232,8 +231,8 @@ set_location_assignment PIN_71 -to SerDataOut[0]
 set_location_assignment PIN_50 -to TPWDN
 set_global_assignment -name SEARCH_PATH LIB
 set_global_assignment -name USE_TIMEQUEST_TIMING_ANALYZER OFF
-set_global_assignment -name TCO_REQUIREMENT "2 ns"
-set_global_assignment -name TH_REQUIREMENT "5 ns"
+set_global_assignment -name TCO_REQUIREMENT "5 ns"
+set_global_assignment -name TH_REQUIREMENT "4 ns"
 set_location_assignment PIN_76 -to SerClk
 set_instance_assignment -name IO_STANDARD LVDS -to DataOutLVDS_TA
 set_global_assignment -name MISC_FILE "E:/Work/CMD-3/Altera/TA6_digitizer/TA6.dpf"
@@ -243,5 +242,7 @@ set_global_assignment -name AHDL_FILE TA6.tdf
 set_global_assignment -name INCREMENTAL_VECTOR_INPUT_SOURCE Digit.vwf
 set_location_assignment PIN_148 -to Test_in
 set_location_assignment PIN_6 -to TAWF_DataStrobe
+set_global_assignment -name OPTIMIZE_HOLD_TIMING "ALL PATHS"
+set_global_assignment -name SEED 2
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
 set_instance_assignment -name PARTITION_HIERARCHY comma_915926efcac656850ff39e11b5df6911 -to "RAMcommd_TA6:CommandRAM" -section_id "RAMcommd_TA6:CommandRAM"

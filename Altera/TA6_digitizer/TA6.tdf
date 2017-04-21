@@ -25,7 +25,7 @@ INCLUDE "RAMmain_TA6.inc" ;     -- general purpose RAM
 INCLUDE "RAMcommd_TA6.inc" ;    -- CommandList RAM
 INCLUDE "Fast_Link.inc";
 
---INCLUDE "TestRAM_main.inc";
+INCLUDE "TestRAM_main.inc";
 
 --INCLUDE "RAMdigit_TA6.inc";     -- RAM of Digitizer, declared in Digitizer
 --INCLUDE "RAMhist_TA6.inc";      -- RAM of Digitizer, declared in Digitizer
@@ -290,7 +290,7 @@ BusOper3		: node; -- delay by 3 clocks
 DataStrobe		: node; --Strobe: latch data into the destination object, and finish the Bus Oper-n
 
 --  signals of Address Comparators
-DevSel[29..1]   : DFF ; -- Registered Addr_Comparator outputs for Selection
+DevSel[16..1]   : DFF ; -- Registered Addr_Comparator outputs for Selection
 
 MainRAM_cs		: node; -- select for Rd/Wr from/to MainRAM
 ProgRAM_cs		: node; -- ProgRAM is declared in Processor module 
@@ -323,7 +323,7 @@ TestCt			: lpm_counter WITH (LPM_width=26,           --\ Test Counter,
 --    TestCt_rst1 : node; --\ Cirquit for generating a _/^^\_ ,
 --   TestCt_rst2 : node; --/   duration >=(1/2)Tquartz
 
---TestRAM			: TestRAM_main;
+TestRAM			: TestRAM_main;
 TestRAM_cs		: node;
 --============================================================================
 BEGIN
@@ -610,7 +610,7 @@ Reg_OpCode.(clock, enable, load)= (Clk100, OpCode_load, VCC); -- catch data when
 Reg_OpCode.(aclr, sclr)         = (RESET, GND );
 
 Reg_BaseAddr.data[7..0]     = DataBus[7..0];
-Reg_BaseAddr.(clock,enable) =(Clk100, (DataStrobe & DevSel[14] & RW));
+Reg_BaseAddr.(clock,enable) =(Clk100, (DataStrobe & DevSel[13] & RW));
 Reg_BaseAddr.(load, aclr)   = (VCC, RESET);
 
 --============================================================================
@@ -725,7 +725,7 @@ TAWF_DataStrobe = TxWFhist.q;
 --ChannelCount.(clock, cnt_en, sclr) = (Clk25, DataCount.cout, !Link_IFace.LinkMessage);
 DataCount.(clock, cnt_en, sclr) = (Clk25, TxWFhist.q, StopCount);
 ChannelCount.(clock, cnt_en, sclr) = (Clk25, DataCount.cout, StopCount);
-IF (ChannelCount.q == b"101" AND DataCount.q[] == VCC )
+IF (ChannelCount.q[] == b"101" AND DataCount.q[] == VCC )
 	THEN StopCount = VCC;
 	ELSE StopCount = GND;
 END IF;
@@ -738,7 +738,7 @@ IF (TxWFhist.q == GND) Then --Link_IFace.LinkMessage == GND Then
 	--FLink_Data_BUS.data[5..0]	= (VCC,GND,VCC,GND,VCC,GND);--TA6Channel[5..0].EventFound;	-- Trigger efficiency check
 	--FLink_Data_BUS.data[9..6]	= (VCC,GND,VCC,GND);--TA6Channel[4..0].EventFound;
 	SerDataOut[9..0] = (VCC,GND,VCC,GND,VCC,GND,VCC,GND,VCC,GND);
-	NWordFLink[] = NWordCount.q;
+	NWordFLink[] = NWordCount.q[];
 Else 
 --	SerDataOut[9..0] = (ChannelCount.q[1..0],DataCount.q[]);--TestLinkCt.q[9..0];--
 --	NWordFLink[] = (GND,ChannelCount.q[2]);
@@ -800,7 +800,7 @@ DataOutLVDS_TA = OutData.tx_out[];
 	ErrorCounters_IFace.DataBusStrobe	=	DataStrobe ;
 -- Project Bus Port, Slave
 	--ErrorCounters_IFace.DirectIn		= 	RW;
-	ErrorCounters_IFace.Select			= 	DevSel[28].q;
+	ErrorCounters_IFace.Select			= 	DevSel[14].q;
 
 	ErrorCounters_IFace.ErrorInputs[0]	=	CPU.Error;--Bus_Arbiter.ErrorLight;
 	ErrorCounters_IFace.ErrorInputs[1]	=	Error;
@@ -942,19 +942,19 @@ FOR i IN 0 TO (NUM_CH-1) GENERATE
 	DevSel[5+i].d  = TA6Channel_cs[i]; -- ADC channel data
 END GENERATE;
 DevSel[11].d	= SelCommdList_cs;--GateDur_cs ;          -- Reg_OpCode
-DevSel[12].d	= GND;--GateDel_cs ;          -- Reg_OpCode
-DevSel[13].d	= OpCode_cs ;           -- Reg_OpCode
-DevSel[14].d	= BaseAddr_cs ;         -- Reg_BaseAddr
-DevSel[15].d	= ZERO_cs ;             -- ZERO word
-FOR i IN 0 TO (NUM_CH-1) GENERATE
+--DevSel[12].d	= GND;--GateDel_cs ;          -- Reg_OpCode
+DevSel[12].d	= OpCode_cs ;           -- Reg_OpCode
+DevSel[13].d	= BaseAddr_cs ;         -- Reg_BaseAddr
+DevSel[14].d	= ErrorCounters_IFace_CS ; -- Error Counters
+DevSel[15].d	= TestRAM_cs; --
+DevSel[16].d	= ZERO_cs ;             -- ZERO word
+%FOR i IN 0 TO (NUM_CH-1) GENERATE
 	DevSel[16+2*i].d	= DDREqu_cs[i];
 	DevSel[17+2*i].d	= DDRNEqu_cs[i] ;             -- ZERO word
 END GENERATE;
+%
 
-DevSel[28].d	= ErrorCounters_IFace_CS ; -- Error Counters
-DevSel[29].d	= TestRAM_cs; --
-
-FOR i in 1 to 29 % with ErCount must be 28 % GENERATE
+FOR i in 1 to 16 % with ErCount must be 28 % GENERATE
 	DevSel[i].clrn = AddrSettled;-- DevSel[] are enabled while Addr. is settled
 	DevSel[i].clk  = Clk100;
 END GENERATE; 
@@ -965,26 +965,30 @@ IF (RW == VCC) Then		-- Master will write to
 Else					-- Master will read from
 	CASE DevSel[].q IS     -- Data_Line MUX for Target drivers
 		--WHEN  b"1000000000" => DataBus[] = something.q[]
-		WHEN  b"00000000000000000000000000001" => DataBus[]			= MainRAM.q[];
-		WHEN  b"00000000000000000000000000010" => DataBus[]			= CPU.ProgRAM_q[];
-		WHEN  b"00000000000000000000000000100" => DataBus[]			= CommandRAM.q[];
-		WHEN  b"00000000000000000000000001000" => CASE  AddrBus[1..0] is
+		WHEN  b"0000000000000001" => DataBus[]			= MainRAM.q[];
+		WHEN  b"0000000000000010" => DataBus[]			= CPU.ProgRAM_q[];
+		WHEN  b"0000000000000100" => DataBus[]			= CommandRAM.q[];
+		WHEN  b"0000000000001000" => CASE  AddrBus[1..0] is
 			When  0 => DataBus[]= Link_IFace.InData_out[];
 			When  1 => DataBus[]= Link_IFace.DataBus_out[];
 			--When  2 => DataBus[7..0]= Link_IFace.OpCode_out[];
 		End CASE;
-		WHEN  b"00000000000000000000000010000" => DataBus[]			= TA6Channel[0].DataBusOut[] ;
-		WHEN  b"00000000000000000000000100000" => DataBus[]			= TA6Channel[1].DataBusOut[] ;
-		WHEN  b"00000000000000000000001000000" => DataBus[]			= TA6Channel[2].DataBusOut[] ;
-		WHEN  b"00000000000000000000010000000" => DataBus[]			= TA6Channel[3].DataBusOut[] ;
-		WHEN  b"00000000000000000000100000000" => DataBus[]			= TA6Channel[4].DataBusOut[] ;
-		WHEN  b"00000000000000000001000000000" => DataBus[]			= TA6Channel[5].DataBusOut[] ;
-		WHEN  b"00000000000000000010000000000" => DataBus[]			= SelCommdList_Reg.q[];--GateDur_reg.q[9..0];
-		WHEN  b"00000000000000000100000000000" => DataBus[7..0]		= 0;--GateDel_reg.q[7..0];
-		WHEN  b"00000000000000001000000000000" => DataBus[7..0]		= Reg_OpCode.q[7..0];
-		WHEN  b"00000000000000010000000000000" => DataBus[7..0]		= Reg_BaseAddr.q[7..0];
-		WHEN  b"00000000000000100000000000000" => DataBus[]			= 0 ;
-		WHEN  b"00000000000001000000000000000" => DataBus[11..0]	= DDR_Reg_Equ[0].q[];
+		WHEN  b"0000000000010000" => DataBus[]			= TA6Channel[0].DataBusOut[] ;
+		WHEN  b"0000000000100000" => DataBus[]			= TA6Channel[1].DataBusOut[] ;
+		WHEN  b"0000000001000000" => DataBus[]			= TA6Channel[2].DataBusOut[] ;
+		WHEN  b"0000000010000000" => DataBus[]			= TA6Channel[3].DataBusOut[] ;
+		WHEN  b"0000000100000000" => DataBus[]			= TA6Channel[4].DataBusOut[] ;
+		WHEN  b"0000001000000000" => DataBus[]			= TA6Channel[5].DataBusOut[] ;
+		WHEN  b"0000010000000000" => DataBus[]			= SelCommdList_Reg.q[];--GateDur_reg.q[9..0];
+		WHEN  b"0000100000000000" => DataBus[7..0]		= Reg_OpCode.q[7..0];
+		WHEN  b"0001000000000000" => DataBus[7..0]		= Reg_BaseAddr.q[7..0];
+		WHEN  b"0010000000000000" => DataBus[8..0]		= ErrorCounters_IFace.DataBusOut[8..0];
+		WHEN  b"0100000000000000" => DataBus[]			= TestRAM.q[]; --AddrMux[]  = 2;
+		WHEN  b"1000000000000000" => DataBus[]			= 0 ;
+		WHEN OTHERS => DataBus[] = 0;
+	End CASE;
+End IF;
+%		WHEN  b"00000000000001000000000000000" => DataBus[11..0]	= DDR_Reg_Equ[0].q[];
 		WHEN  b"00000000000010000000000000000" => DataBus[11..0]	= DDR_Reg_NEqu[0].q[];
 		WHEN  b"00000000000100000000000000000" => DataBus[11..0]	= DDR_Reg_Equ[1].q[];
 		WHEN  b"00000000001000000000000000000" => DataBus[11..0]	= DDR_Reg_NEqu[1].q[];
@@ -996,12 +1000,7 @@ Else					-- Master will read from
 		WHEN  b"00001000000000000000000000000" => DataBus[11..0]	= DDR_Reg_NEqu[4].q[];
 		WHEN  b"00010000000000000000000000000" => DataBus[11..0]	= DDR_Reg_Equ[5].q[];
 		WHEN  b"00100000000000000000000000000" => DataBus[11..0]	= DDR_Reg_NEqu[5].q[];
-		WHEN  b"01000000000000000000000000000" => DataBus[8..0]		= ErrorCounters_IFace.DataBusOut[8..0];
-		WHEN  b"10000000000000000000000000000" => DataBus[]			= 0;--TestRAM.q[]; --AddrMux[]  = 2;
-		WHEN OTHERS => DataBus[] = 0;
-	End CASE;
-End IF;
-
+%
 --============================================================================
 -- 10. Testing circuitry ******************************************************
 %TestCt.(clock, clk_en)  = (FQuartz, VCC); -- Test Counter, can be used to drive LED blinking
@@ -1014,10 +1013,10 @@ TestCt.aclr             = PowerUp0 & !TestCt_rst2;  --\Reset for making proper P
 TestCt.(clock, clk_en)	= (FQuartz, VCC); -- Test Counter, can be used to drive LED blinking
 TestCt.cnt_en			= PowerUp0;
 TestCt.aclr				= !PowerUp0;    -- even if NO clock - Reset does occur
-%
+
 TestRAM.(address[7..0], data[],    clock,    wren                     ) =
-        (AddrBus[7..0], DataBus[], Clk100,(DataStrobe & DevSel[32] & RW)); 
-%
+        (AddrBus[7..0], DataBus[], Clk100,(DataStrobe & DevSel[15] & RW)); 
+
 Test1	= Link_IFace.LinkMessage;--PhaseSw.LinkClk_selected; --DDRin.dataout_h[0];			--Link_IFace.LinkMessage;		-- pin 68
 Test2	= LinkMsg_beg;--!Phase12;                    --Link_IFace.IORq;	-- pin 73
 Test3	= PLL.locked;--DDRenNequ1;                   --Start_Link.q;			-- pin 76
