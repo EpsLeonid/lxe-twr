@@ -440,35 +440,34 @@ Ether.TxLength[]=  0;   Eth_InitAddr[]  = 0;
 END DEFAULTS;
 
 --============================================================================
---******** 1. Reference Clock & Frequency Control ****************************
-
---============================================================================
 --******** 1a. POWER_UP self-Reset pulse *************************************
 --PowerUp0= DFF (.d=!(camac_s1 & camac_s2) AND PLL1.locked, .clk=Clk25);
         --               ^^^^^^^^ substituted by (CAMAC_IFace.Reset & CAMAC_IFace.Aout[4])..
         --  .. to provide a possibility to emulate PowerUp situation
-PowerUp0 = DFF (.d=PLL.locked, .clk=Clk25); --!ExtReset AND 
+PowerUp0 = DFF (.d=!(CAMAC_IFace.Reset & CAMAC_IFace.Aout[4]) AND PLL.locked, .clk=Clk25); --!ExtReset AND 
 
 PowerUp1 = SRFF(.s=(PowerUp0 AND (TestCt.q25 & TestCt.q0)),--sets 1.0s after PLL1 has locked
-				.r=ExtReset, .clk=Clk25);  -- .r never =1
+				.r=!(CAMAC_IFace.Reset & CAMAC_IFace.Aout[4]) OR ExtReset, .clk=Clk25);  -- .r never =1
 PowerUp2 = SRFF(.s=(PowerUp1 AND TestCt.q2),             -- _/^^^^\_ 3clocks
-				.r=ExtReset, .clk=Clk25);  -- .r never =1
+				.r=!(CAMAC_IFace.Reset & CAMAC_IFace.Aout[4]) OR ExtReset, .clk=Clk25);  -- .r never =1
 PwrUpReset  = PowerUp1 AND !PowerUp2;   -- ONE pulse ~1sec after powering up
 
 --******** 1b. POWER_UP self-Set pulse ***************************************
 PowerUp3 = SRFF(.s=(PowerUp2 AND (!TestCt.q20 & !TestCt.q19 &  TestCt.q18)), --sets 0.015s after PwrUpReset
-				.r=ExtReset, .clk=Clk25);      -- .r never =1
+				.r=!(CAMAC_IFace.Reset & CAMAC_IFace.Aout[4]) OR ExtReset, .clk=Clk25);      -- .r never =1
 PowerUp4 = SRFF(.s=(PowerUp3 AND TestCt.q2),             -- _/^^^^\_ 3clocks
-				.r=ExtReset, .clk=Clk25);      -- .r never =1
+				.r=!(CAMAC_IFace.Reset & CAMAC_IFace.Aout[4]) OR ExtReset, .clk=Clk25);      -- .r never =1
 PwrUpSet1   = PowerUp3 AND !PowerUp4;       -- ONE pulse ~0.06sec after PwrUpReset
 
 --******** 1c. POWER_UP self-Set pulse ***************************************
 PowerUp5 = SRFF(.s=(PowerUp4 AND ( TestCt.q20 & !TestCt.q19 & !TestCt.q18)), --sets 0.060s after PwrUpReset
-				.r=ExtReset, .clk=Clk25);      -- .r never =1
+				.r=!(CAMAC_IFace.Reset & CAMAC_IFace.Aout[4]) OR ExtReset, .clk=Clk25);      -- .r never =1
 PowerUp6 = SRFF(.s=(PowerUp5 AND TestCt.q2),             -- _/^^^^\_ 3clocks
-				.r=ExtReset, .clk=Clk25);      -- .r never =1
+				.r=!(CAMAC_IFace.Reset & CAMAC_IFace.Aout[4]) OR ExtReset, .clk=Clk25);      -- .r never =1
 PwrUpSet2 = PowerUp3 AND !PowerUp4;       -- ONE pulse ~0.06sec after PwrUpReset
 
+--============================================================================
+-- 2. Reference Clock & Frequency Control  
 --**************** Automatic Clock Switch for PLL reference ******************
 PhaseSw.clock	= FQuartz ;         -- 25MHz from Quartz
 PhaseSw.LinkClk	= LinkClk ;         -- 25MHz from Link

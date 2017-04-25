@@ -167,6 +167,7 @@ VARIABLE
 --******** 1. Reference clock's & Frequency Control **************************
 PLL								: Pll_IPT;  -- PLL:  Fin=25MHz, PLL.c0=(25MHz shift=0), PLL.c1=(100MHz shift=0)
 Clk25							: node; -- This is Global Node 
+Clk37_5							: node; -- This is Global Node 
 Clk75							: node; -- This is Global Node
 Clk100							: node; -- This is Global Node
 Clk150							: node; -- This is Global Node
