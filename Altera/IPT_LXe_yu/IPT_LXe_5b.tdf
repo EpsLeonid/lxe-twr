@@ -410,6 +410,8 @@ EthOpCode_saved : node; -- =1 when Ethernet' OpCode is saved, till the End of Fr
 Reg_EthOpCode   : LPM_SHIFTREG with (lpm_width=8,  -- contains Command received from Ethernet
                     lpm_direction="unused"); -- not important
 
+StartEthTx_Cnt	: lpm_counter with (lpm_width = 8, lpm_direction="up");
+
 -- Counter which contains address for exchange between ETHERNET and TestRAM
 EthAddrCt       : lpm_counter with (lpm_width = 11, lpm_direction="up");
 Eth_InitAddr[10..0] : node; -- initial address of data to be Transmitted
@@ -1034,6 +1036,8 @@ StartEthTx  = (%StartEthTx_Camac   OR%              -- Start Transmit by CAMAC .
 --	(StartOne # StartMulti)& (TestCt.q[25..4]==H"3FFF0") OR  -- For TEST ONLY !!
 	((StartOne # StartMulti)& Delay_StEthTx.q))     -- .. or Start by Ethernet, if allowed
 	AND !Ether.TX_EN ;                              -- if a Transmit is NOT in progress
+
+StartEthTx_Cnt.(clock, clk_en, cnt_en) = (Clk25, VCC, StartEthTx);
 
 -- Counter which contains address for exchange between ETHERNET and TestRAM
 EthAddrCt.(clock, clk_en) = (Clk100, VCC);
