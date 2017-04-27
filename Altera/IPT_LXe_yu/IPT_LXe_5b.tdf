@@ -634,7 +634,6 @@ IF (Link_IFace.LinkMessage == VCC)  then -- If VALID command received,
         WHEN  StartRegul     =>     -- #193-"START_Regular"        (+?oyoo Lst0)
 						BaseAd[]        = 24;	--Program: CommdList_Rd000
 						St_Proc_Link	= VCC;	--Start up the Program
-						St_Ether_Link	= VCC;	--Start up Ethernet transmition with waveforms
 
         WHEN  CommdLst_Wr001 =>     -- #202-"Blocking_Begin"       (¦?yo?? Lst1)
                         BaseAd[]        =100;           --Program: CommdList_Wr001
@@ -842,7 +841,10 @@ Ether.Clock = Clk100; -- Clock Frequency MUST BE > 50MHz !!!!
 --    = Ether.IORq;             -- Connected at "Bus Handler" sub-section
 --    = Ether.RdWr_out;         -- Connected at "Bus Handler" sub-section
 --Ether.DataBus_in[15..0] = TestRAM.q_a[];    -- data:  TestRAM -> Ethernet
-Ether.DataBus_in[15..0] = TAWF_HistRAM.q_b[];
+	IF EthAddrCt.q == 
+		
+	Else
+		Ether.DataBus_in[15..0] = TAWF_HistRAM.q_b[];
 
 Ether.Select  = Addr_Settled;   -- Ethernet is selected for local data reading/writing
 Ether.RdWr_in = RdWr;           -- RdWr=0 => data will be read from Ethernet / RdWr=1 => data will be written to Ethernet
@@ -866,52 +868,82 @@ RdWr   = DFF(.D=!Ether.RdWr_out, .clk=Clk100);
 ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
 --**************** ETHERNET Cycle proceeding units *****************************
 
-    CASE  Reg_EthOpCode.q[7..0] is  -- recognizing the particular Operation :
-        WHEN  H"01" =>  -- "PING" command
-                        St_EthTx_Ether  = VCC;  -- Start up the Transmit
-                        Ether.TxLength[]=  64;  -- DataBlock length = 64Bytes
-                        Eth_InitAddr[]  = 2000;  -- initial addr of data to be transmitted 
+CASE  Reg_EthOpCode.q[7..0] is  -- recognizing the particular Operation :
+	WHEN  H"01" =>  -- "PING" command
+		St_EthTx_Ether  = VCC;  -- Start up the Transmit
+		Ether.TxLength[]=  64;  -- DataBlock length = 64Bytes
+		Eth_InitAddr[]  = 2000;  -- initial addr of data to be transmitted 
 
-        --WHEN  H"03" =>  -- "StartMulti" for sending Ethernet' frames" 
-        --WHEN  H"04" =>  -- "STOP sending Ethernet' frames" 
+	--WHEN  H"03" =>  -- "StartMulti" for sending Ethernet' frames" 
+	--WHEN  H"04" =>  -- "STOP sending Ethernet' frames" 
 
-        WHEN  H"05" =>  -- "Set LinkMask and TimeGap" 
-                        Eth_WRITE       = VCC;  -- Ethernet' "Write" Command received 
-                        --St_EthTx_Ether  = GND;  -- NO Transmit 
+	WHEN  H"05" =>  -- "Set LinkMask and TimeGap" 
+		Eth_WRITE       = VCC;  -- Ethernet' "Write" Command received 
+		--St_EthTx_Ether  = GND;  -- NO Transmit 
 
-        WHEN  H"08" =>  -- "Write" data to TestRAM
-                        Eth_WRITE       = VCC;  -- Ethernet' "Write" Command received 
-                        --St_EthTx_Ether  = GND;  -- NO Transmit 
+	WHEN  H"08" =>  -- "Write" data to TestRAM
+		Eth_WRITE       = VCC;  -- Ethernet' "Write" Command received 
+		--St_EthTx_Ether  = GND;  -- NO Transmit 
 
-        WHEN  H"09" =>  -- "Read" data from TestRAM
-                        St_EthTx_Ether  = VCC;  -- Start up the Transmit
-                        --Ether.TxLength[]= 255;  -- DataBlock length = 256Bytes
-                        Ether.TxLength[]=  64;  -- DataBlock length - temporary
-                        Eth_InitAddr[]  = 128;  -- initial addr of data to be transmitted 
+	WHEN  H"09" =>  -- "Read" data from TestRAM
+		St_EthTx_Ether  = VCC;  -- Start up the Transmit
+		--Ether.TxLength[]= 255;  -- DataBlock length = 256Bytes
+		Ether.TxLength[]=  64;  -- DataBlock length - temporary
+		Eth_InitAddr[]  = 128;  -- initial addr of data to be transmitted 
 
-        WHEN OTHERS => St_EthTx_Ether   = GND;
-                       Ether.TxLength[]=   48;  -- Minimal DataBlock length
-    End CASE;
+	WHEN OTHERS => St_EthTx_Ether   = GND;
+		Ether.TxLength[]=   48;  -- Minimal DataBlock length
+End CASE;
+
+Eth_Reg_LinkOpCode.data[(CommandSize+Pause-1)..0]= Link_IFace.OpCode_out[(CommandSize+Pause-1)..0];
+Eth_Reg_LinkOpCode.(clock, enable, load)= (Clk100, OpCode_load, VCC); -- catch data when RxOpCodeReload=1 
+Eth_Reg_LinkOpCode.(aclr, sclr)			= (RESET OR Ether.TxFrameCRC, GND);
+
+CASE Eth_Reg_LinkOpCode.q[7..0] is -- recognizing the particular Operation :
+	WHEN StartRegul     =>     -- #193-"START_Regular"        (+?oyoo Lst0)
+		 St_Ether_Link	= VCC;	--Start up Ethernet transmition with waveforms
+		 St_EthTx_Ether  = GND;  -- Start up the Transmit
+		 Ether.TxLength[]= 1024;	-- DataBlock length = 1536Bytes = 768 words
+		 Eth_InitAddr[]  = 1;	-- initial addr of data to be transmitted 
+
+	WHEN StartAlter     =>     -- #210-"START_Alternative"    (+?oyoo Lst2)
+		 St_Ether_Link	= GND;	--Start up Ethernet transmition with waveforms
+		 St_EthTx_Ether  = VCC;  -- Start up the Transmit
+		 Ether.TxLength[]=  64;  -- DataBlock length = 64Bytes
+		 Eth_InitAddr[]  = 2000;  -- initial addr of data to be transmitted 
+
+	WHEN CommdLst_Rd100 =>     -- #226-"Read  by CommdLst100" (+?oyoo Lst4)
+		 St_Ether_Link	= GND;	--Start up Ethernet transmition with waveforms
+		 St_EthTx_Ether  = VCC;  -- Start up the Transmit
+		 Ether.TxLength[]=  64;  -- DataBlock length = 64Bytes
+		 Eth_InitAddr[]  = 2000;  -- initial addr of data to be transmitted 
+
+	WHEN CommdLst_Rd110 =>     -- #241-"Read  by CommdLst110" (+?oyoo3)
+		 St_Ether_Link	= GND;	--Start up Ethernet transmition with waveforms
+		 St_EthTx_Ether  = VCC;  -- Start up the Transmit
+		 Ether.TxLength[]=  64;  -- DataBlock length = 64Bytes
+		 Eth_InitAddr[]  = 2000;  -- initial addr of data to be transmitted 
+End CASE;
 
 --============================================================================
 --******** 5. Processor ******************************************************
-CPU.Clock   = Clk100;   CPU.Sync    = Synchro25; 
-CPU.ProgInit        = StartProc ; 
-CPU.BaseAddr[7..0]  = BaseAddr[7..0];
+CPU.Clock			= Clk100;   CPU.Sync    = Synchro25; 
+CPU.ProgInit		= StartProc ; 
+CPU.BaseAddr[7..0]	= BaseAddr[7..0];
 --CPU.Int[4..1]       = 
-CPU.int1            = Link_IFace.IORq;
-CPU.int4            = TestCt.q[25];
+CPU.int1			= Link_IFace.IORq;
+CPU.int4			= TestCt.q[25];
 
-CPU.DataIn[]        = DataBus[];        -- Data Bus - input
---            = CPU.AddrOut[15..0]        -- \ connected in "Internal Bus"
---            = CPU.DataOut[15..0]        -- /                       section
+CPU.DataIn[]		= DataBus[];        -- Data Bus - input
+--					= CPU.AddrOut[15..0]        -- \ connected in "Internal Bus"
+--					= CPU.DataOut[15..0]        -- /                       section
 
---            = CPU.AccessReq ;           -- connected in "Internal Bus" section
---                    = CPU.RdWr;         -- connected in "Internal Bus" section
---CPU.AccessGranted   = AccessGtd;        -- connected in "Internal Bus" section
---CPU.DataStrobe      = DataStrobe;       -- connected in "Internal Bus" section
-CPU.AccessGranted   = Bus_Arbiter.BAGD[2] ;
-CPU.DataStrobe      = DataStrobe ;
+--					= CPU.AccessReq ;           -- connected in "Internal Bus" section
+--					= CPU.RdWr;         -- connected in "Internal Bus" section
+--CPU.AccessGranted	= AccessGtd;        -- connected in "Internal Bus" section
+--CPU.DataStrobe	= DataStrobe;       -- connected in "Internal Bus" section
+CPU.AccessGranted	= Bus_Arbiter.BAGD[2] ;
+CPU.DataStrobe		= DataStrobe ;
 
 --            = CPU.Working;      -- connected below, in "Control Unit" section
 --            = CPU.Error;        -- connected below, in "Control Unit" section
@@ -1017,15 +1049,6 @@ StartADC = StartADC_Camac.q						-- Compulsive START by CAMAC ..
 Delay_StEthTx.(D,clk,reset) = ((St_EthTx_Ether & Ether.RxEndFrame),Clk100,RESET);  -- Delay of Compulsive START
 --StartEthTx_Ether.(D, clk,reset) =(Delay_StEthTx.q, Clk100, RESET);--PulseShaper
 
-Eth_Reg_LinkOpCode.data[(CommandSize+Pause-1)..0]= Link_IFace.OpCode_out[(CommandSize+Pause-1)..0];
-Eth_Reg_LinkOpCode.(clock, enable, load)= (Clk100, OpCode_load, VCC); -- catch data when RxOpCodeReload=1 
-Eth_Reg_LinkOpCode.(aclr, sclr)			= (RESET OR Ether.TxFrameCRC, GND);
-
-IF (Eth_Reg_LinkOpCode.q[(CommandSize+Pause-1)..0] == 193) then
-	Ether.TxLength[]= 1024;	-- DataBlock length = 1536Bytes = 768 words
-	Eth_InitAddr[]  = 1;	-- initial addr of data to be transmitted 
-END IF;
-
 Delay_St_Ether_Link.(S,clk,R,clrn) = (St_Ether_Link, Clk100, RESET, !StartEthTx_Link.q);
 --Delay_LinkMessage.(D,clk,reset) = (Link_IFace.LinkMessage, Clk100, StartEthTx);
 --StartEthTx_Link.(D, clk, reset) = ((!Link_IFace.LinkMessage & Delay_LinkMessage.q) AND Delay_St_Ether_Link.q, Clk100, RESET);
@@ -1037,7 +1060,7 @@ StartEthTx  = (%StartEthTx_Camac   OR%              -- Start Transmit by CAMAC .
 	((StartOne # StartMulti)& Delay_StEthTx.q))     -- .. or Start by Ethernet, if allowed
 	AND !Ether.TX_EN ;                              -- if a Transmit is NOT in progress
 
-StartEthTx_Cnt.(clock, clk_en, cnt_en) = (Clk25, VCC, StartEthTx);
+StartEthTx_Cnt.(clock, clk_en, cnt_en) = (Clk100, VCC, StartEthTx);
 
 -- Counter which contains address for exchange between ETHERNET and TestRAM
 EthAddrCt.(clock, clk_en) = (Clk100, VCC);
