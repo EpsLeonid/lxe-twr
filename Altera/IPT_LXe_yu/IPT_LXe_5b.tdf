@@ -411,6 +411,7 @@ Reg_EthOpCode   : LPM_SHIFTREG with (lpm_width=8,  -- contains Command received 
                     lpm_direction="unused"); -- not important
 
 StartEthTx_Cnt	: lpm_counter with (lpm_width = 8, lpm_direction="up");
+StatusPack		: lpm_shiftreg with (lpm_width=16, lpm_direction="unused");
 
 -- Counter which contains address for exchange between ETHERNET and TestRAM
 EthAddrCt       : lpm_counter with (lpm_width = 11, lpm_direction="up");
@@ -841,10 +842,15 @@ Ether.Clock = Clk100; -- Clock Frequency MUST BE > 50MHz !!!!
 --    = Ether.IORq;             -- Connected at "Bus Handler" sub-section
 --    = Ether.RdWr_out;         -- Connected at "Bus Handler" sub-section
 --Ether.DataBus_in[15..0] = TestRAM.q_a[];    -- data:  TestRAM -> Ethernet
-	IF EthAddrCt.q == 
+Case EthAddrCt.q is
+	When 0 => Ether.DataBus_in[15..0] = StatusPack.q[15..0];
 		
-	Else
-		Ether.DataBus_in[15..0] = TAWF_HistRAM.q_b[];
+	When 1 => Ether.DataBus_in[15..0] = (b"00000000", Eth_Reg_LinkOpCode.q[7..0]);
+		
+	When 2 => Ether.DataBus_in[15..0] = Reg_EventNumber.q[];
+		
+	When others => Ether.DataBus_in[15..0] = TAWF_HistRAM.q_b[];
+End case;
 
 Ether.Select  = Addr_Settled;   -- Ethernet is selected for local data reading/writing
 Ether.RdWr_in = RdWr;           -- RdWr=0 => data will be read from Ethernet / RdWr=1 => data will be written to Ethernet
@@ -897,32 +903,44 @@ End CASE;
 
 Eth_Reg_LinkOpCode.data[(CommandSize+Pause-1)..0]= Link_IFace.OpCode_out[(CommandSize+Pause-1)..0];
 Eth_Reg_LinkOpCode.(clock, enable, load)= (Clk100, OpCode_load, VCC); -- catch data when RxOpCodeReload=1 
-Eth_Reg_LinkOpCode.(aclr, sclr)			= (RESET OR Ether.TxFrameCRC, GND);
+Eth_Reg_LinkOpCode.(aclr, sclr)			= (RESET OR EndEtherTx, GND);
+
+Eth_Reg_LinkEvNumber.data[] = Link_IFace.InData_out[];
+Eth_Reg_LinkEvNumber.(clock, enable, load)= (Clk100, Link_IFace.IORq, VCC); -- catch data when RxOpCodeReload=1 
+Eth_Reg_LinkEvNumber.(aclr, sclr)		  = (RESET OR EndEtherTx, GND);
 
 CASE Eth_Reg_LinkOpCode.q[7..0] is -- recognizing the particular Operation :
-	WHEN StartRegul     =>     -- #193-"START_Regular"        (+?oyoo Lst0)
-		 St_Ether_Link	= VCC;	--Start up Ethernet transmition with waveforms
+	WHEN StartRegul		 =>     -- #193-"START_Regular"        (+?oyoo Lst0)
+		 St_Ether_Link	 = VCC;	--Start up Ethernet transmition with waveforms
 		 St_EthTx_Ether  = GND;  -- Start up the Transmit
+		 Eth_PackNumber  = 3;
 		 Ether.TxLength[]= 1024;	-- DataBlock length = 1536Bytes = 768 words
-		 Eth_InitAddr[]  = 1;	-- initial addr of data to be transmitted 
+		 Eth_InitAddr[]  = 0;	-- initial addr of data to be transmitted 
 
-	WHEN StartAlter     =>     -- #210-"START_Alternative"    (+?oyoo Lst2)
-		 St_Ether_Link	= GND;	--Start up Ethernet transmition with waveforms
-		 St_EthTx_Ether  = VCC;  -- Start up the Transmit
-		 Ether.TxLength[]=  64;  -- DataBlock length = 64Bytes
-		 Eth_InitAddr[]  = 2000;  -- initial addr of data to be transmitted 
+	WHEN StartAlter		 =>     -- #210-"START_Alternative"    (+?oyoo Lst2)
+		 St_Ether_Link	 = VCC;	--Start up Ethernet transmition with waveforms
+		 St_EthTx_Ether  = GND;  -- Start up the Transmit
+		 Eth_PackNumber  = 3;
+		 Ether.TxLength[]= 1024;  -- DataBlock length = 64Bytes
+		 Eth_InitAddr[]  = 0;  -- initial addr of data to be transmitted 
 
-	WHEN CommdLst_Rd100 =>     -- #226-"Read  by CommdLst100" (+?oyoo Lst4)
-		 St_Ether_Link	= GND;	--Start up Ethernet transmition with waveforms
-		 St_EthTx_Ether  = VCC;  -- Start up the Transmit
-		 Ether.TxLength[]=  64;  -- DataBlock length = 64Bytes
-		 Eth_InitAddr[]  = 2000;  -- initial addr of data to be transmitted 
+	WHEN CommdLst_Rd100  =>     -- #226-"Read  by CommdLst100" (+?oyoo Lst4)
+		 St_Ether_Link	 = VCC;	--Start up Ethernet transmition with waveforms
+		 St_EthTx_Ether  = GND;  -- Start up the Transmit
+		 Eth_PackNumber  = 3;
+		 Ether.TxLength[]= 1024;  -- DataBlock length = 64Bytes
+		 Eth_InitAddr[]  = 0;  -- initial addr of data to be transmitted 
 
-	WHEN CommdLst_Rd110 =>     -- #241-"Read  by CommdLst110" (+?oyoo3)
-		 St_Ether_Link	= GND;	--Start up Ethernet transmition with waveforms
-		 St_EthTx_Ether  = VCC;  -- Start up the Transmit
-		 Ether.TxLength[]=  64;  -- DataBlock length = 64Bytes
-		 Eth_InitAddr[]  = 2000;  -- initial addr of data to be transmitted 
+	WHEN CommdLst_Rd110  =>     -- #241-"Read  by CommdLst110" (+?oyoo3)
+		 St_Ether_Link	 = VCC;	--Start up Ethernet transmition with waveforms
+		 St_EthTx_Ether  = GND;  -- Start up the Transmit
+		 Eth_PackNumber  = 3;
+		 Ether.TxLength[]= 1024;  -- DataBlock length = 64Bytes
+		 Eth_InitAddr[]  = 0;  -- initial addr of data to be transmitted 
+	WHEN Others => 	
+		 St_Ether_Link	 = GND;	--Start up Ethernet transmition with waveforms
+		 St_EthTx_Ether  = GND;	-- Start up the Transmit
+
 End CASE;
 
 --============================================================================
@@ -1062,6 +1080,13 @@ StartEthTx  = (%StartEthTx_Camac   OR%              -- Start Transmit by CAMAC .
 
 StartEthTx_Cnt.(clock, clk_en, cnt_en) = (Clk100, VCC, StartEthTx);
 
+EtherBankCt.(clock, clk_en, cnt_en) = (Clk100, VCC, !EndEtherTx AND );
+
+IF ((Ether.TxFrameCRC == VCC) AND )
+	Then EndEtherTx = VCC;
+	Else EndEtherTx = GND;
+END IF;
+
 -- Counter which contains address for exchange between ETHERNET and TestRAM
 EthAddrCt.(clock, clk_en) = (Clk100, VCC);
 EthAddrCt.cnt_en= EthWord_Rd OR EthWord_Wr; -- increments simultaneously with real "Read" or "Write"
@@ -1071,6 +1096,8 @@ EthAddrCt.sclr  = EdgeSensing(.D=Ether.RxDestAddr,  -- before receiving 1st DWor
                     .clk=Clk100, .reset=RESET) OR RESET;
 EthAddrCt.sload = EdgeSensing(.D=StartEthTx, -- at the beginning of Transmit Cycle
                     .clk=Clk100, .reset=RESET);
+
+StatusPack.(data[], clock, enable, load) = ((StartEthTx_Cnt.q[],EtherBankCt.q[]), Clk100, StartEthTx, VCC);
 
 --When ETHERNET' "WRITE" command => EtherWRITE=1 => write to TestRAM enabled 
 EtherWRITE  = DFF(.D=Eth_WRITE, .clk=Clk100, .clrn=!(Ether.RxEndFrame # RESET)); 
@@ -1168,7 +1195,7 @@ TAWF_HistRAM.(address_a[],			wren_a		,	 clock_a) =	--\ for common
 TAWF_HistRAM.(enable_a) = (VCC); 
 
 TAWF_HistRAM.(address_b[],				data_b[],			wren_b ) =     --\ for local access 
-			 ((EthAddrCt.q[10..0]), Ether.DataBus_out[], EthWord_Rd);   --/ from inside of "Ethernet" section
+			 ((EthAddrCt.q[10..0]-2), Ether.DataBus_out[], EthWord_Rd);   --/ from inside of "Ethernet" section
 TAWF_HistRAM.(clock_b, enable_b) = (Clk100, VCC);
 
 --============================================================================
