@@ -408,12 +408,17 @@ Reg_EthOpCode	: LPM_SHIFTREG with (lpm_width=8,  -- contains Command received fr
 										lpm_direction="unused"); -- not important
 Eth_Reg_LinkOpCode		: LPM_SHIFTREG with (lpm_width=(CommandSize+Pause), -- contains Command
 											 lpm_direction="unused"); -- not important
-Delay_St_Ether_Link		: SRFF;
 Eth_Reg_LinkEvNumber	: lpm_shiftreg with (lpm_width=16, lpm_direction="unused");
+
+Delay_St_Ether_Link		: SRFF;
+EtherLinkMessage		: SRFF;
+EtherLinkTimeCt			: lpm_counter with (lpm_width = 11, lpm_direction="up");
+
 EndEtherTx		: node;
 EtherBank_1,
 EtherBank_2,
 EtherBank_3		: DFFE;
+EtherBankDelay	: lpm_counter with (lpm_width = 11, lpm_direction="up");
 
 StartEthTx_Cnt	: lpm_counter with (lpm_width = 8, lpm_direction="up");
 StatusPack		: lpm_shiftreg with (lpm_width=16, lpm_direction="unused");
@@ -898,32 +903,27 @@ End CASE;
 
 Eth_Reg_LinkOpCode.data[(CommandSize+Pause-1)..0]= Link_IFace.OpCode_out[(CommandSize+Pause-1)..0];
 Eth_Reg_LinkOpCode.(clock, enable, load)= (Clk100, OpCode_load, VCC); -- catch data when RxOpCodeReload=1 
-Eth_Reg_LinkOpCode.(aclr, sclr)			= (RESET OR EndEtherTx, GND);
+Eth_Reg_LinkOpCode.(aclr, sclr)			= (RESET OR EndEtherTx OR EtherLinkTimeCt.cout, GND);
 
 Eth_Reg_LinkEvNumber.data[] = Link_IFace.InData_out[];
 Eth_Reg_LinkEvNumber.(clock, enable, load)= (Clk100, Link_IFace.IORq, VCC); -- catch data when RxOpCodeReload=1 
-Eth_Reg_LinkEvNumber.(aclr, sclr)		  = (RESET OR EndEtherTx, GND);
+Eth_Reg_LinkEvNumber.(aclr, sclr)		  = (RESET OR EndEtherTx OR EtherLinkTimeCt.cout, GND);
 
 CASE Eth_Reg_LinkOpCode.q[7..0] is -- recognizing the particular Operation :
 	WHEN StartRegul		 =>     -- #193-"START_Regular"        (+?oyoo Lst0)
 		 St_Ether_Link	 = VCC;	--Start up Ethernet transmition with waveforms
-		 St_EthTx_Ether  = GND;  -- Start up the Transmit
 
 	WHEN StartAlter		 =>     -- #210-"START_Alternative"    (+?oyoo Lst2)
 		 St_Ether_Link	 = VCC;	--Start up Ethernet transmition with waveforms
-		 St_EthTx_Ether  = GND;  -- Start up the Transmit
 
 	WHEN CommdLst_Rd100  =>     -- #226-"Read  by CommdLst100" (+?oyoo Lst4)
 		 St_Ether_Link	 = VCC;	--Start up Ethernet transmition with waveforms
-		 St_EthTx_Ether  = GND;  -- Start up the Transmit
 
-	WHEN CommdLst_Rd110  =>     -- #241-"Read  by CommdLst110" (+?oyoo3)
+	WHEN CommdLst_Rd110	 =>     -- #241-"Read  by CommdLst110" (+?oyoo3)
 		 St_Ether_Link	 = VCC;	--Start up Ethernet transmition with waveforms
-		 St_EthTx_Ether  = GND;  -- Start up the Transmit
 
 	WHEN Others => 	
 		 St_Ether_Link	 = GND;	--Start up Ethernet transmition with waveforms
-		 St_EthTx_Ether  = GND;	-- Start up the Transmit
 
 End CASE;
 
@@ -939,11 +939,9 @@ IF ((St_Ether_Link == VCC) AND (St_EthTx_Ether == GND)) Then
 	End case;
 ELSIF ((St_Ether_Link == GND) AND (St_EthTx_Ether == VCC)) Then
 	CASE EthAddrCt.q is
-		When 0 => Ether.DataBus_in[15..0] = StatusPack.q[15..0];
+		When 0 => Ether.DataBus_in[15..0] = (b"00000000",StatusPack.q[7..0]);
 		
-		When 1 => Ether.DataBus_in[15..0] = (b"00000000", Eth_Reg_LinkOpCode.q[7..0]);
-		
-		When 2 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
+		When 1 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
 		
 		When others => Ether.DataBus_in[15..0] = TAWF_HistRAM.q_b[];
 	End case;
@@ -1074,9 +1072,15 @@ Delay_StEthTx.(D,clk,reset) = ((St_EthTx_Ether & Ether.RxEndFrame),Clk100,RESET)
 
 Delay_St_Ether_Link.(S,clk,R,clrn) = (St_Ether_Link, Clk100, RESET, !EndEtherTx);
 
-EtherBank_1.(D,clk,ena,clrn) = (!TA_DataStrobe.q AND Delay_TA_DataStrobe.q, Clk25, !TA_DataStrobe.q AND Delay_TA_DataStrobe.q, !EndEtherTx);
-EtherBank_2.(D,clk,ena,clrn) = (EtherBank_1.q, Clk25, Ether.TxFrameCRC, !EndEtherTx);
-EtherBank_3.(D,clk,ena,clrn) = (EtherBank_2.q, Clk25, Ether.TxFrameCRC, !EndEtherTx);
+EtherLinkMessage.(S,clk,R,clrn) = (Delay_St_Ether_Link.q AND (!TA_DataStrobe.q AND Delay_TA_DataStrobe.q), Clk100, RESET, !EndEtherTx);
+
+EtherLinkTimeCt.(clock, clk_en, cnt_en, sclr) = (Clk25, VCC, St_Ether_Link AND !EtherLinkMessage.q, EtherLinkTimeCt.cout OR EndEtherTx);
+IF EtherLinkTimeCt.cout == VCC Then St_Ether_Link = GND;
+END IF;
+
+EtherBank_1.(D,clk,ena,clrn) = (!TA_DataStrobe.q AND Delay_TA_DataStrobe.q, Clk100, !TA_DataStrobe.q AND Delay_TA_DataStrobe.q, !EndEtherTx);
+EtherBank_2.(D,clk,ena,clrn) = (EtherBank_1.q AND EtherBankDelay.cout, Clk100, Ether.TxFrameCRC, !EndEtherTx);
+EtherBank_3.(D,clk,ena,clrn) = (EtherBank_2.q AND EtherBankDelay.cout, Clk100, Ether.TxFrameCRC, !EndEtherTx);
 
 --StartEthTx_Link.(D, clk, reset) = ((!Link_IFace.LinkMessage & Delay_LinkMessage.q) AND Delay_St_Ether_Link.q, Clk100, RESET);
 StartEthTx_Link.(D, clk, reset) = ((EtherBank_1.q OR EtherBank_2.q OR EtherBank_3.q) AND Delay_St_Ether_Link.q, Clk100, RESET);
@@ -1104,6 +1108,7 @@ EthAddrCt.sclr	= EdgeSensing(.D=Ether.RxDestAddr,  -- before receiving 1st DWord
 EthAddrCt.sload	= EdgeSensing(.D=StartEthTx, -- at the beginning of Transmit Cycle
                     .clk=Clk100, .reset=RESET);
 
+StatusPack.(clock, enable, load) = (Clk100, StartEthTx, VCC);
 IF EtherBank_1.q == VCC Then
 		Ether.TxLength[]= 1024;	-- DataBlock length = 1024Bytes = 512 words
 		Eth_InitAddr[]  = 0;	-- initial addr of data to be transmitted 
@@ -1118,7 +1123,7 @@ IF EtherBank_1.q == VCC Then
 		StatusPack.data[] = (StartEthTx_Cnt.q[], b"00000010");
 END IF; 
 
-StatusPack.(clock, enable, load) = (Clk100, StartEthTx, VCC);
+EtherBankDelay.(clock, clk_en, cnt_en, sclr) = (Clk25, VCC, Ether.TxFrameCRC, EtherBankDelay.cout);
 
 --When ETHERNET' "WRITE" command => EtherWRITE=1 => write to TestRAM enabled 
 EtherWRITE  = DFF(.D=Eth_WRITE, .clk=Clk100, .clrn=!(Ether.RxEndFrame # RESET)); 
@@ -1206,7 +1211,7 @@ END GENERATE;
 
 TA_DataStrobe.(data, clock, enable, load) = (TAWF_DataStrobe, Clk25, VCC, VCC);
 Delay_TA_DataStrobe.(data, clock, enable, load) = (TA_DataStrobe.q, Clk25, VCC, VCC);
-TAWF_HistRAM_Cnt.(clock, cnt_en, sclr) = (Clk25, TA_DataStrobe.q, !TA_DataStrobe.q AND Delay_TA_DataStrobe.q);
+TAWF_HistRAM_Cnt.(clock, cnt_en, sclr) = (Clk25, TA_DataStrobe.q AND !EtherLinkMessage.q, !TA_DataStrobe.q AND Delay_TA_DataStrobe.q);
 
 TAWF_HistRAM.data_a[11..0] = Reg_InData[0].q[];
 TAWF_HistRAM.data_a[14..12] = GND;
