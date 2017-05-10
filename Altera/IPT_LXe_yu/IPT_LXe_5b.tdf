@@ -941,7 +941,7 @@ ELSIF ((St_Ether_Link == GND) AND (St_EthTx_Ether == VCC)) Then
 	CASE EthAddrCt.q is
 		When 0 => Ether.DataBus_in[15..0] = (b"00000000",StatusPack.q[7..0]);
 		
-		When 1 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
+--		When 1 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
 		
 		When others => Ether.DataBus_in[15..0] = TAWF_HistRAM.q_b[];
 	End case;
@@ -1078,7 +1078,7 @@ EtherLinkTimeCt.(clock, clk_en, cnt_en, sclr) = (Clk25, VCC, St_Ether_Link AND !
 IF EtherLinkTimeCt.cout == VCC Then St_Ether_Link = GND;
 END IF;
 
-EtherBank_1.(D,clk,ena,clrn) = (!TA_DataStrobe.q AND Delay_TA_DataStrobe.q, Clk100, !TA_DataStrobe.q AND Delay_TA_DataStrobe.q, !EndEtherTx);
+EtherBank_1.(D,clk,ena,clrn) = (%!TA_DataStrobe.q AND Delay_TA_DataStrobe.q%St_Ether_Link, Clk100, %!TA_DataStrobe.q AND Delay_TA_DataStrobe.q%St_Ether_Link, !EndEtherTx);
 EtherBank_2.(D,clk,ena,clrn) = (EtherBank_1.q AND EtherBankDelay.cout, Clk100, Ether.TxFrameCRC, !EndEtherTx);
 EtherBank_3.(D,clk,ena,clrn) = (EtherBank_2.q AND EtherBankDelay.cout, Clk100, Ether.TxFrameCRC, !EndEtherTx);
 
