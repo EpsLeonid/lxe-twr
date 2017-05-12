@@ -32,7 +32,7 @@ SUBDESIGN  TestRAM2P
 VARIABLE
 
 	altsyncram_component : altsyncram WITH (
-			INTENDED_DEVICE_FAMILY = "Cyclone",
+			INTENDED_DEVICE_FAMILY = "Cyclone III",
 			OPERATION_MODE = "BIDIR_DUAL_PORT",
 			WIDTH_A = 16,
 			WIDTHAD_A = 8,
