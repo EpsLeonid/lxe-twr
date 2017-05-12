@@ -54,9 +54,9 @@ Constant EthOpCode_Offset   = 2048+40;  -- #2088=H"0828" - EthOpCode (read-only 
 Constant BaseAddr_offset	= H"0802";	-- #2050  Base Address of Program to be started
 Constant CtrlStat_offset	= 2048+7;   -- #2055 "Control-Status Reg", composed of named Triggers
 
-Constant TA_HistRAM_Offset	= H"8000";	-- # 32768
+Constant TA_HistRAM_Offset	= H"4000";	-- # 16384
 Constant TA_HistRAM_Size	= 2048;
-Constant WF_HistRAM_Offset	= H"9000";	-- # 36864
+Constant WF_HistRAM_Offset	= H"6000";	-- # 24576
 Constant WF_HistRAM_Size	= 512;
 
 CONSTANT TA_Bits			= 10;   -- разрядность Приемо/передатчика ТА6/12
