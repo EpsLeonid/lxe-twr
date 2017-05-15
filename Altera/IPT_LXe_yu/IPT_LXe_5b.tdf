@@ -71,9 +71,9 @@ SUBDESIGN IPT_LXe
 (
 -- 1. Reference Clock's & Frequency Control I/O
 FQuartz			: input;	-- 25MHz clock from Quartz oscillator		<- Pin46
--- In IPT_LXe module Link's Clock is checked inside Altera but switched outside 
-Sw_Quartz		: output;	-- connects Quartz to PLL ref.Input			-> Pin45
-Sw_LinkClk		: output;	-- connects Link's Clock to PLL ref.Input	-> Pin49
+
+-- In IPT_LXe module Link's Clock is checked inside Altera, Output of Phase Switch
+Phase25			: output;	-- Output to Pin31  Scope view at 
 
 PLL_in			: input;	-- Ref.clock for PLL (dedicated)			<- Pin31
 PLL_ExtOut		: output;	-- Output of PLL.e0 to outside				-> Pin120
@@ -121,7 +121,7 @@ NChStrobe[NUM_board-1..0]	: input;
 DeSerClk					: output;
 Rsync						: input;
 
--- 4. КАМАК интерфейс
+-- 4. CAMAC Interface
 CAMAC_N						:input; -- Active LOW input !               <- Pin69
 --CAMAC_B         :input;     -- Input from Pin________________ реально отсутствует
 CAMAC_S1					:input;     -- Active LOW input !               <- Pin73
@@ -498,9 +498,9 @@ PwrUpSet2 = PowerUp3 AND !PowerUp4;       -- ONE pulse ~0.06sec after PwrUpReset
 PhaseSw.clock	= FQuartz ;         -- 25MHz from Quartz
 PhaseSw.LinkClk	= LinkClk ;         -- 25MHz from Link
 PhaseSw.Reset	= GND  ;
---    Phase25     = PhaseSw.Phase25 ; -- selected clock output to real pin
-Sw_LinkClk		= !PhaseSw.LinkClk_selected; -- connects Link's Clock to PLL ref.Input
-Sw_Quartz		= PhaseSw.LinkClk_selected; -- connects Quartz to PLL ref.Input
+Phase25			= PhaseSw.Phase25 ; -- selected clock output to real pin
+--Sw_LinkClk		= !PhaseSw.LinkClk_selected; -- connects Link's Clock to PLL ref.Input
+--Sw_Quartz		= PhaseSw.LinkClk_selected; -- connects Quartz to PLL ref.Input
 
 --**************** PLL section ***********************************************
 PLL.inclk0	= PLL_in;           -- ~25MHz from Link -> Input of PLL
@@ -1457,8 +1457,18 @@ TestCt.(clock, clk_en)	= (FQuartz, VCC); -- Test Counter, can be used to drive L
 TestCt.cnt_en			= PowerUp0;
 TestCt.aclr				= !PowerUp0;    -- even if NO clock - Reset does occur
 
+
 Test1 = Link_IFace.LinkMessage;	--Link_IFace.test[1];	--Ether.test[1];	--Ether.TX_EN;		-- Pin236
-Test2 = TAWF_DataStrobe;	--Link_IFace.test[2];	--Ether.RxWaitSFD;	--Ether.TxStFrmDel;	-- Pin237
+Test2 = PLL.locked;--TAWF_DataStrobe;	--Link_IFace.test[2];	--Ether.RxWaitSFD;	--Ether.TxStFrmDel;	-- Pin237
+Test3 = StartMulti;	--Link_IFace.test[3];	--Ether.test[2];	--Ether.RxDestAddr;	-- Pin238
+Test4 = PwrUpSet2;	--Link_IFace.LinkMessage; --Ether.test[3];	--Ether.RxSourAddr;	-- Pin239
+Test5 = CAMAC_IFace.test[2];--Ether.IORq;	--Link_IFace.TxRx;	--Ether.test[4];		--Ether.test[3];	-- Pin240
+Test6 = EtherBank_1.q;--Data_Strobe;	--Ether.test[6];	--Ether.test[5];	-- Pin__4
+Test7 = Ether.TxFrameCRC;--EthAddrCt.q[1];	--Ether.test[7];	--EthOpCode_save;	-- Pin__5
+Test8 = Ether.TxDataBlck;	--Ether.test[8];	--EthOpCode_saved;	-- Pin__6
+Test9 = Clk25;				--DataIn_TA[0][8];	-- Pin
+%Test1 = Link_IFace.LinkMessage;	--Link_IFace.test[1];	--Ether.test[1];	--Ether.TX_EN;		-- Pin236
+Test2 = PLL.locked;--TAWF_DataStrobe;	--Link_IFace.test[2];	--Ether.RxWaitSFD;	--Ether.TxStFrmDel;	-- Pin237
 Test3 = St_Ether_Link;	--Link_IFace.test[3];	--Ether.test[2];	--Ether.RxDestAddr;	-- Pin238
 Test4 = StartEthTx_Link.q;	--Link_IFace.LinkMessage; --Ether.test[3];	--Ether.RxSourAddr;	-- Pin239
 Test5 = StartEthTx;--Ether.IORq;	--Link_IFace.TxRx;	--Ether.test[4];		--Ether.test[3];	-- Pin240
@@ -1466,6 +1476,6 @@ Test6 = EtherBank_1.q;--Data_Strobe;	--Ether.test[6];	--Ether.test[5];	-- Pin__4
 Test7 = Ether.TxFrameCRC;--EthAddrCt.q[1];	--Ether.test[7];	--EthOpCode_save;	-- Pin__5
 Test8 = Ether.TxDataBlck;	--Ether.test[8];	--EthOpCode_saved;	-- Pin__6
 Test9 = Clk25;				--DataIn_TA[0][8];	-- Pin
-Test10= DataStrobe;			--DataIn_TA[0][9];	-- Pin
+%Test10= DataStrobe;			--DataIn_TA[0][9];	-- Pin
 
 END;
