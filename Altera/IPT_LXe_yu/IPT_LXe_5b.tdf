@@ -1238,10 +1238,10 @@ TAWF_HistRAM.(clock_b, enable_b) = (Clk100, VCC);
 	ErrorCounters_IFace.ErrorInputs[1]	=	Bus_Arbiter.Error;
 	ErrorCounters_IFace.ErrorInputs[2]	=	CAMAC_IFace.Error;
 	ErrorCounters_IFace.ErrorInputs[3]	=	Link_IFace.Error;
-	ErrorCounters_IFace.ErrorInputs[4]  =   Ether.TxError;
-	ErrorCounters_IFace.ErrorInputs[5]  =   Ether.RxError;
-	ErrorCounters_IFace.ErrorInputs[6]  =   NChLock[0];--Sync_ES.q;
-	ErrorCounters_IFace.ErrorInputs[7]  =   Error;--Sync_ES.q;
+	ErrorCounters_IFace.ErrorInputs[4]	=	Ether.TxError;
+	ErrorCounters_IFace.ErrorInputs[5]	=	Ether.RxError;
+	ErrorCounters_IFace.ErrorInputs[6]	=	NChLock[0];--Sync_ES.q;
+	ErrorCounters_IFace.ErrorInputs[7]	=	Error;--Sync_ES.q;
 
 --============================================================================
 -- 10. Internal Bus of Project & Data transfer control ************************
