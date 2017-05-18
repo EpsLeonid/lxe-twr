@@ -35,7 +35,7 @@ INCLUDE "ErrorCounters.inc";
 Constant MainRAM_Offset 	= H"0300";	-- main RAM block, 256words * 16bits
 Constant MainRAM_Size		= 256;		-- #768..#1023
 Constant TestRAM_Offset		= H"2000" ; -- #8192
-Constant TestRAM_Size		= 256;
+Constant TestRAM_Size		= 1024;
 Constant ProgRAM_Offset 	= H"0400";	-- Program RAM block, 256words * 16bits
 Constant ProgRAM_Size		= 256;		-- #1024..#1279
 Constant CommdList_Offset	= H"0C00";	-- #3072  RAM block containing the Command Lists
@@ -418,6 +418,8 @@ EndEtherTx		: node;
 EtherBank_1,
 EtherBank_2,
 EtherBank_3		: DFFE;
+EtherPause1,
+EtherPause2		: SRFF;
 EtherBankDelay	: lpm_counter with (lpm_width = 11, lpm_direction="up");
 
 StartEthTx_Cnt	: lpm_counter with (lpm_width = 8, lpm_direction="up");
@@ -1074,12 +1076,18 @@ Delay_St_Ether_Link.(S,clk,R,clrn) = (St_Ether_Link, Clk100, RESET, !EndEtherTx)
 EtherLinkMessage.(S,clk,R,clrn) = (Delay_St_Ether_Link.q AND (!TA_DataStrobe.q AND Delay_TA_DataStrobe.q), Clk100, RESET, !EndEtherTx);
 
 EtherLinkTimeCt.(clock, clk_en, cnt_en, sclr) = (Clk25, VCC, St_Ether_Link AND !EtherLinkMessage.q, EtherLinkTimeCt.cout OR EndEtherTx);
-IF EtherLinkTimeCt.cout == VCC Then St_Ether_Link = GND;
-END IF;
+--IF EtherLinkTimeCt.cout == VCC Then St_Ether_Link = GND;
+--END IF;
 
-EtherBank_1.(D,clk,ena,clrn) = (%St_Ether_Link AND !Delay_St_Ether_Link.q%!TA_DataStrobe.q AND Delay_TA_DataStrobe.q, Clk100, %St_Ether_Link AND !Delay_St_Ether_Link.q%TA_DataStrobe.q AND Delay_TA_DataStrobe.q, !EndEtherTx);
-EtherBank_2.(D,clk,ena,clrn) = (EtherBank_1.q AND EtherBankDelay.cout, Clk100, EtherBank_1.q AND EtherBankDelay.cout, !EndEtherTx);
-EtherBank_3.(D,clk,ena,clrn) = (EtherBank_2.q AND EtherBankDelay.cout, Clk100, EtherBank_2.q AND EtherBankDelay.cout, !EndEtherTx);
+EtherBank_1.(D,clk,ena,clrn) = (!TA_DataStrobe.q AND Delay_TA_DataStrobe.q, Clk100, !TA_DataStrobe.q AND Delay_TA_DataStrobe.q, !EtherPause1.q);
+
+	EtherPause1.(S,clk,R,clrn) = (EtherBank_1.q AND Ether.TxFrameCRC, Clk100, EtherBankDelay.cout, !EndEtherTx);
+
+EtherBank_2.(D,clk,ena,clrn) = (EtherPause1.q AND EtherBankDelay.cout, Clk100, EtherBank_1.q AND EtherBankDelay.cout, !EtherPause2.q);
+
+	EtherPause2.(S,clk,R,clrn) = (EtherBank_2.q AND Ether.TxFrameCRC, Clk100, EtherBankDelay.cout, !EndEtherTx);
+
+EtherBank_3.(D,clk,ena,clrn) = (EtherPause2.q AND EtherBankDelay.cout, Clk100, EtherBank_2.q AND EtherBankDelay.cout, !EndEtherTx);
 
 --StartEthTx_Link.(D, clk, reset) = ((!Link_IFace.LinkMessage & Delay_LinkMessage.q) AND Delay_St_Ether_Link.q, Clk100, RESET);
 StartEthTx_Link.(D, clk, reset) = ((EtherBank_1.q OR EtherBank_2.q OR EtherBank_3.q) AND Delay_St_Ether_Link.q, Clk100, RESET);
@@ -1122,7 +1130,7 @@ IF EtherBank_1.q == VCC Then
 		StatusPack.data[] = (StartEthTx_Cnt.q[], b"00000010");
 END IF; 
 
-EtherBankDelay.(clock, clk_en, cnt_en, sclr) = (Clk25, VCC, Ether.TxDataBlck, EtherBankDelay.cout);
+EtherBankDelay.(clock, clk_en, cnt_en, sclr) = (Clk25, VCC, EtherPause1.q OR EtherPause2.q, EtherBankDelay.cout);
 
 --When ETHERNET' "WRITE" command => EtherWRITE=1 => write to TestRAM enabled 
 EtherWRITE  = DFF(.D=Eth_WRITE, .clk=Clk100, .clrn=!(Ether.RxEndFrame # RESET)); 
@@ -1457,7 +1465,7 @@ TestCt.(clock, clk_en)	= (FQuartz, VCC); -- Test Counter, can be used to drive L
 TestCt.cnt_en			= PowerUp0;
 TestCt.aclr				= !PowerUp0;    -- even if NO clock - Reset does occur
 
-
+%
 Test1 = Link_IFace.LinkMessage;	--Link_IFace.test[1];	--Ether.test[1];	--Ether.TX_EN;		-- Pin236
 Test2 = PLL.locked;--TAWF_DataStrobe;	--Link_IFace.test[2];	--Ether.RxWaitSFD;	--Ether.TxStFrmDel;	-- Pin237
 Test3 = StartMulti;	--Link_IFace.test[3];	--Ether.test[2];	--Ether.RxDestAddr;	-- Pin238
@@ -1468,14 +1476,14 @@ Test7 = Ether.TxFrameCRC;--EthAddrCt.q[1];	--Ether.test[7];	--EthOpCode_save;	--
 Test8 = Ether.TxDataBlck;	--Ether.test[8];	--EthOpCode_saved;	-- Pin__6
 Test9 = Clk25;				--DataIn_TA[0][8];	-- Pin
 %Test1 = Link_IFace.LinkMessage;	--Link_IFace.test[1];	--Ether.test[1];	--Ether.TX_EN;		-- Pin236
-Test2 = PLL.locked;--TAWF_DataStrobe;	--Link_IFace.test[2];	--Ether.RxWaitSFD;	--Ether.TxStFrmDel;	-- Pin237
-Test3 = St_Ether_Link;	--Link_IFace.test[3];	--Ether.test[2];	--Ether.RxDestAddr;	-- Pin238
-Test4 = StartEthTx_Link.q;	--Link_IFace.LinkMessage; --Ether.test[3];	--Ether.RxSourAddr;	-- Pin239
-Test5 = StartEthTx;--Ether.IORq;	--Link_IFace.TxRx;	--Ether.test[4];		--Ether.test[3];	-- Pin240
-Test6 = EtherBank_1.q;--Data_Strobe;	--Ether.test[6];	--Ether.test[5];	-- Pin__4
-Test7 = Ether.TxFrameCRC;--EthAddrCt.q[1];	--Ether.test[7];	--EthOpCode_save;	-- Pin__5
+Test2 = St_Ether_Link;--TAWF_DataStrobe;	--Link_IFace.test[2];	--Ether.RxWaitSFD;	--Ether.TxStFrmDel;	-- Pin237
+Test3 = TA_DataStrobe.q;	--Link_IFace.test[3];	--Ether.test[2];	--Ether.RxDestAddr;	-- Pin238
+Test4 = EtherBank_1.q;	--Link_IFace.LinkMessage; --Ether.test[3];	--Ether.RxSourAddr;	-- Pin239
+Test5 = EtherPause1.q;	--Ether.IORq;	--Link_IFace.TxRx;	--Ether.test[4];		--Ether.test[3];	-- Pin240
+Test6 = StartEthTx_Link.q;		--Data_Strobe;	--Ether.test[6];	--Ether.test[5];	-- Pin__4
+Test7 = StartEthTx;--EthAddrCt.q[1];	--Ether.test[7];	--EthOpCode_save;	-- Pin__5
 Test8 = Ether.TxDataBlck;	--Ether.test[8];	--EthOpCode_saved;	-- Pin__6
-Test9 = Clk25;				--DataIn_TA[0][8];	-- Pin
-%Test10= DataStrobe;			--DataIn_TA[0][9];	-- Pin
+Test9 = Ether.TxFrameCRC;				--DataIn_TA[0][8];	-- Pin
+Test10= DataStrobe;			--DataIn_TA[0][9];	-- Pin
 
 END;
