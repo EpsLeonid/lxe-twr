@@ -129,7 +129,7 @@ Clk25			: node; -- This is Global Node
 Clk37_5			: node; -- This is Global Node 
 Clk75			: node; -- This is Global Node
 Clk100			: node; -- This is Global Node
-Clk150			: node; -- This is Global Node
+Clk50			: node; -- This is Global Node
 
 -- Automatic Clock Switch: if External_Clock frequency (kHz) is in specified 
 --   range, PhaseSwitch transfers the External_Clock to PLL1's reference input, 
@@ -387,7 +387,7 @@ Sw_Quartz		= PhaseSw.LinkClk_selected; -- connects Quartz to PLL ref.Input
 PLL.inclk0	= PLL_in;           -- ~25MHz from Link -> Input of PLL
 Clk25		= PLL.c0;           --  25MHz = (Fin x 1)    from PLL.c0
 Clk100		= GLOBAL(PLL.c1);   -- 100MHz = (Fin x 4)    from PLL.c1
-Clk150		= GLOBAL(PLL.c2);   -- 150MHz = (Fin x 6)    from PLL.c1
+Clk50		= GLOBAL(PLL.c2);   -- 150MHz = (Fin x 2)    from PLL.c1
 Clk75		= GLOBAL(PLL.c4);   -- 75MHz = (Fin x 3)    from PLL.c1
 PLL_ExtOut	= PLL.c3;           --  25MHz -> outside of Altera
 --PLL1.pfdena = VCC;--!Reset;
@@ -421,10 +421,10 @@ LinkMsg_Trig.(d,clk)  = (!Link_IFace.LinkMessage, CLK100);
 Event_ES_End.(d,clk)  = (LinkMsg_Trig.q, CLK100);
 Event_Trig.(S,clk,R)  = (Event_ES_Beg.q, CLK100, Event_ES_End.q);
 
-Event_ES_Beg_.(d,clk) = (!LinkData%первый бит входной посылки, нужно исправить% AND !Event_Trig_.q, CLK150); -- Ii?aaaeaiea noa?oiaiai aeoa
-LinkMsg_Trig_.(d,clk) = (!Link_IFace.LinkMessage, CLK150);    
-Event_ES_End_.(d,clk) = (LinkMsg_Trig_.q, CLK150);
-Event_Trig_.(S,clk,R) = (Event_ES_Beg_.q, CLK150, Event_ES_End_.q);
+Event_ES_Beg_.(d,clk) = (!LinkData%первый бит входной посылки, нужно исправить% AND !Event_Trig_.q, CLK50); -- Ii?aaaeaiea noa?oiaiai aeoa
+LinkMsg_Trig_.(d,clk) = (!Link_IFace.LinkMessage, CLK50);    
+Event_ES_End_.(d,clk) = (LinkMsg_Trig_.q, CLK50);
+Event_Trig_.(S,clk,R) = (Event_ES_Beg_.q, CLK50, Event_ES_End_.q);
 
 --============================================================================
 -- ******** 2. Indicators section ********************************************
@@ -717,7 +717,7 @@ END GENERATE;
 --************************** Передача данных в IPT ***************************** 
 
 Clk37_5 = DFF (.d = !Clk37_5, .clk = Clk75);
-SerClk = Clk25;--Clk37_5;--
+SerClk = Clk50;--Clk25;--Clk37_5;--
 Delay_LinkMessage.(D,clk) = (Link_IFace.LinkMessage, Clk100);
 TxWFhist.(S, clk, R, clrn) = (Link_IFace.LinkMessage AND !Delay_LinkMessage.q, Clk25, GND, !StopCount);
 TAWF_DataStrobe = TxWFhist.q;

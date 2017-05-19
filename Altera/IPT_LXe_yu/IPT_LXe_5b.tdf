@@ -269,7 +269,7 @@ St_Ether_Link	: node;
 Delay_StEthTx	: DelayLine with (DelayCode = 200,  -- to delay the real start of Processor 
                                   DurationCode= 4); --  after CAMAC-cycle
 --StartEthTx_Ether: PulseShaper with (DurationCode=4);--Start Ethernet' Transmit by Ethernet command
-StartEthTx_Link	: PulseShaper with (DurationCode= 4); --Start Ethernet' Transmit by end of Link command
+StartEthTx_Link	: PulseShaper with (DurationCode= 8); --Start Ethernet' Transmit by end of Link command
 StartEthTx		: node; -- all sources of Start_EthernetTx combined
 Eth_WRITE,				-- flag: Ethernet' "Write" command is received 
 EtherWRITE		: node; -- flag: Ethernet' "Write" command is received, registered 
@@ -936,7 +936,7 @@ IF (St_Ether_Link == VCC) Then
 		
 		When 2 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
 		
-		When others => Ether.DataBus_in[15..0] = TAWF_HistRAM.q_b[];
+		When others => Ether.DataBus_in[15..0] = TestRAM.q_a[];--TAWF_HistRAM.q_b[];
 	End case;
 ELSE 
 	CASE EthAddrCt.q is
@@ -1071,23 +1071,25 @@ StartADC = StartADC_Camac.q						-- Compulsive START by CAMAC ..
 Delay_StEthTx.(D,clk,reset) = ((St_EthTx_Ether & Ether.RxEndFrame),Clk100,RESET);  -- Delay of Compulsive START
 --StartEthTx_Ether.(D, clk,reset) =(Delay_StEthTx.q, Clk100, RESET);--PulseShaper
 
-Delay_St_Ether_Link.(S,clk,R,clrn) = (St_Ether_Link, Clk100, RESET, !EndEtherTx);
+Delay_St_Ether_Link.(S,clk,R,clrn) = (St_Ether_Link, Clk100, RESET, !(EndEtherTx OR EtherLinkTimeCt.cout));
 
-EtherLinkMessage.(S,clk,R,clrn) = (Delay_St_Ether_Link.q AND (!TA_DataStrobe.q AND Delay_TA_DataStrobe.q), Clk100, RESET, !EndEtherTx);
+EtherLinkMessage.(S,clk,R,clrn) = (Delay_St_Ether_Link.q AND (!TA_DataStrobe.q AND Delay_TA_DataStrobe.q), Clk100, RESET, !(EndEtherTx OR EtherLinkTimeCt.cout));
 
-EtherLinkTimeCt.(clock, clk_en, cnt_en, sclr) = (Clk25, VCC, St_Ether_Link AND !EtherLinkMessage.q, EtherLinkTimeCt.cout OR EndEtherTx);
+EtherLinkTimeCt.(clock, clk_en, cnt_en, sclr) = (Clk25, VCC, St_Ether_Link AND !EtherLinkMessage.q, EtherLinkTimeCt.cout OR EtherLinkMessage.q);
 --IF EtherLinkTimeCt.cout == VCC Then St_Ether_Link = GND;
 --END IF;
 
-EtherBank_1.(D,clk,ena,clrn) = (!TA_DataStrobe.q AND Delay_TA_DataStrobe.q, Clk100, !TA_DataStrobe.q AND Delay_TA_DataStrobe.q, !EtherPause1.q);
+EtherBank_1.(D,clk,ena,clrn) = (Delay_St_Ether_Link.q AND (!TA_DataStrobe.q AND Delay_TA_DataStrobe.q), Clk100, !TA_DataStrobe.q AND Delay_TA_DataStrobe.q, !EtherPause1.q);
 
 	EtherPause1.(S,clk,R,clrn) = (EtherBank_1.q AND Ether.TxFrameCRC, Clk100, EtherBankDelay.cout, !EndEtherTx);
 
-EtherBank_2.(D,clk,ena,clrn) = (EtherPause1.q AND EtherBankDelay.cout, Clk100, EtherBank_1.q AND EtherBankDelay.cout, !EtherPause2.q);
+EtherBank_2.(D,clk,ena,clrn) = (EtherPause1.q AND EtherBankDelay.cout, Clk100, EtherPause1.q AND EtherBankDelay.cout, !EtherPause2.q);
 
 	EtherPause2.(S,clk,R,clrn) = (EtherBank_2.q AND Ether.TxFrameCRC, Clk100, EtherBankDelay.cout, !EndEtherTx);
 
-EtherBank_3.(D,clk,ena,clrn) = (EtherPause2.q AND EtherBankDelay.cout, Clk100, EtherBank_2.q AND EtherBankDelay.cout, !EndEtherTx);
+EtherBank_3.(D,clk,ena,clrn) = (EtherPause2.q AND EtherBankDelay.cout, Clk100, EtherPause2.q AND EtherBankDelay.cout, !EndEtherTx);
+
+EtherBankDelay.(clock, clk_en, cnt_en, sclr) = (Clk25, VCC, EtherPause1.q OR EtherPause2.q, EtherBankDelay.cout);
 
 --StartEthTx_Link.(D, clk, reset) = ((!Link_IFace.LinkMessage & Delay_LinkMessage.q) AND Delay_St_Ether_Link.q, Clk100, RESET);
 StartEthTx_Link.(D, clk, reset) = ((EtherBank_1.q OR EtherBank_2.q OR EtherBank_3.q) AND Delay_St_Ether_Link.q, Clk100, RESET);
@@ -1122,15 +1124,13 @@ IF EtherBank_1.q == VCC Then
 		StatusPack.data[] = (StartEthTx_Cnt.q[], b"00000000"); 
 	ELSIF EtherBank_2.q == VCC Then
 		Ether.TxLength[]= 1024;	-- DataBlock length = 1024Bytes = 512 words
-		Eth_InitAddr[]  = 512;	-- initial addr of data to be transmitted 
+		Eth_InitAddr[]  = 0;--512;	-- initial addr of data to be transmitted 
 		StatusPack.data[] = (StartEthTx_Cnt.q[], b"00000001");
 	ELSIF EtherBank_3.q == VCC Then
 		Ether.TxLength[]= 1024;	-- DataBlock length = 1024Bytes = 512 words
-		Eth_InitAddr[]  = 1024;	-- initial addr of data to be transmitted 
+		Eth_InitAddr[]  = 0;--1024;	-- initial addr of data to be transmitted 
 		StatusPack.data[] = (StartEthTx_Cnt.q[], b"00000010");
 END IF; 
-
-EtherBankDelay.(clock, clk_en, cnt_en, sclr) = (Clk25, VCC, EtherPause1.q OR EtherPause2.q, EtherBankDelay.cout);
 
 --When ETHERNET' "WRITE" command => EtherWRITE=1 => write to TestRAM enabled 
 EtherWRITE  = DFF(.D=Eth_WRITE, .clk=Clk100, .clrn=!(Ether.RxEndFrame # RESET)); 
@@ -1477,13 +1477,13 @@ Test8 = Ether.TxDataBlck;	--Ether.test[8];	--EthOpCode_saved;	-- Pin__6
 Test9 = Clk25;				--DataIn_TA[0][8];	-- Pin
 %Test1 = Link_IFace.LinkMessage;	--Link_IFace.test[1];	--Ether.test[1];	--Ether.TX_EN;		-- Pin236
 Test2 = St_Ether_Link;--TAWF_DataStrobe;	--Link_IFace.test[2];	--Ether.RxWaitSFD;	--Ether.TxStFrmDel;	-- Pin237
-Test3 = TA_DataStrobe.q;	--Link_IFace.test[3];	--Ether.test[2];	--Ether.RxDestAddr;	-- Pin238
-Test4 = EtherBank_1.q;	--Link_IFace.LinkMessage; --Ether.test[3];	--Ether.RxSourAddr;	-- Pin239
-Test5 = EtherPause1.q;	--Ether.IORq;	--Link_IFace.TxRx;	--Ether.test[4];		--Ether.test[3];	-- Pin240
-Test6 = StartEthTx_Link.q;		--Data_Strobe;	--Ether.test[6];	--Ether.test[5];	-- Pin__4
-Test7 = StartEthTx;--EthAddrCt.q[1];	--Ether.test[7];	--EthOpCode_save;	-- Pin__5
-Test8 = Ether.TxDataBlck;	--Ether.test[8];	--EthOpCode_saved;	-- Pin__6
-Test9 = Ether.TxFrameCRC;				--DataIn_TA[0][8];	-- Pin
+Test3 = Delay_St_Ether_Link.q;	--Link_IFace.test[3];	--Ether.test[2];	--Ether.RxDestAddr;	-- Pin238
+Test4 = TA_DataStrobe.q;	--Link_IFace.LinkMessage; --Ether.test[3];	--Ether.RxSourAddr;	-- Pin239
+Test5 = EtherBank_1.q OR EtherBank_2.q OR EtherBank_3.q;	--Ether.IORq;	--Link_IFace.TxRx;	--Ether.test[4];		--Ether.test[3];	-- Pin240
+Test6 = EtherPause1.q OR EtherPause2.q;		--Data_Strobe;	--Ether.test[6];	--Ether.test[5];	-- Pin__4
+Test7 = StartEthTx_Link.q;--EthAddrCt.q[1];	--Ether.test[7];	--EthOpCode_save;	-- Pin__5
+Test8 = StartEthTx;	--Ether.test[8];	--EthOpCode_saved;	-- Pin__6
+Test9 = Ether.TxFrameCRC;--Ether.IORq;	--	--DataIn_TA[0][8];	-- Pin
 Test10= DataStrobe;			--DataIn_TA[0][9];	-- Pin
 
 END;

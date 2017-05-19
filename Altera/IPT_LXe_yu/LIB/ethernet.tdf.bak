@@ -7,8 +7,8 @@ INCLUDE "lpm_shiftreg.inc";
 INCLUDE "PulseShaper.inc";
 
 --INCLUDE "EthernetRx.inc";
+--INCLUDE "EthernetTx.inc";
 INCLUDE "CRC32";
-INCLUDE "EthernetTx.inc";
 
 SUBDESIGN  ETHERNET  
 (
@@ -88,7 +88,7 @@ Test[8..1]          : output;
 )
 
 VARIABLE
-EtherTx             : EthernetTx ;  -- Ethernet Transmitter module 
+--EtherTx             : EthernetTx ;  -- Ethernet Transmitter module 
 --EtherRx             : EthernetRx ;  -- Ethernet Receiver module 
 
 ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
@@ -167,6 +167,9 @@ TxFrameCRC      : DFF;
 TxEndFrame      : DFF;      
 
 TxLenTyp[16..1] : node; -- value of the "PkLength/Type" field for TxFrame
+
+TxPkLng_Reg     : LPM_SHIFTREG with (lpm_width=12, -- latches the DataPacket Length (in Bytes)
+                                lpm_direction="left"); --shift: q0 -> q[MSB]
 
 TxCRC           : CRC32;-- function which calculates the CRC of the TxFrame
 
@@ -615,6 +618,11 @@ CtTransm.cnt_en = enTransmit;
 CtTransm.sclr   = CtTransm_sclr;        -- defined in "TxCycle proceeding control" 
 --CtTransm.aclr   = !enTransmit;          -- counts only while enTransmit = 1
 TxCount[]       = CtTransm.q[];
+
+-- This register latches and holds the DataPacket Length (in Bytes) 
+TxPkLng_Reg.data[11..0]  = TxLenTyp[12..1];
+TxPkLng_Reg.(clock, enable, load) = (TX_CLK, TxLng_ld, VCC); -- loads by the beg-g of "TxPkLenTyp" transmitting
+--    = TxPkLng_Reg.q[11.1];            -- connected in "TxCycle' State Handling" section
 
 ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
 --********  TxCycle' State Handling  *******************************************

@@ -148,7 +148,7 @@ TX_EN_FF        : DFF;
 --TXD_FF[3..0]    : DFF;
 TxD_Reg[4..1]   : DFF;
 
-Tx_init         :node;  -- garanteedly initiates a Transmit operation
+Tx_init         : node;  -- garanteedly initiates a Transmit operation
 enTransmit      : node; -- enable Transmission 
 
 -- Main Transmit_Cycle Counter
