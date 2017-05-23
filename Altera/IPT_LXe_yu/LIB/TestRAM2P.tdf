@@ -15,10 +15,10 @@ TestRAM_init_file = "TestRAM.mif"
 
 SUBDESIGN  TestRAM2P
 (
-	address_a[7..0]	 : INPUT;
+	address_a[9..0]	 : INPUT;
 	data_a[15..0]	 : INPUT;
 	wren_a	 : INPUT = VCC;
-	address_b[7..0]	 : INPUT;
+	address_b[9..0]	 : INPUT;
 	data_b[15..0]	 : INPUT;
 	wren_b	 : INPUT = VCC;
 	clock_a	 : INPUT;
@@ -35,10 +35,10 @@ VARIABLE
 			INTENDED_DEVICE_FAMILY = "Cyclone III",
 			OPERATION_MODE = "BIDIR_DUAL_PORT",
 			WIDTH_A = 16,
-			WIDTHAD_A = 8,
+			WIDTHAD_A = 10,
 			NUMWORDS_A = 256,
 			WIDTH_B = 16,
-			WIDTHAD_B = 8,
+			WIDTHAD_B = 10,
 			NUMWORDS_B = 256,
 			LPM_TYPE = "altsyncram",
 			WIDTH_BYTEENA_A = 1,
@@ -70,8 +70,8 @@ BEGIN
 	altsyncram_component.clock0 = clock_a;
 	altsyncram_component.wren_b = wren_b;
 	altsyncram_component.clock1 = clock_b;
-	altsyncram_component.address_a[7..0] = address_a[7..0];
-	altsyncram_component.address_b[7..0] = address_b[7..0];
+	altsyncram_component.address_a[9..0] = address_a[9..0];
+	altsyncram_component.address_b[9..0] = address_b[9..0];
 	altsyncram_component.data_a[15..0] = data_a[15..0];
 	altsyncram_component.data_b[15..0] = data_b[15..0];
 END;
@@ -94,7 +94,7 @@ END;
 -- Retrieval info: PRIVATE: rden NUMERIC "0"
 -- Retrieval info: PRIVATE: BYTE_ENABLE_A NUMERIC "0"
 -- Retrieval info: PRIVATE: BYTE_ENABLE_B NUMERIC "0"
--- Retrieval info: PRIVATE: BYTE_SIZE NUMERIC "8"
+-- Retrieval info: PRIVATE: BYTE_SIZE NUMERIC "10"
 -- Retrieval info: PRIVATE: Clock_A NUMERIC "0"
 -- Retrieval info: PRIVATE: Clock_B NUMERIC "0"
 -- Retrieval info: PRIVATE: REGdata NUMERIC "1"
@@ -164,9 +164,9 @@ END;
 -- Retrieval info: USED_PORT: wren_a 0 0 0 0 INPUT VCC wren_a
 -- Retrieval info: USED_PORT: q_a 0 0 16 0 OUTPUT NODEFVAL q_a[15..0]
 -- Retrieval info: USED_PORT: q_b 0 0 16 0 OUTPUT NODEFVAL q_b[15..0]
--- Retrieval info: USED_PORT: address_a 0 0 8 0 INPUT NODEFVAL address_a[7..0]
+-- Retrieval info: USED_PORT: address_a 0 0 8 0 INPUT NODEFVAL address_a[8..0]
 -- Retrieval info: USED_PORT: data_b 0 0 16 0 INPUT NODEFVAL data_b[15..0]
--- Retrieval info: USED_PORT: address_b 0 0 8 0 INPUT NODEFVAL address_b[7..0]
+-- Retrieval info: USED_PORT: address_b 0 0 8 0 INPUT NODEFVAL address_b[8..0]
 -- Retrieval info: USED_PORT: wren_b 0 0 0 0 INPUT VCC wren_b
 -- Retrieval info: USED_PORT: clock_a 0 0 0 0 INPUT NODEFVAL clock_a
 -- Retrieval info: USED_PORT: enable_a 0 0 0 0 INPUT VCC enable_a

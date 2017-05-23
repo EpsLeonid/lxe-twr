@@ -880,7 +880,7 @@ CASE  Reg_EthOpCode.q[7..0] is  -- recognizing the particular Operation :
 	WHEN  H"01" =>  -- "PING" command
 		St_EthTx_Ether  = VCC;  -- Start up the Transmit
 		Ether.TxLength[]=  64;  -- DataBlock length = 64Bytes
-		Eth_InitAddr[]  = 512;  -- initial addr of data to be transmitted 
+		Eth_InitAddr[]  = b"00100000000";  -- initial addr of data to be transmitted 
 
 	--WHEN  H"03" =>  -- "StartMulti" for sending Ethernet' frames" 
 	--WHEN  H"04" =>  -- "STOP sending Ethernet' frames" 
@@ -946,7 +946,7 @@ ELSIF (St_EthTx_Ether == VCC) Then
 		
 		When others => Ether.DataBus_in[15..0] = TestRAM.q_a[];
 	End case;%
-	Ether.DataBus_in[15..0] = TestRAM.q_a[];
+	Ether.DataBus_in[15..0] = b"0000000010000000";--TestRAM.q_a[];
 END IF;
 --============================================================================
 --******** 5. Processor ******************************************************
@@ -991,13 +991,13 @@ CommandRAM.(address[9..0], data[], clock,    wren                     ) =
         (AddrBus[9..0], DataBus[], Clk100,(DataStrobe & DevSel[3] & RW)); 
 
 --************ Test Memory (2-port RAM) **************************************
-TestRAM.(address_b[7..0], data_b[],  wren_b                        ) =  --\ for common
-        (AddrBus[7..0],   DataBus[], (DataStrobe & DevSel[9] & RW));    -- > access
+TestRAM.(address_b[9..0], data_b[],  wren_b                        ) =  --\ for common
+        (AddrBus[9..0],   DataBus[], (DataStrobe & DevSel[9] & RW));    -- > access
 --      = TestRAM.q_b[];  -- connected in DataBus section               --/ (except "Ethernet")
 TestRAM.(clock_b, enable_b) = (Clk100, VCC); 
 
-TestRAM.(address_a[7..0],   data_a[],            wren_a ) =     --\ for local access 
-        (EthAddrCt.q[7..0], Ether.DataBus_out[], GND%EthWord_Rd%);   --/ from inside of "Ethernet" section
+TestRAM.(address_a[9..0],   data_a[],            wren_a ) =     --\ for local access 
+        (EthAddrCt.q[9..0], Ether.DataBus_out[], GND%EthWord_Rd%);   --/ from inside of "Ethernet" section
 TestRAM.(clock_a, enable_a) = (Clk100, VCC);
 
 Reg_BaseAddr.data[7..0]     = DataBus[7..0];
@@ -1092,20 +1092,6 @@ EtherBank_3.(D,clk,ena,clrn) = (EtherPause2.q AND EtherBankDelay.cout, Clk100, E
 
 EtherBankDelay.(clock, clk_en, cnt_en, sclr) = (Clk25, VCC, EtherPause1.q OR EtherPause2.q, EtherBankDelay.cout);
 
---StartEthTx_Link.(D, clk, reset) = ((!Link_IFace.LinkMessage & Delay_LinkMessage.q) AND Delay_St_Ether_Link.q, Clk100, RESET);
-StartEthTx_Link.(D, clk, reset) = ((EtherBank_1.q OR EtherBank_2.q OR EtherBank_3.q) AND Delay_St_Ether_Link.q, Clk100, RESET);
-
-StartEthTx  = (%StartEthTx_Camac   OR%              -- Start Transmit by CAMAC .. 
-	((StartOne # StartMulti)& StartEthTx_Link.q) OR -- .. or Start by Link, if allowed
---	(StartOne # StartMulti)& (TestCt.q[25..4]==H"3FFF0") OR  -- For TEST ONLY !!
-	((StartOne # StartMulti)& Delay_StEthTx.q))     -- .. or Start by Ethernet, if allowed
-	AND !Ether.TX_EN ;                              -- if a Transmit is NOT in progress
-
-StartEthTx_Cnt.(clock, clk_en, cnt_en) = (Clk100, VCC, StartEthTx);
-
-StatusPack.(clock, enable, load) = (Clk100, StartEthTx, VCC);
-StatusPack.data[] = (b"00000000",StartEthTx_Cnt.q[]); 
-
 IF EtherBank_1.q == VCC Then
 		Ether.TxLength[]= 512;	-- DataBlock length = 1024Bytes = 512 words
 		Eth_InitAddr[]  = 0;	-- initial addr of data to be transmitted 
@@ -1116,6 +1102,20 @@ IF EtherBank_1.q == VCC Then
 		Ether.TxLength[]= 512;	-- DataBlock length = 1024Bytes = 512 words
 		Eth_InitAddr[]  = 0;--1024;	-- initial addr of data to be transmitted 
 END IF; 
+
+--StartEthTx_Link.(D, clk, reset) = ((!Link_IFace.LinkMessage & Delay_LinkMessage.q) AND Delay_St_Ether_Link.q, Clk100, RESET);
+StartEthTx_Link.(D, clk, reset) = ((EtherBank_1.q OR EtherBank_2.q OR EtherBank_3.q) AND Delay_St_Ether_Link.q, Clk100, RESET);
+
+StartEthTx  = (%StartEthTx_Camac   OR%              -- Start Transmit by CAMAC .. 
+	((StartOne # StartMulti)& StartEthTx_Link.q) OR -- .. or Start by Link, if allowed
+--	(StartOne # StartMulti)& (TestCt.q[25..4]==H"3FFF0") OR  -- For TEST ONLY !!
+	((StartOne # StartMulti)& Delay_StEthTx.q))     -- .. or Start by Ethernet, if allowed
+	AND !Ether.TX_EN ;                              -- if a Transmit is NOT in progress
+
+StartEthTx_Cnt.(clock, clk_en, cnt_en) = (Clk25, VCC, StartEthTx);
+
+StatusPack.(clock, enable, load) = (Clk25, StartEthTx, VCC);
+StatusPack.data[] = (b"00000000",StartEthTx_Cnt.q[]); 
 
 IF ((Ether.TxFrameCRC == VCC) AND (EtherBank_3.q == VCC))
 	Then EndEtherTx = VCC;
@@ -1476,14 +1476,14 @@ Test7 = Ether.TxFrameCRC;--EthAddrCt.q[1];	--Ether.test[7];	--EthOpCode_save;	--
 Test8 = Ether.TxDataBlck;	--Ether.test[8];	--EthOpCode_saved;	-- Pin__6
 Test9 = Clk25;				--DataIn_TA[0][8];	-- Pin
 %Test1 = Link_IFace.LinkMessage;	--Link_IFace.test[1];	--Ether.test[1];	--Ether.TX_EN;		-- Pin236
-Test2 = St_EthTx_Ether;--St_Ether_Link;--TAWF_DataStrobe;	--Link_IFace.test[2];	--Ether.RxWaitSFD;	--Ether.TxStFrmDel;	-- Pin237
-Test3 = Ether.TxStFrmDel;--Delay_St_Ether_Link.q;	--Link_IFace.test[3];	--Ether.test[2];	--Ether.RxDestAddr;	-- Pin238
-Test4 = Ether.TxDestAddr;--TA_DataStrobe.q;	--Link_IFace.LinkMessage; --Ether.test[3];	--Ether.RxSourAddr;	-- Pin239
-Test5 = Ether.TxSourAddr;--EtherBank_1.q OR EtherBank_2.q OR EtherBank_3.q;	--Ether.IORq;	--Link_IFace.TxRx;	--Ether.test[4];		--Ether.test[3];	-- Pin240
-Test6 = Ether.TxPkLenTyp;--EtherPause1.q OR EtherPause2.q;		--Data_Strobe;	--Ether.test[6];	--Ether.test[5];	-- Pin__4
-Test7 = Ether.TxDataBlck;--StartEthTx_Link.q;--EthAddrCt.q[1];	--Ether.test[7];	--EthOpCode_save;	-- Pin__5
-Test8 = Ether.TxFrameCRC;--StartEthTx;	--Ether.test[8];	--EthOpCode_saved;	-- Pin__6
-Test9 = Ether.IORq;	--Ether.TxEndFrame;	--DataIn_TA[0][8];	-- Pin
+Test2 = Ether.TxStFrmDel;--Ether.TxFrameCRC;--TAWF_DataStrobe;	--Link_IFace.test[2];	--Ether.RxWaitSFD;	--Ether.TxStFrmDel;	-- Pin237
+Test3 = StartEthTx;--Delay_St_Ether_Link.q;	--Link_IFace.test[3];	--Ether.test[2];	--Ether.RxDestAddr;	-- Pin238
+Test4 = St_Ether_Link;--Ether.TxDestAddr;--TA_DataStrobe.q;	--Link_IFace.LinkMessage; --Ether.test[3];	--Ether.RxSourAddr;	-- Pin239
+Test5 = EthAddrCt.q[0];--EtherBank_1.q OR EtherBank_2.q OR EtherBank_3.q;	--Ether.IORq;	--Link_IFace.TxRx;	--Ether.test[4];		--Ether.test[3];	-- Pin240
+Test6 = EthAddrCt.q[8];--Ether.TxPkLenTyp;--EtherPause1.q OR EtherPause2.q;		--Data_Strobe;	--Ether.test[6];	--Ether.test[5];	-- Pin__4
+Test7 = TestRAM.q_a[0];--Ether.TxDataBlck;--StartEthTx_Link.q;--EthAddrCt.q[1];	--Ether.test[7];	--EthOpCode_save;	-- Pin__5
+Test8 = St_EthTx_Ether;--Ether.test[8];	--EthOpCode_saved;	-- Pin__6
+Test9 = Ether.TxSourAddr;	--Ether.TxEndFrame;	--DataIn_TA[0][8];	-- Pin
 Test10= DataStrobe;			--DataIn_TA[0][9];	-- Pin
 
 END;
