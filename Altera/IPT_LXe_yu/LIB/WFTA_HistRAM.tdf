@@ -61,7 +61,7 @@ VARIABLE
 			CLOCK_ENABLE_OUTPUT_A = "NORMAL",
 			CLOCK_ENABLE_OUTPUT_B = "NORMAL",
 			INDATA_REG_B = "CLOCK1",
-			INIT_FILE = "WF_ethernet.mif",
+			INIT_FILE = "../../../../../../CMD-3/el_lxe/Electronics/trunk/Altera/IPT_LXe_yu/LIB/WF_ethernet.mif",
 			INTENDED_DEVICE_FAMILY = "Cyclone III",
 			LPM_TYPE = "altsyncram",
 			NUMWORDS_A = 2048,
@@ -137,7 +137,7 @@ END;
 -- Retrieval info: PRIVATE: MAXIMUM_DEPTH NUMERIC "0"
 -- Retrieval info: PRIVATE: MEMSIZE NUMERIC "32768"
 -- Retrieval info: PRIVATE: MEM_IN_BITS NUMERIC "0"
--- Retrieval info: PRIVATE: MIFfilename STRING "WF_ethernet.mif"
+-- Retrieval info: PRIVATE: MIFfilename STRING "../../../../../../CMD-3/el_lxe/Electronics/trunk/Altera/IPT_LXe_yu/LIB/WF_ethernet.mif"
 -- Retrieval info: PRIVATE: OPERATION_MODE NUMERIC "3"
 -- Retrieval info: PRIVATE: OUTDATA_ACLR_B NUMERIC "0"
 -- Retrieval info: PRIVATE: OUTDATA_REG_B NUMERIC "1"
@@ -170,7 +170,7 @@ END;
 -- Retrieval info: CONSTANT: CLOCK_ENABLE_OUTPUT_A STRING "NORMAL"
 -- Retrieval info: CONSTANT: CLOCK_ENABLE_OUTPUT_B STRING "NORMAL"
 -- Retrieval info: CONSTANT: INDATA_REG_B STRING "CLOCK1"
--- Retrieval info: CONSTANT: INIT_FILE STRING "WF_ethernet.mif"
+-- Retrieval info: CONSTANT: INIT_FILE STRING "../../../../../../CMD-3/el_lxe/Electronics/trunk/Altera/IPT_LXe_yu/LIB/WF_ethernet.mif"
 -- Retrieval info: CONSTANT: INTENDED_DEVICE_FAMILY STRING "Cyclone III"
 -- Retrieval info: CONSTANT: LPM_TYPE STRING "altsyncram"
 -- Retrieval info: CONSTANT: NUMWORDS_A NUMERIC "2048"
@@ -218,7 +218,7 @@ END;
 -- Retrieval info: GEN_FILE: TYPE_NORMAL WFTA_HistRAM.tdf TRUE
 -- Retrieval info: GEN_FILE: TYPE_NORMAL WFTA_HistRAM.inc TRUE
 -- Retrieval info: GEN_FILE: TYPE_NORMAL WFTA_HistRAM.cmp FALSE
--- Retrieval info: GEN_FILE: TYPE_NORMAL WFTA_HistRAM.bsf FALSE
+-- Retrieval info: GEN_FILE: TYPE_NORMAL WFTA_HistRAM.bsf TRUE FALSE
 -- Retrieval info: GEN_FILE: TYPE_NORMAL WFTA_HistRAM_inst.tdf FALSE
 -- Retrieval info: GEN_FILE: TYPE_NORMAL WFTA_HistRAM_waveforms.html TRUE
 -- Retrieval info: GEN_FILE: TYPE_NORMAL WFTA_HistRAM_wave*.jpg FALSE
