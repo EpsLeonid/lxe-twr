@@ -717,7 +717,7 @@ END GENERATE;
 --************************** Передача данных в IPT ***************************** 
 
 Clk37_5 = DFF (.d = !Clk37_5, .clk = Clk75);
-SerClk = Clk50;--Clk25;--Clk37_5;--
+SerClk = Clk25;--Clk50;--Clk37_5;--
 Delay_LinkMessage.(D,clk) = (Link_IFace.LinkMessage, Clk100);
 TxWFhist.(S, clk, R, clrn) = (Link_IFace.LinkMessage AND !Delay_LinkMessage.q, Clk25, GND, !StopCount);
 TAWF_DataStrobe = TxWFhist.q;
@@ -740,28 +740,28 @@ IF (TxWFhist.q == GND) Then --Link_IFace.LinkMessage == GND Then
 	SerDataOut[9..0] = (VCC,GND,VCC,GND,VCC,GND,VCC,GND,VCC,GND);
 	NWordFLink[] = NWordCount.q[];
 Else 
---	SerDataOut[9..0] = (ChannelCount.q[1..0],DataCount.q[]);--TestLinkCt.q[9..0];--
---	NWordFLink[] = (GND,ChannelCount.q[2]);
+	SerDataOut[9..0] = (ChannelCount.q[1..0],DataCount.q[]);--TestLinkCt.q[9..0];--
+	NWordFLink[] = (GND,ChannelCount.q[2]);
 	CASE ChannelCount.q[] IS 
 		 When b"000" => TA6Channel[0].DAQAddrBus_In[7..0] = DataCount.q[];
-						SerDataOut[9..0] = TA6Channel[0].DAQDataBusOut[9..0];
+%						SerDataOut[9..0] = TA6Channel[0].DAQDataBusOut[9..0];
 						NWordFLink[] = TA6Channel[0].DAQDataBusOut[11..10];
-		 When b"001" => TA6Channel[1].DAQAddrBus_In[7..0] = DataCount.q[];
-						SerDataOut[9..0] = TA6Channel[1].DAQDataBusOut[9..0];
+%		 When b"001" => TA6Channel[1].DAQAddrBus_In[7..0] = DataCount.q[];
+%						SerDataOut[9..0] = TA6Channel[1].DAQDataBusOut[9..0];
 						NWordFLink[] = TA6Channel[1].DAQDataBusOut[11..10];
-		 When b"010" => TA6Channel[2].DAQAddrBus_In[7..0] = DataCount.q[];
-						SerDataOut[9..0] = TA6Channel[2].DAQDataBusOut[9..0];
+%		 When b"010" => TA6Channel[2].DAQAddrBus_In[7..0] = DataCount.q[];
+%						SerDataOut[9..0] = TA6Channel[2].DAQDataBusOut[9..0];
 						NWordFLink[] = TA6Channel[2].DAQDataBusOut[11..10];
-		 When b"011" => TA6Channel[3].DAQAddrBus_In[7..0] = DataCount.q[];
-						SerDataOut[9..0] = TA6Channel[3].DAQDataBusOut[9..0];
+%		 When b"011" => TA6Channel[3].DAQAddrBus_In[7..0] = DataCount.q[];
+%						SerDataOut[9..0] = TA6Channel[3].DAQDataBusOut[9..0];
 						NWordFLink[] = TA6Channel[3].DAQDataBusOut[11..10];
-		 When b"100" => TA6Channel[4].DAQAddrBus_In[7..0] = DataCount.q[];
-						SerDataOut[9..0] = TA6Channel[4].DAQDataBusOut[9..0];
+%		 When b"100" => TA6Channel[4].DAQAddrBus_In[7..0] = DataCount.q[];
+%						SerDataOut[9..0] = TA6Channel[4].DAQDataBusOut[9..0];
 						NWordFLink[] = TA6Channel[4].DAQDataBusOut[11..10];
-		 When b"101" => TA6Channel[5].DAQAddrBus_In[7..0] = DataCount.q[];
-						SerDataOut[9..0] = TA6Channel[5].DAQDataBusOut[9..0];
+%		 When b"101" => TA6Channel[5].DAQAddrBus_In[7..0] = DataCount.q[];
+%						SerDataOut[9..0] = TA6Channel[5].DAQDataBusOut[9..0];
 						NWordFLink[] = TA6Channel[5].DAQDataBusOut[11..10];
-		 WHEN OTHERS => FLink_Error = VCC;
+%		 WHEN OTHERS => FLink_Error = VCC;
 	END CASE;
 END IF;
 
@@ -1026,8 +1026,8 @@ Test4	= SelCommdList_Trig.q;--PowerUp0;--StartProc_Link;           	--StartADC_L
 Test5   = TxWFhist.q;--SelCommdList_Trig3.q;--DDRenEqu2;                    --CPU.test4;            --DDRenEqu2;            -- pin 81
 Test6	= DataCount.cout;--TA6Channel[3].test5;--TestCt.q[5];--PowerUp1;--CPU.AccessReq;                --CPU.AccessReq;        --DDRenNEqu2;           -- pin 137
 Test7	= StopCount;--TA6Channel[3].test1;--!Link_IFace.LinkMessage;					--AddrSettled;			--Digitizer1.Test3;		-- pin 139
-Test8	= FLink_Data_BUS.q[2];--TA6Channel[3].test1;				--DevSel[6] # DevSel[7];--Digitizer1.Test2;		-- pin 146
-Test9	= FLink_Data_BUS.q[3];--TA6Channel[3].test2;				--DataStrobe;			--Digitizer1.Test1;		-- pin 147
-Test10	= FLink_Data_BUS.q[4];--TA6Channel[3].test3;			--DataBus[0];			--Digitizer1.Working;	-- pin 148
+Test8	= TA6Channel[3].test1;				--FLink_Data_BUS.q[2];--DevSel[6] # DevSel[7];--Digitizer1.Test2;		-- pin 146
+Test9	= TA6Channel[3].test2;				--FLink_Data_BUS.q[3];--DataStrobe;			--Digitizer1.Test1;		-- pin 147
+Test10	= TA6Channel[3].test3;				--FLink_Data_BUS.q[4];--DataBus[0];			--Digitizer1.Working;	-- pin 148
 
 END;

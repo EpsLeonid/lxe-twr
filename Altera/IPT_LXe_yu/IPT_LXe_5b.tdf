@@ -57,7 +57,7 @@ Constant CtrlStat_offset	= 2048+7;   -- #2055 "Control-Status Reg", composed of 
 Constant TA_HistRAM_Offset	= H"4000";	-- # 16384
 Constant TA_HistRAM_Size	= 2048;
 Constant WF_HistRAM_Offset	= H"6000";	-- # 24576
-Constant WF_HistRAM_Size	= 512;
+Constant WF_HistRAM_Size	= 2048;
 
 CONSTANT TA_Bits			= 10;   -- разрядность Приемо/передатчика ТА6/12
 CONSTANT NUM_board			=  2;   -- количество подсоединенных плат ТА6/12
@@ -315,7 +315,7 @@ AddrSettled     : node; -- Arbiter asserts this signal at next clock after Reque
 AddrValid       : node; -- OR'ed Address Comparator's output, dff-strobed
 DataStrobe		: node; --Strobe: latch data into the destination object, and finish the Bus Oper-n
 --  signals of Address Comparators
-DevSel[14..1]	: DFF ; -- Registered Addr_Comparator outputs for Selection
+DevSel[15..1]	: DFF ; -- Registered Addr_Comparator outputs for Selection
 
 --******** =Local= bus for the ETHETNET module, "Bus Handler"
 RdWr            : node; -- RdWr=1 ("Write") => Data: MainProj -> Ethernet
@@ -354,6 +354,7 @@ TA_DataStrobe						: lpm_shiftreg with (lpm_width=1, lpm_direction="unused");
 Delay_TA_DataStrobe					: lpm_shiftreg with (lpm_width=1, lpm_direction="unused");
 TA_HistRAM_cs[NUM_board-1..0]		: node;
 TAWF_HistRAM						: WFTA_HistRAM;
+TAWF_RAM_cs							: node;
 TAWF_HistRAM_Cnt					: lpm_counter with (lpm_width = 11, lpm_direction="up");
 TAproces_Error[NUM_board-1..0]		: node;
 
@@ -1229,8 +1230,14 @@ TAWF_HistRAM.(address_a[],			wren_a		,	 clock_a) =	--\ for common
 			 (TAWF_HistRAM_Cnt.q[], TA_DataStrobe.q, Clk25);	-- > access
 TAWF_HistRAM.(enable_a) = (VCC); 
 
-TAWF_HistRAM.(address_b[],				data_b[],			wren_b ) =     --\ for local access 
-			 (EthAddrCt.q[10..0], Ether.DataBus_out[], EthWord_Rd);   --/ from inside of "Ethernet" section
+IF ((StartOne OR StartMulti) == VCC) Then
+	TAWF_HistRAM.(address_b[],		data_b[],				wren_b ) =	--\ for local access 
+				 (EthAddrCt.q[10..0], Ether.DataBus_out[], EthWord_Rd);	--/ from inside of "Ethernet" section
+	Else 
+	TAWF_HistRAM.(address_b[10..0], data_b[],			 wren_b				 ) =	--\ for common
+				 (AddrBus[10..0],	DataBus[], (DataStrobe & DevSel[13] & RW));		-- > access
+END IF;
+
 TAWF_HistRAM.(clock_b, enable_b) = (Clk100, VCC);
 
 --============================================================================
@@ -1242,7 +1249,7 @@ TAWF_HistRAM.(clock_b, enable_b) = (Clk100, VCC);
 	ErrorCounters_IFace.DataBusStrobe	=	DataStrobe ;
 -- Project Bus Port, Slave
 	--ErrorCounters_IFace.DirectIn		= 	RW;
-	ErrorCounters_IFace.Select			= 	DevSel[10].q;
+	ErrorCounters_IFace.Select			= 	DevSel[14].q;
 
 	ErrorCounters_IFace.ErrorInputs[0]	=	CPU.Error;--Bus_Arbiter.ErrorLight;
 	ErrorCounters_IFace.ErrorInputs[1]	=	Bus_Arbiter.Error;
@@ -1357,6 +1364,13 @@ FOR i IN 0 TO (NUM_board-1) GENERATE
 	End IF;
 END GENERATE;
 
+-- 7) Data WF_RAM
+IF ((AddrBus[15..0] >= WF_HistRAM_Offset ) AND 
+    (AddrBus[15..0] <= (WF_HistRAM_Offset + WF_HistRAM_Size - 1)))
+    Then TAWF_RAM_cs = VCC ;
+    Else TAWF_RAM_cs = GND ;
+End IF ;
+
 -- 13) Error counter
 IF ((AddrBus[15..0] >= ErrorCounters_Offset) AND ((ErrorCounters_Offset + ErrorCounters_Size) > AddrBus[15..0]) ) 
 	THEN ErrorCounters_IFace_CS = VCC ; 
@@ -1394,28 +1408,30 @@ DevSel[ 9].d	= TestRAM_cs ;          -- TestRAM
 DevSel[10].d	= EthOpCode_cs;         -- Reg_EthOpCode
 DevSel[11].d	= TA_HistRAM_cs0;--Bunch_Crossing_12_5_T0_CS; --
 DevSel[12].d	= TA_HistRAM_cs1; --
-DevSel[13].d	= ErrorCounters_IFace_CS ; -- Error Counters
-DevSel[14].d	= ZERO_cs;              -- ZERO word
+DevSel[13].d	= TAWF_RAM_cs; --
+DevSel[14].d	= ErrorCounters_IFace_CS ; -- Error Counters
+DevSel[15].d	= ZERO_cs;              -- ZERO word
 
 FOR i in 1 to 14 % with ErCount must be 28 % GENERATE
 	DevSel[i].clrn = AddrSettled;   -- DevSel[] are enabled while Addr. is settled
 	DevSel[i].clk  = Clk100;
 END GENERATE; 
 
-AddrValid   = DevSel[ 1].q OR  -- MainRAM
-			  DevSel[ 2].q OR  -- ProgRAM
-			  DevSel[ 3].q OR  -- CommandRAM
-			  DevSel[ 4].q OR  -- Link
-			  DevSel[ 5].q OR  -- OpCode
-			  DevSel[ 6].q OR  -- ControlStatus "reg"
-			  DevSel[ 7].q OR  -- SelCommdList
-			  DevSel[ 8].q OR  -- BaseAddr
-			  DevSel[ 9].q OR  -- TestRAM
-			  DevSel[10].q OR  -- Link_IFace - DataBus I/O
-			  DevSel[11].q OR  -- Reg_OpCode
-			  DevSel[12].q OR
-			  DevSel[13].q OR
-			  DevSel[14].q;   -- Something?? :  ZERO word
+AddrValid   = DevSel[ 1].q OR	-- MainRAM
+			  DevSel[ 2].q OR	-- ProgRAM
+			  DevSel[ 3].q OR	-- CommandRAM
+			  DevSel[ 4].q OR	-- Link
+			  DevSel[ 5].q OR	-- OpCode
+			  DevSel[ 6].q OR	-- ControlStatus "reg"
+			  DevSel[ 7].q OR	-- SelCommdList
+			  DevSel[ 8].q OR	-- BaseAddr
+			  DevSel[ 9].q OR	-- TestRAM
+			  DevSel[10].q OR	-- EthOpCode
+			  DevSel[11].q OR	-- TA_HistRAM_ch0
+			  DevSel[12].q OR	-- TA_HistRAM_ch1
+			  DevSel[13].q OR	-- TAWF_RAM
+			  DevSel[14].q OR	-- ErrorCounters
+			  DevSel[15].q;   -- Something?? :  ZERO word
 
 AddrSettled = Bus_Arbiter.AddressSettled; --In 1clock after "AccessGranted"..
 	-- ..address is expected to be set on the Addr.bus, and Arbiter produces 
@@ -1431,25 +1447,26 @@ IF (RW == VCC) Then		-- Master will write to
 	End CASE;
 Else					-- Master will read from
 	CASE DevSel[].q IS     -- Data_Line MUX for Target drivers
-		WHEN b"00000000000001" => DataBus[]		= MainRAM.q[];
-		WHEN b"00000000000010" => DataBus[]		= CPU.ProgRAM_q[];
-		WHEN b"00000000000100" => DataBus[]		= CommandRAM.q[];
-		WHEN b"00000000001000" => CASE  AddrBus[1..0] is
+		WHEN b"000000000000001" => DataBus[]		= MainRAM.q[];
+		WHEN b"000000000000010" => DataBus[]		= CPU.ProgRAM_q[];
+		WHEN b"000000000000100" => DataBus[]		= CommandRAM.q[];
+		WHEN b"000000000001000" => CASE  AddrBus[1..0] is
 			When 0 => DataBus[]= Link_IFace.InData_out[];
 			When 1 => DataBus[]= Link_IFace.DataBus_out[];
 			--When  2 => DataBus[7..0]= Link_IFace.OpCode_out[];
 		End CASE;
-		WHEN b"00000000010000" => DataBus[]     = Reg_OpCode.q[7..0];   -- Link's OpCode
-		WHEN b"00000000100000" => DataBus[1..0] = (StartMulti,StartOne);--CtrlStat "reg" 
-		WHEN b"00000001000000" => DataBus[]     = SelCommdList_Reg.q[];
-		WHEN b"00000010000000" => DataBus[7..0]	= Reg_BaseAddr.q[7..0];
-		--WHEN b"00000100000000" => DataBus[]     = TestRAM.q[];  --MainProj <- TestRAM 
-		WHEN b"00000100000000" => DataBus[]     = TestRAM.q_b[];--MainProj <- TestRAM 
-		WHEN b"00001000000000" => DataBus[7..0] = Reg_EthOpCode.q[7..0];--Ether's OpCode
-		WHEN b"00010000000000" => DataBus[]     = TA_proces0.DataBusOut[] ; --AddrMux[]  = 2;
-		WHEN b"00100000000000" => DataBus[]     = TA_proces1.DataBusOut[] ; --AddrMux[]  = 2;
-		WHEN b"01000000000000" => DataBus[]     = ErrorCounters_IFace.DataBusOut[];                        -- ????
-		WHEN b"10000000000000" => DataBus[]     = 0; -- ZERO word temporary ?
+		WHEN b"000000000010000" => DataBus[]		= Reg_OpCode.q[7..0];   -- Link's OpCode
+		WHEN b"000000000100000" => DataBus[1..0]	= (StartMulti,StartOne);--CtrlStat "reg" 
+		WHEN b"000000001000000" => DataBus[]		= SelCommdList_Reg.q[];
+		WHEN b"000000010000000" => DataBus[7..0]	= Reg_BaseAddr.q[7..0];
+		--WHEN b"00000100000000" => DataBus[]		= TestRAM.q[];  --MainProj <- TestRAM 
+		WHEN b"000000100000000" => DataBus[]		= TestRAM.q_b[];--MainProj <- TestRAM 
+		WHEN b"000001000000000" => DataBus[7..0]	= Reg_EthOpCode.q[7..0];--Ether's OpCode
+		WHEN b"000010000000000" => DataBus[]		= TA_proces0.DataBusOut[] ; --AddrMux[]  = 2;
+		WHEN b"000100000000000" => DataBus[]		= TA_proces1.DataBusOut[] ; --AddrMux[]  = 2;
+		WHEN b"001000000000000" => DataBus[]		= TAWF_HistRAM.q_b[]; --AddrMux[]  = 2;
+		WHEN b"010000000000000" => DataBus[]		= ErrorCounters_IFace.DataBusOut[];                        -- ????
+		WHEN b"100000000000000" => DataBus[]			= 0; -- ZERO word temporary ?
 		WHEN OTHERS => DataBus[] = 0;
 	End CASE;
 End IF;
