@@ -1017,10 +1017,10 @@ TestCt.aclr				= !PowerUp0;    -- even if NO clock - Reset does occur
 TestRAM.(address[7..0], data[],    clock,    wren                     ) =
         (AddrBus[7..0], DataBus[], Clk100,(DataStrobe & DevSel[15] & RW)); 
 
-Test1	= Link_IFace.LinkMessage;--PhaseSw.LinkClk_selected; --DDRin.dataout_h[0];			--Link_IFace.LinkMessage;		-- pin 68
-Test2	= LinkMsg_beg;--!Phase12;                    --Link_IFace.IORq;	-- pin 73
-Test3	= PLL.locked;--DDRenNequ1;                   --Start_Link.q;			-- pin 76
-Test4	= SelCommdList_Trig.q;--PowerUp0;--StartProc_Link;           	--StartADC_Link;		-- pin 80
+Test1	= SerDataOut[7];--Link_IFace.LinkMessage;--PhaseSw.LinkClk_selected; --DDRin.dataout_h[0];			--Link_IFace.LinkMessage;		-- pin 68
+Test2	= SerDataOut[8];--LinkMsg_beg;--!Phase12;                    --Link_IFace.IORq;	-- pin 73
+Test3	= SerDataOut[9];--PLL.locked;--DDRenNequ1;                   --Start_Link.q;			-- pin 76
+Test4	= NWordFLink[0];--SelCommdList_Trig.q;--PowerUp0;--StartProc_Link;           	--StartADC_Link;		-- pin 80
 
 --IF((AddrBus[12] == VCC) and (AddrBus[9] == VCC) ) Then Test5 = VCC; Else Test5 = GND; End IF;
 Test5   = TxWFhist.q;--SelCommdList_Trig3.q;--DDRenEqu2;                    --CPU.test4;            --DDRenEqu2;            -- pin 81

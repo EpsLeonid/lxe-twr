@@ -357,6 +357,7 @@ TAWF_HistRAM						: WFTA_HistRAM;
 TAWF_RAM_cs							: node;
 TAWF_HistRAM_Cnt					: lpm_counter with (lpm_width = 11, lpm_direction="up");
 TAproces_Error[NUM_board-1..0]		: node;
+Delay_NChLock[NUM_board-1..0]		: DFF;
 
 --============================================================================
 --******** 8. Error counter
@@ -939,6 +940,18 @@ IF (St_Ether_Link == VCC) Then
 		
 		When 2 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
 		
+		When 512 => Ether.DataBus_in[15..0] = StatusPack.q[15..0];
+		
+		When 513 => Ether.DataBus_in[15..0] = (b"00000000", Eth_Reg_LinkOpCode.q[7..0]);
+		
+		When 514 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
+		
+		When 1024 => Ether.DataBus_in[15..0] = StatusPack.q[15..0];
+		
+		When 1025 => Ether.DataBus_in[15..0] = (b"00000000", Eth_Reg_LinkOpCode.q[7..0]);
+		
+		When 1026 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
+		
 		When others => Ether.DataBus_in[15..0] = TAWF_HistRAM.q_b[];--TestRAM.q_a[];--
 	End case;
 ELSIF (St_EthTx_Ether == VCC) Then
@@ -1147,7 +1160,7 @@ EtherWRITE  = DFF(.D=Eth_WRITE, .clk=Clk100, .clrn=!(Ether.RxEndFrame # RESET));
 --************** Busy Flag, Error Flag *****************************************
 Busy	= Link_IFace.LinkMessage OR CPU.Working OR Ether.RxDataBlck ;
 Error	= Link_IFace.Error OR CPU.Error OR Ether.RxError;--OR Ether.TxError ;
-RESET	= PwrUpReset OR ExtReset ;
+RESET	= PwrUpReset OR ExtReset OR CAMAC_IFace.Reset;
 
 --============================================================================
 --******** 7. Fast LINK's Interface *******************************************
@@ -1214,6 +1227,7 @@ FOR i in NUM_board-1 to 0 Generate
 	TA_proces[i].WriteRAM			= SelCommdList_Count.q[];
 
 	TALed[i] = NChLock[i];
+	Delay_NChLock[i].(D, clk, clrn) = (NChLock[i], Clk100, RESET);
 
 END GENERATE;
 
@@ -1221,7 +1235,7 @@ END GENERATE;
 
 TA_DataStrobe.(data, clock, enable, load) = (TAWF_DataStrobe, Clk25, VCC, VCC);
 Delay_TA_DataStrobe.(data, clock, enable, load) = (TA_DataStrobe.q, Clk25, VCC, VCC);
-TAWF_HistRAM_Cnt.(clock, cnt_en, sclr) = (Clk25, TA_DataStrobe.q AND !EtherLinkMessage.q, !TA_DataStrobe.q AND Delay_TA_DataStrobe.q);
+TAWF_HistRAM_Cnt.(clock, cnt_en, sclr) = (Clk25, TA_DataStrobe.q %AND !EtherLinkMessage.q%, !TA_DataStrobe.q AND Delay_TA_DataStrobe.q);
 
 TAWF_HistRAM.data_a[11..0] = Reg_InData[0].q[];
 TAWF_HistRAM.data_a[14..12] = GND;
@@ -1232,7 +1246,7 @@ TAWF_HistRAM.(enable_a) = (VCC);
 
 IF ((StartOne OR StartMulti) == VCC) Then
 	TAWF_HistRAM.(address_b[],		data_b[],				wren_b ) =	--\ for local access 
-				 (EthAddrCt.q[10..0], Ether.DataBus_out[], EthWord_Rd);	--/ from inside of "Ethernet" section
+				 (EthAddrCt.q[10..0], Ether.DataBus_out[], GND%EthWord_Rd%);	--/ from inside of "Ethernet" section
 	Else 
 	TAWF_HistRAM.(address_b[10..0], data_b[],			 wren_b				 ) =	--\ for common
 				 (AddrBus[10..0],	DataBus[], (DataStrobe & DevSel[13] & RW));		-- > access
@@ -1257,7 +1271,7 @@ TAWF_HistRAM.(clock_b, enable_b) = (Clk100, VCC);
 	ErrorCounters_IFace.ErrorInputs[3]	=	Link_IFace.Error;
 	ErrorCounters_IFace.ErrorInputs[4]	=	Ether.TxError;
 	ErrorCounters_IFace.ErrorInputs[5]	=	Ether.RxError;
-	ErrorCounters_IFace.ErrorInputs[6]	=	NChLock[0];--Sync_ES.q;
+	ErrorCounters_IFace.ErrorInputs[6]	=	(!NChLock[0] AND Delay_NChLock[0].q);--Sync_ES.q;
 	ErrorCounters_IFace.ErrorInputs[7]	=	Error;--Sync_ES.q;
 
 --============================================================================
@@ -1494,17 +1508,18 @@ Test6 = EtherBank_1.q;--Data_Strobe;	--Ether.test[6];	--Ether.test[5];	-- Pin__4
 Test7 = Ether.TxFrameCRC;--EthAddrCt.q[1];	--Ether.test[7];	--EthOpCode_save;	-- Pin__5
 Test8 = Ether.TxDataBlck;	--Ether.test[8];	--EthOpCode_saved;	-- Pin__6
 Test9 = Clk25;				--DataIn_TA[0][8];	-- Pin
-%Test1 = St_EthTx_Ether;--Link_IFace.LinkMessage;	--Link_IFace.test[1];	--Ether.test[1];	--Ether.TX_EN;		-- Pin236
-Test2 = Ether.TxStFrmDel;--Ether.TxFrameCRC;--TAWF_DataStrobe;	--Link_IFace.test[2];	--Ether.RxWaitSFD;	--Ether.TxStFrmDel;	-- Pin237
-Test3 = Ether.TxDataBlck;--Delay_St_Ether_Link.q;	--Link_IFace.test[3];	--Ether.test[2];	--Ether.RxDestAddr;	-- Pin238
-Test4 = Data_Strobe;--Ether.TxDestAddr;--TA_DataStrobe.q;	--Link_IFace.LinkMessage; --Ether.test[3];	--Ether.RxSourAddr;	-- Pin239
-Test5 = TAWF_HistRAM.q_b[0];--EtherBank_1.q OR EtherBank_2.q OR EtherBank_3.q;	--Ether.IORq;	--Link_IFace.TxRx;	--Ether.test[4];		--Ether.test[3];	-- Pin240
-Test6 = TAWF_HistRAM.q_b[1];--Ether.TxPkLenTyp;--EtherPause1.q OR EtherPause2.q;		--Data_Strobe;	--Ether.test[6];	--Ether.test[5];	-- Pin__4
-Test7 = TAWF_HistRAM.q_b[2];--Ether.TxDataBlck;--StartEthTx_Link.q;--EthAddrCt.q[1];	--Ether.test[7];	--EthOpCode_save;	-- Pin__5
-Test8 = EthAddrCt.q[10];--Ether.test6;--St_EthTx_Ether;--Ether.test[8];	--EthOpCode_saved;	-- Pin__6
-IF (EthAddrCt.q[] == 2000) Then Test9 = VCC;
+%Test1 = EthOpCode_save;--TA_DataStrobe.q;	--Link_IFace.LinkMessage;	--Link_IFace.test[1];	--Ether.test[1];	--Ether.TX_EN;		-- Pin236
+Test2 = St_EthTx_Ether;--St_Ether_Link;--Ether.TxFrameCRC;--Link_IFace.test[2];	--Ether.RxWaitSFD;	--Ether.TxStFrmDel;	-- Pin237
+Test3 = Delay_StEthTx.q;--EtherLinkMessage.q;--Delay_St_Ether_Link.q;--Ether.TxDataBlck;--Link_IFace.test[3];	--Ether.test[2];	--Ether.RxDestAddr;	-- Pin238
+Test4 = StartEthTx;--EtherBank_1.q OR EtherBank_2.q OR EtherBank_3.q;--StartEthTx_Link.q;--Data_Strobe;--Ether.TxDestAddr;--TA_DataStrobe.q;	--Link_IFace.LinkMessage; --Ether.test[3];	--Ether.RxSourAddr;	-- Pin239
+Test5 = Ether.TxPreamble;--EtherLinkTimeCt.q[0];--TAWF_HistRAM.q_b[7];--TAWF_HistRAM_Cnt.q[0];--EtherBank_1.q OR EtherBank_2.q OR EtherBank_3.q;	--Ether.IORq;	--Link_IFace.TxRx;	--Ether.test[4];		--Ether.test[3];	-- Pin240
+Test6 = Ether.TxStFrmDel;--EndEtherTx OR EtherLinkTimeCt.cout;--TAWF_HistRAM.q_b[8];--TAWF_HistRAM_Cnt.q[3];--Ether.TxPkLenTyp;--EtherPause1.q OR EtherPause2.q;		--Data_Strobe;	--Ether.test[6];	--Ether.test[5];	-- Pin__4
+Test7 = Ether.IORq;--TAWF_HistRAM_Cnt.q[7];--StartEthTx_Link.q;--EthAddrCt.q[1];	--Ether.test[7];	--EthOpCode_save;	-- Pin__5
+Test8 = Ether.test1;--TAWF_HistRAM_Cnt.q[10];--EthAddrCt.q[10];--Ether.test6;--St_EthTx_Ether;--Ether.test[8];	--EthOpCode_saved;	-- Pin__6
+%IF (EthAddrCt.q[] == 2000) Then Test9 = VCC;
 						 Else Test9 = GND;--Ether.test7;	--Ether.TxEndFrame;	--DataIn_TA[0][8];	-- Pin
-END IF;
+END IF;%
+Test9 = TxClk;--RxClk;
 Test10= DataStrobe;			--DataIn_TA[0][9];	-- Pin
 
 END;
