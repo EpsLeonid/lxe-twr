@@ -1131,7 +1131,7 @@ StartEthTx  = (%StartEthTx_Camac   OR%              -- Start Transmit by CAMAC .
 StartEthTx_Cnt.(clock, clk_en, cnt_en) = (Clk25, VCC, StartEthTx);
 
 StatusPack.(clock, enable, load) = (Clk25, StartEthTx, VCC);
-StatusPack.data[] = (b"00000000",StartEthTx_Cnt.q[]); 
+StatusPack.data[] = (StartEthTx_Cnt.q[],b"00000000"); 
 
 IF ((Ether.TxFrameCRC == VCC) AND (EtherBank_3.q == VCC))
 	Then EndEtherTx = VCC;
