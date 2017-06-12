@@ -934,23 +934,41 @@ End CASE;
 
 IF (St_Ether_Link == VCC) Then
 	CASE EthAddrCt.q is
+--Channel 1
 		When 0 => Ether.DataBus_in[15..0] = StatusPack.q[15..0];
 		
 		When 1 => Ether.DataBus_in[15..0] = (b"00000000", Eth_Reg_LinkOpCode.q[7..0]);
 		
 		When 2 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
 		
+--Channel 2
+		When 257 => Ether.DataBus_in[15..0] = (b"00000000", Eth_Reg_LinkOpCode.q[7..0]);
+		
+		When 258 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
+		
+--Channel 3
 		When 512 => Ether.DataBus_in[15..0] = StatusPack.q[15..0];
 		
 		When 513 => Ether.DataBus_in[15..0] = (b"00000000", Eth_Reg_LinkOpCode.q[7..0]);
 		
 		When 514 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
 		
+--Channel 4
+		When 769 => Ether.DataBus_in[15..0] = (b"00000000", Eth_Reg_LinkOpCode.q[7..0]);
+		
+		When 770 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
+		
+--Channel 5
 		When 1024 => Ether.DataBus_in[15..0] = StatusPack.q[15..0];
 		
-		When 1025 => Ether.DataBus_in[15..0] = (b"00000000", Eth_Reg_LinkOpCode.q[7..0]);
+		When 1024 => Ether.DataBus_in[15..0] = (b"00000000", Eth_Reg_LinkOpCode.q[7..0]);
 		
-		When 1026 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
+		When 1024 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
+		
+--Channel 6
+		When 1281 => Ether.DataBus_in[15..0] = (b"00000000", Eth_Reg_LinkOpCode.q[7..0]);
+		
+		When 1282 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
 		
 		When others => Ether.DataBus_in[15..0] = TAWF_HistRAM.q_b[];--TestRAM.q_a[];--
 	End case;
@@ -1131,7 +1149,7 @@ StartEthTx  = (%StartEthTx_Camac   OR%              -- Start Transmit by CAMAC .
 StartEthTx_Cnt.(clock, clk_en, cnt_en) = (Clk25, VCC, StartEthTx);
 
 StatusPack.(clock, enable, load) = (Clk25, StartEthTx, VCC);
-StatusPack.data[] = (StartEthTx_Cnt.q[],b"00000000"); 
+StatusPack.data[] = (StartEthTx_Cnt.q[], b"00000000"); 
 
 IF ((Ether.TxFrameCRC == VCC) AND (EtherBank_3.q == VCC))
 	Then EndEtherTx = VCC;
@@ -1244,14 +1262,16 @@ TAWF_HistRAM.(address_a[],			wren_a		,	 clock_a) =	--\ for common
 			 (TAWF_HistRAM_Cnt.q[], TA_DataStrobe.q, Clk25);	-- > access
 TAWF_HistRAM.(enable_a) = (VCC); 
 
-IF ((StartOne OR StartMulti) == VCC) Then
+TAWF_HistRAM.(address_b[],		data_b[],				wren_b ) =	--\ for local access 
+			 (EthAddrCt.q[10..0], Ether.DataBus_out[], GND%EthWord_Rd%);	--/ from inside of "Ethernet" section
+%IF ((StartOne OR StartMulti) == VCC) Then
 	TAWF_HistRAM.(address_b[],		data_b[],				wren_b ) =	--\ for local access 
-				 (EthAddrCt.q[10..0], Ether.DataBus_out[], GND%EthWord_Rd%);	--/ from inside of "Ethernet" section
+				 (EthAddrCt.q[10..0], Ether.DataBus_out[], GNDEthWord_Rd);	--/ from inside of "Ethernet" section
 	Else 
 	TAWF_HistRAM.(address_b[10..0], data_b[],			 wren_b				 ) =	--\ for common
 				 (AddrBus[10..0],	DataBus[], (DataStrobe & DevSel[13] & RW));		-- > access
 END IF;
-
+%
 TAWF_HistRAM.(clock_b, enable_b) = (Clk100, VCC);
 
 --============================================================================
