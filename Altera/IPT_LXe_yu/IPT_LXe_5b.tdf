@@ -1080,10 +1080,10 @@ IF (StartProc_Camac == VCC)
     then  BaseAd[7..0] = Reg_BaseAddr.q[7..0];
 End IF;
 
-StartProc   = (StartProc_Camac   OR             -- Start Work by CAMAC .. 
-    ((StartOne # StartMulti)& StartProc_Link.q))-- .. or Start by Link, if allowed
-    AND !CPU.Working                    -- if Processor is NOT working
-    %AND !Digitizer.Working%;           -- if Digitizing is NOT in progress 
+StartProc = (StartProc_Camac OR             -- Start Work by CAMAC .. 
+	((StartOne # StartMulti)& StartProc_Link.q))-- .. or Start by Link, if allowed
+	AND !CPU.Working                    -- if Processor is NOT working
+	%AND !Digitizer.Working%;           -- if Digitizing is NOT in progress 
 
 ------------------- START of a DIGITIZING Cycle --------------------------------
 Delay_StCompuls.(D,clk,reset) = (St_Compuls,CLK100,RESET);  -- Delay of Compulsive START
@@ -1162,9 +1162,9 @@ EthAddrCt.cnt_en= EthWord_Rd OR EthWord_Wr; -- increments simultaneously with re
 EthAddrCt.data[]= Eth_InitAddr[];
 --EthAddrCt.sclr  = EdgeSensing(.D=(Ether.RxDataBlck  -- before receiving 1st DWord of Data Block
 EthAddrCt.sclr	= EdgeSensing(.D=Ether.RxDestAddr,  -- before receiving 1st DWord of RxFrame
-                    .clk=Clk100, .reset=RESET) OR RESET;
+						.clk=Clk100, .reset=RESET) OR RESET;
 EthAddrCt.sload	= EdgeSensing(.D=StartEthTx, -- at the beginning of Transmit Cycle
-                    .clk=Clk100, .reset=RESET);
+						.clk=Clk100, .reset=RESET);
 
 --When ETHERNET' "WRITE" command => EtherWRITE=1 => write to TestRAM enabled 
 EtherWRITE  = DFF(.D=Eth_WRITE, .clk=Clk100, .clrn=!(Ether.RxEndFrame # RESET)); 
@@ -1253,25 +1253,23 @@ END GENERATE;
 
 TA_DataStrobe.(data, clock, enable, load) = (TAWF_DataStrobe, Clk25, VCC, VCC);
 Delay_TA_DataStrobe.(data, clock, enable, load) = (TA_DataStrobe.q, Clk25, VCC, VCC);
-TAWF_HistRAM_Cnt.(clock, cnt_en, sclr) = (Clk25, TA_DataStrobe.q %AND !EtherLinkMessage.q%, !TA_DataStrobe.q AND Delay_TA_DataStrobe.q);
+TAWF_HistRAM_Cnt.(clock, cnt_en, sclr) = (NChStrobe0, TA_DataStrobe.q %AND !EtherLinkMessage.q%, !TA_DataStrobe.q AND Delay_TA_DataStrobe.q);
 
 TAWF_HistRAM.data_a[11..0] = Reg_InData[0].q[];
 TAWF_HistRAM.data_a[14..12] = GND;
 TAWF_HistRAM.data_a[15] = TA_DataStrobe.q;
 TAWF_HistRAM.(address_a[],			wren_a		,	 clock_a) =	--\ for common
-			 (TAWF_HistRAM_Cnt.q[], TA_DataStrobe.q, Clk25);	-- > access
+			 (TAWF_HistRAM_Cnt.q[], TA_DataStrobe.q, NChStrobe0);	-- > access
 TAWF_HistRAM.(enable_a) = (VCC); 
 
-TAWF_HistRAM.(address_b[],		data_b[],				wren_b ) =	--\ for local access 
-			 (EthAddrCt.q[10..0], Ether.DataBus_out[], GND%EthWord_Rd%);	--/ from inside of "Ethernet" section
-%IF ((StartOne OR StartMulti) == VCC) Then
+IF ((StartOne OR StartMulti) == VCC) Then
 	TAWF_HistRAM.(address_b[],		data_b[],				wren_b ) =	--\ for local access 
-				 (EthAddrCt.q[10..0], Ether.DataBus_out[], GNDEthWord_Rd);	--/ from inside of "Ethernet" section
+				 (EthAddrCt.q[10..0], Ether.DataBus_out[], GND%EthWord_Rd%);	--/ from inside of "Ethernet" section
 	Else 
 	TAWF_HistRAM.(address_b[10..0], data_b[],			 wren_b				 ) =	--\ for common
 				 (AddrBus[10..0],	DataBus[], (DataStrobe & DevSel[13] & RW));		-- > access
 END IF;
-%
+
 TAWF_HistRAM.(clock_b, enable_b) = (Clk100, VCC);
 
 --============================================================================
@@ -1498,7 +1496,7 @@ Else					-- Master will read from
 		WHEN b"000001000000000" => DataBus[7..0]	= Reg_EthOpCode.q[7..0];--Ether's OpCode
 		WHEN b"000010000000000" => DataBus[]		= TA_proces0.DataBusOut[] ; --AddrMux[]  = 2;
 		WHEN b"000100000000000" => DataBus[]		= TA_proces1.DataBusOut[] ; --AddrMux[]  = 2;
-		WHEN b"001000000000000" => DataBus[]		= TAWF_HistRAM.q_b[]; --AddrMux[]  = 2;
+		WHEN b"001000000000000" => DataBus[]		= Reg_InData[0].q[];--TAWF_HistRAM.q_b[]; --AddrMux[]  = 2;
 		WHEN b"010000000000000" => DataBus[]		= ErrorCounters_IFace.DataBusOut[];                        -- ????
 		WHEN b"100000000000000" => DataBus[]			= 0; -- ZERO word temporary ?
 		WHEN OTHERS => DataBus[] = 0;
