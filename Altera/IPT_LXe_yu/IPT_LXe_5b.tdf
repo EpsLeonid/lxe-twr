@@ -961,16 +961,16 @@ IF (St_Ether_Link == VCC) Then
 --Channel 5
 		When 1024 => Ether.DataBus_in[15..0] = StatusPack.q[15..0];
 		
-		When 1024 => Ether.DataBus_in[15..0] = (b"00000000", Eth_Reg_LinkOpCode.q[7..0]);
+		When 1025 => Ether.DataBus_in[15..0] = (b"00000000", Eth_Reg_LinkOpCode.q[7..0]);
 		
-		When 1024 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
+		When 1026 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
 		
 --Channel 6
 		When 1281 => Ether.DataBus_in[15..0] = (b"00000000", Eth_Reg_LinkOpCode.q[7..0]);
 		
 		When 1282 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
 		
-		When others => Ether.DataBus_in[15..0] = TAWF_HistRAM.q_b[];--TestRAM.q_a[];--
+		When others => Ether.DataBus_in[15..0] = TestRAM.q_a[];--TAWF_HistRAM.q_b[];--
 	End case;
 ELSIF (St_EthTx_Ether == VCC) Then
 	%CASE EthAddrCt.q is
@@ -1219,7 +1219,7 @@ DeSerClk = Clk25;
 
 FOR i in NUM_board-1 to 0 Generate
 
-	Reg_InData[i].(clock, enable, load) = (NChStrobe0, VCC, VCC);
+	Reg_InData[i].(clock, enable, load) = (NChStrobe[i], VCC, VCC);
 
 --	IF (NChLock[i] == GND) Then
 		Reg_InData[i].data[] = (NWordFLink_TA[i][],DataIn_TA[i][]);
@@ -1251,20 +1251,20 @@ END GENERATE;
 
 	--************ WF TA Memory (2-port RAM) **************************************
 
-TA_DataStrobe.(data, clock, enable, load) = (TAWF_DataStrobe, Clk25, VCC, VCC);
-Delay_TA_DataStrobe.(data, clock, enable, load) = (TA_DataStrobe.q, Clk25, VCC, VCC);
-TAWF_HistRAM_Cnt.(clock, cnt_en, sclr) = (NChStrobe0, TA_DataStrobe.q %AND !EtherLinkMessage.q%, !TA_DataStrobe.q AND Delay_TA_DataStrobe.q);
+TA_DataStrobe.(data, clock, enable, load) = (TAWF_DataStrobe, NChStrobe0, VCC, VCC);
+Delay_TA_DataStrobe.(data, clock, enable, load) = (TA_DataStrobe.q, NChStrobe0, VCC, VCC);
+TAWF_HistRAM_Cnt.(clock, cnt_en, sclr) = (NChStrobe0, TA_DataStrobe.q %AND !EtherLinkMessage.q%, !TA_DataStrobe.q);
 
 TAWF_HistRAM.data_a[11..0] = Reg_InData[0].q[];
 TAWF_HistRAM.data_a[14..12] = GND;
 TAWF_HistRAM.data_a[15] = TA_DataStrobe.q;
 TAWF_HistRAM.(address_a[],			wren_a		,	 clock_a) =	--\ for common
-			 (TAWF_HistRAM_Cnt.q[], TA_DataStrobe.q, NChStrobe0);	-- > access
+			 (TAWF_HistRAM_Cnt.q[], GND%TA_DataStrobe.q%, NChStrobe0);	-- > access
 TAWF_HistRAM.(enable_a) = (VCC); 
 
 IF ((StartOne OR StartMulti) == VCC) Then
-	TAWF_HistRAM.(address_b[],		data_b[],				wren_b ) =	--\ for local access 
-				 (EthAddrCt.q[10..0], Ether.DataBus_out[], GND%EthWord_Rd%);	--/ from inside of "Ethernet" section
+	TAWF_HistRAM.(address_b[],		 data_b[],				wren_b ) =	--\ for local access 
+				 (EthAddrCt.q[10..0], Ether.DataBus_out[], EthWord_Rd);	--/ from inside of "Ethernet" section
 	Else 
 	TAWF_HistRAM.(address_b[10..0], data_b[],			 wren_b				 ) =	--\ for common
 				 (AddrBus[10..0],	DataBus[], (DataStrobe & DevSel[13] & RW));		-- > access
@@ -1496,7 +1496,7 @@ Else					-- Master will read from
 		WHEN b"000001000000000" => DataBus[7..0]	= Reg_EthOpCode.q[7..0];--Ether's OpCode
 		WHEN b"000010000000000" => DataBus[]		= TA_proces0.DataBusOut[] ; --AddrMux[]  = 2;
 		WHEN b"000100000000000" => DataBus[]		= TA_proces1.DataBusOut[] ; --AddrMux[]  = 2;
-		WHEN b"001000000000000" => DataBus[]		= Reg_InData[0].q[];--TAWF_HistRAM.q_b[]; --AddrMux[]  = 2;
+		WHEN b"001000000000000" => DataBus[]		= TAWF_HistRAM.q_b[]; --(b"0000",Reg_InData[0].q[]);--AddrMux[]  = 2;
 		WHEN b"010000000000000" => DataBus[]		= ErrorCounters_IFace.DataBusOut[];                        -- ????
 		WHEN b"100000000000000" => DataBus[]			= 0; -- ZERO word temporary ?
 		WHEN OTHERS => DataBus[] = 0;
