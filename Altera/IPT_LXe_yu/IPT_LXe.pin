@@ -66,7 +66,7 @@
  -- Pin directions (input, output or bidir) are based on device operating in user mode.
  ---------------------------------------------------------------------------------
 
-Quartus II Version 9.1 Build 350 03/24/2010 Service Pack 2 SJ Full Version
+Quartus II 64-Bit Version 9.1 Build 350 03/24/2010 Service Pack 2 SJ Full Version
 CHIP  "IPT_LXe"  ASSIGNED TO AN: EP3C25Q240C8
 
 Pin Name/Usage               : Location  : Dir.   : I/O Standard      : Voltage : I/O Bank  : User Assignment
@@ -119,7 +119,7 @@ RESERVED_INPUT_WITH_WEAK_PULLUP : 45        :        :                   :      
 RESERVED_INPUT_WITH_WEAK_PULLUP : 46        :        :                   :         : 2         :                
 VCCIO2                       : 47        : power  :                   : 2.5V    : 2         :                
 GND                          : 48        : gnd    :                   :         :           :                
-RESERVED_INPUT_WITH_WEAK_PULLUP : 49        :        :                   :         : 2         :                
+CLK75_                       : 49        : output : 2.5 V             :         : 2         : N              
 CAMAC_F[5]                   : 50        : input  : 2.5 V             :         : 2         : Y              
 CAMAC_F[4]                   : 51        : input  : 2.5 V             :         : 2         : Y              
 CAMAC_F[3]                   : 52        : input  : 2.5 V             :         : 2         : Y              
@@ -184,7 +184,7 @@ Cam_Rd_Enable                : 110       : output : 2.5 V             :         
 RESERVED_INPUT_WITH_WEAK_PULLUP : 111       :        :                   :         : 4         :                
 RESERVED_INPUT_WITH_WEAK_PULLUP : 112       :        :                   :         : 4         :                
 RESERVED_INPUT_WITH_WEAK_PULLUP : 113       :        :                   :         : 4         :                
-PLL_ExtOut                   : 114       : output : 2.5 V             :         : 4         : N              
+RESERVED_INPUT_WITH_WEAK_PULLUP : 114       :        :                   :         : 4         :                
 VCCINT                       : 115       : power  :                   : 1.2V    :           :                
 GND                          : 116       : gnd    :                   :         :           :                
 LinkData                     : 117       : bidir  : 2.5 V             :         : 4         : Y              
@@ -217,7 +217,7 @@ RXD[1]                       : 143       : input  : 2.5 V             :         
 RXD[2]                       : 144       : input  : 2.5 V             :         : 5         : Y              
 RXD[3]                       : 145       : input  : 2.5 V             :         : 5         : Y              
 RESERVED_INPUT_WITH_WEAK_PULLUP : 146       :        :                   :         : 5         :                
-CLK25_                       : 147       : output : 2.5 V             :         : 5         : N              
+RESERVED_INPUT_WITH_WEAK_PULLUP : 147       :        :                   :         : 5         :                
 TAWF_DataStrobe              : 148       : input  : 2.5 V             :         : 5         : Y              
 GND+                         : 149       :        :                   :         : 5         :                
 GND+                         : 150       :        :                   :         : 5         :                
@@ -230,7 +230,7 @@ GND                          : 156       : gnd    :                   :         
 MSEL1                        : 157       :        :                   :         : 6         :                
 MSEL2                        : 158       :        :                   :         : 6         :                
 RESERVED_INPUT_WITH_WEAK_PULLUP : 159       :        :                   :         : 6         :                
-RESERVED_INPUT_WITH_WEAK_PULLUP : 160       :        :                   :         : 6         :                
+Test[10]                     : 160       : output : 2.5 V             :         : 6         : N              
 TALed[0]                     : 161       : output : 2.5 V             :         : 6         : N              
 ~ALTERA_nCEO~ / RESERVED_OUTPUT_OPEN_DRAIN : 162       : output : 2.5 V             :         : 6         : N              
 VCCINT                       : 163       : power  :                   : 1.2V    :           :                
@@ -288,20 +288,20 @@ DataIn_TA[1][1]              : 214       : input  : 2.5 V             :         
 GND                          : 215       : gnd    :                   :         :           :                
 DataIn_TA[1][0]              : 216       : input  : 2.5 V             :         : 8         : Y              
 TALed[1]                     : 217       : output : 2.5 V             :         : 8         : N              
-Test[10]                     : 218       : output : 2.5 V             :         : 8         : N              
+PLL_ExtOut                   : 218       : output : 2.5 V             :         : 8         : N              
 RESERVED_INPUT_WITH_WEAK_PULLUP : 219       :        :                   :         : 8         :                
 VCCINT                       : 220       : power  :                   : 1.2V    :           :                
 RESERVED_INPUT_WITH_WEAK_PULLUP : 221       :        :                   :         : 8         :                
 GND                          : 222       : gnd    :                   :         :           :                
 RESERVED_INPUT_WITH_WEAK_PULLUP : 223       :        :                   :         : 8         :                
-CLK75_                       : 224       : output : 2.5 V             :         : 8         : N              
+RESERVED_INPUT_WITH_WEAK_PULLUP : 224       :        :                   :         : 8         :                
 VCCIO8                       : 225       : power  :                   : 2.5V    : 8         :                
 RESERVED_INPUT_WITH_WEAK_PULLUP : 226       :        :                   :         : 8         :                
 GND                          : 227       : gnd    :                   :         :           :                
 VCCINT                       : 228       : power  :                   : 1.2V    :           :                
 GND                          : 229       : gnd    :                   :         :           :                
 RESERVED_INPUT_WITH_WEAK_PULLUP : 230       :        :                   :         : 8         :                
-RESERVED_INPUT_WITH_WEAK_PULLUP : 231       :        :                   :         : 8         :                
+CLK25_                       : 231       : output : 2.5 V             :         : 8         : N              
 RESERVED_INPUT_WITH_WEAK_PULLUP : 232       :        :                   :         : 8         :                
 RESERVED_INPUT_WITH_WEAK_PULLUP : 233       :        :                   :         : 8         :                
 RESERVED_INPUT_WITH_WEAK_PULLUP : 234       :        :                   :         : 8         :                

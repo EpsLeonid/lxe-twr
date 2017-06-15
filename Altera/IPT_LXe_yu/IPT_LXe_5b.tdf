@@ -41,8 +41,8 @@ Constant ProgRAM_Size		= 256;		-- #1024..#1279
 Constant CommdList_Offset	= H"0C00";	-- #3072  RAM block containing the Command Lists
 Constant CommdList_Size		= 1024;		-- #3072..#4095
 
---Constant ThisDeviceAddr     = H"666666008CEF"; 
-Constant ThisDeviceAddr		= H"0555555555CF"; 
+--Constant ThisDeviceAddr		= H"0555555555CF"; 
+Constant ThisDeviceAddr		= H"055555555520"; 
 
 Constant Link_IFace_Offset	= 2048+32;  -- #2080=H"0820" - Link's InData_Port
                                         -- #2081=H"0821" - Link's Data_Port
@@ -270,6 +270,7 @@ Delay_StEthTx	: DelayLine with (DelayCode = 200,  -- to delay the real start of 
                                   DurationCode= 4); --  after CAMAC-cycle
 --StartEthTx_Ether: PulseShaper with (DurationCode=4);--Start Ethernet' Transmit by Ethernet command
 StartEthTx_Link	: PulseShaper with (DurationCode= 8); --Start Ethernet' Transmit by end of Link command
+EmptyMess		: node;
 StartEthTx		: node; -- all sources of Start_EthernetTx combined
 Eth_WRITE,				-- flag: Ethernet' "Write" command is received 
 EtherWRITE		: node; -- flag: Ethernet' "Write" command is received, registered 
@@ -460,7 +461,7 @@ RPWDN	= VCC; -- включить/выключить Deserializer
 TPWDN	= GND; -- включить/выключить Serializer
 %
 St_Compuls = GND;   St_One = GND;       St_Multi = GND;     St_Load = GND;
-St_Proc_Link = GND; St_ADC_Link = GND;  St_Ether_Link = GND;
+St_Proc_Link = GND; St_ADC_Link = GND;  St_Ether_Link = GND; EmptyMess = GND;
 
 Eth_WRITE = GND;    St_EthTx_Ether  = GND;
 
@@ -919,15 +920,19 @@ CASE Eth_Reg_LinkOpCode.q[7..0] is -- recognizing the particular Operation :
 
 	WHEN StartAlter		 =>     -- #210-"START_Alternative"    (+?oyoo Lst2)
 		 St_Ether_Link	 = VCC;	--Start up Ethernet transmition with waveforms
+		 EmptyMess		 = VCC;
 
 	WHEN CommdLst_Rd100  =>     -- #226-"Read  by CommdLst100" (+?oyoo Lst4)
 		 St_Ether_Link	 = VCC;	--Start up Ethernet transmition with waveforms
+		 EmptyMess		 = VCC;
 
 	WHEN CommdLst_Rd110	 =>     -- #241-"Read  by CommdLst110" (+?oyoo3)
 		 St_Ether_Link	 = VCC;	--Start up Ethernet transmition with waveforms
+		 EmptyMess		 = VCC;
 
 	WHEN Others => 	
 		 St_Ether_Link	 = GND;	--Start up Ethernet transmition with waveforms
+		 EmptyMess		 = GND;
 End CASE;
 --Ether.DataBus_in[15..0] = TestRAM.q_a[];--TAWF_HistRAM.q_b[];--
 
@@ -947,30 +952,30 @@ IF (St_Ether_Link == VCC) Then
 		When 258 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
 		
 --Channel 3
-		When 512 => Ether.DataBus_in[15..0] = StatusPack.q[15..0];
+		When 514 => Ether.DataBus_in[15..0] = StatusPack.q[15..0];
 		
-		When 513 => Ether.DataBus_in[15..0] = (b"00000000", Eth_Reg_LinkOpCode.q[7..0]);
+		When 515 => Ether.DataBus_in[15..0] = (b"00000000", Eth_Reg_LinkOpCode.q[7..0]);
 		
-		When 514 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
+		When 516 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
 		
 --Channel 4
-		When 769 => Ether.DataBus_in[15..0] = (b"00000000", Eth_Reg_LinkOpCode.q[7..0]);
+		When 771 => Ether.DataBus_in[15..0] = (b"00000000", Eth_Reg_LinkOpCode.q[7..0]);
 		
-		When 770 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
+		When 772 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
 		
 --Channel 5
-		When 1024 => Ether.DataBus_in[15..0] = StatusPack.q[15..0];
+		When 1026 => Ether.DataBus_in[15..0] = StatusPack.q[15..0];
 		
-		When 1025 => Ether.DataBus_in[15..0] = (b"00000000", Eth_Reg_LinkOpCode.q[7..0]);
+		When 1027 => Ether.DataBus_in[15..0] = (b"00000000", Eth_Reg_LinkOpCode.q[7..0]);
 		
-		When 1026 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
+		When 1028 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
 		
 --Channel 6
-		When 1281 => Ether.DataBus_in[15..0] = (b"00000000", Eth_Reg_LinkOpCode.q[7..0]);
+		When 1283 => Ether.DataBus_in[15..0] = (b"00000000", Eth_Reg_LinkOpCode.q[7..0]);
 		
-		When 1282 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
+		When 1284 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
 		
-		When others => Ether.DataBus_in[15..0] = TestRAM.q_a[];--TAWF_HistRAM.q_b[];--
+		When others => Ether.DataBus_in[15..0] = TAWF_HistRAM.q_b[];--TestRAM.q_a[];--
 	End case;
 ELSIF (St_EthTx_Ether == VCC) Then
 	%CASE EthAddrCt.q is
@@ -1108,13 +1113,13 @@ Delay_StEthTx.(D,clk,reset) = ((St_EthTx_Ether & Ether.RxEndFrame),Clk100,RESET)
 
 Delay_St_Ether_Link.(S,clk,R,clrn) = (St_Ether_Link, Clk100, RESET, !(EndEtherTx OR EtherLinkTimeCt.cout));
 
-EtherLinkMessage.(S,clk,R,clrn) = (Delay_St_Ether_Link.q AND (!TA_DataStrobe.q AND Delay_TA_DataStrobe.q), Clk100, RESET, !(EndEtherTx OR EtherLinkTimeCt.cout));
+EtherLinkMessage.(S,clk,R,clrn) = (Delay_St_Ether_Link.q AND ((!TA_DataStrobe.q AND Delay_TA_DataStrobe.q) OR EmptyMess), Clk100, RESET, !(EndEtherTx OR EtherLinkTimeCt.cout));
 
 EtherLinkTimeCt.(clock, clk_en, cnt_en, sclr) = (Clk25, VCC, St_Ether_Link AND !EtherLinkMessage.q, EtherLinkTimeCt.cout OR EtherLinkMessage.q);
 --IF EtherLinkTimeCt.cout == VCC Then St_Ether_Link = GND;
 --END IF;
 
-EtherBank_1.(D,clk,ena,clrn) = (Delay_St_Ether_Link.q AND (!TA_DataStrobe.q AND Delay_TA_DataStrobe.q), Clk100, !TA_DataStrobe.q AND Delay_TA_DataStrobe.q, !EtherPause1.q);
+EtherBank_1.(D,clk,ena,clrn) = (Delay_St_Ether_Link.q AND ((!TA_DataStrobe.q AND Delay_TA_DataStrobe.q) OR EmptyMess), Clk100, (!TA_DataStrobe.q AND Delay_TA_DataStrobe.q) OR EmptyMess, !EtherPause1.q);
 
 	EtherPause1.(S,clk,R,clrn) = (EtherBank_1.q AND Ether.TxFrameCRC, Clk100, EtherBankDelay.cout, !EndEtherTx);
 
