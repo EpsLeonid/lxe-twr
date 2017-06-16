@@ -1275,7 +1275,7 @@ TAWF_HistRAM.data_a[11..0] = Reg_InData[0].q[];
 TAWF_HistRAM.data_a[14..12] = GND;
 TAWF_HistRAM.data_a[15] = TA_DataStrobe.q;
 TAWF_HistRAM.(address_a[],			wren_a		,	 clock_a) =	--\ for common
-			 (TAWF_HistRAM_Cnt.q[], GND%TA_DataStrobe.q%, NChStrobe0);	-- > access
+			 (TAWF_HistRAM_Cnt.q[], TA_DataStrobe.q, NChStrobe0);	-- > access
 TAWF_HistRAM.(enable_a) = (VCC); 
 
 IF ((StartOne OR StartMulti) == VCC) Then

@@ -570,7 +570,7 @@ END IF;
 -----------------------------------------------------------
 
 	WFhist.data[11..0] = RegSum[0].q[11..0];--ADCdata[9..0];--TestLinkCt.q[11..0];--
-	WFhist.(wraddress[], wrclock, wren) = (WFhist_ADCCt.q[7..0], ADC_clock, !ReadWFhist);--AND SaveRam));
+	WFhist.(wraddress[], wrclock, wren) = (WFhist_ADCCt.q[7..0], ADC_clock, WriteWFhist);--AND SaveRam));
 --	WFhist.(rdaddress[], rdclock, rden) = (DAQAddrBus_In[7..0], Flink_clock, ReadWFhist);--AND SaveRam));
 	WFhist.(rdaddress[], rdclock, rden) = (WFhist_RAMAddr[7..0], Flink_clock, ReadWFhist);--AND SaveRam));
 
@@ -579,9 +579,9 @@ END IF;
 	WFhist_ADCCt.clock = ADC_Clock;
 	WFhist_ADCCt.sclr = (EdgeSensing(.D= LinkMessage, .clk=ADC_clock, .reset=RESET) );
 	WFhist_ADCCt.clk_en = VCC;
-	WFhist_ADCCt.cnt_en = !ReadWFhist;
+	WFhist_ADCCt.cnt_en = WriteWFhist;
 
-	WFhist_RAMAddrBus.(data[], clock, load, enable) = (WFhist_ADCCt.q[], ADC_Clock, VCC, LinkMessage);
+	WFhist_RAMAddrBus.(data[], clock, load, enable) = (WFhist_ADCCt.q[], ADC_Clock, VCC, ReadWFhist);
 	WFhist_RAMAddr[7..0] = WFhist_RAMAddrBus.q[7..0] - NSampleCt.q[7..0] - 20%TestLinkCt.q[7..0]% + DAQAddrBus_In[7..0]; -- выставление адреса в момент, когда начался сигнал с запасом в несколько тактов
 
 	DAQDataBusOut[] = WFhist.q[];--TestLinkCt.q[9..0];--
