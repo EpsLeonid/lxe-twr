@@ -422,10 +422,11 @@ EtherLinkTimeCt			: lpm_counter with (lpm_width = 11, lpm_direction="up");
 EndEtherTx		: node;
 EtherBank_1,
 EtherBank_2,
-EtherBank_3		: DFFE;
+EtherBank_3		: SRFF;
 EtherPause1,
-EtherPause2		: SRFF;
-EtherBankDelay	: lpm_counter with (lpm_width = 11, lpm_direction="up");
+EtherPause2,
+EtherPause3		: SRFF;
+EtherBankDelay	: lpm_counter with (lpm_width = 12, lpm_direction="up");
 
 StartEthTx_Cnt	: lpm_counter with (lpm_width = 8, lpm_direction="up");
 StatusPack		: lpm_shiftreg with (lpm_width=16, lpm_direction="unused");
@@ -1118,23 +1119,27 @@ Delay_StEthTx.(D,clk,reset) = ((St_EthTx_Ether & Ether.RxEndFrame),Clk100,RESET)
 
 Delay_St_Ether_Link.(S,clk,R,clrn) = (St_Ether_Link, Clk100, RESET, !(EndEtherTx OR EtherLinkTimeCt.cout));
 
-EtherLinkMessage.(S,clk,R,clrn) = (Delay_St_Ether_Link.q AND ((!TA_DataStrobe.q AND Delay_TA_DataStrobe.q) OR EmptyMess), Clk100, RESET, !(EndEtherTx OR EtherLinkTimeCt.cout));
+EtherLinkMessage.(S,clk,R,clrn) = (St_Ether_Link AND ((!TA_DataStrobe.q AND Delay_TA_DataStrobe.q) OR EmptyMess), Clk100, RESET, !(EndEtherTx OR EtherLinkTimeCt.cout));
 
 EtherLinkTimeCt.(clock, clk_en, cnt_en, sclr) = (Clk25, VCC, St_Ether_Link AND !EtherLinkMessage.q, EtherLinkTimeCt.cout OR EtherLinkMessage.q);
 --IF EtherLinkTimeCt.cout == VCC Then St_Ether_Link = GND;
 --END IF;
 
-EtherBank_1.(D,clk,ena,clrn) = (Delay_St_Ether_Link.q AND ((!TA_DataStrobe.q AND Delay_TA_DataStrobe.q) OR EmptyMess), Clk100, (!TA_DataStrobe.q AND Delay_TA_DataStrobe.q) OR EmptyMess, !EtherPause1.q);
+EtherBank_1.(S,clk,R,clrn) = ((St_Ether_Link AND ((!TA_DataStrobe.q AND Delay_TA_DataStrobe.q) OR EmptyMess) 
+						 AND !(EtherBank_1.q OR EtherPause1.q OR EtherBank_2.q OR EtherPause2.q OR EtherBank_3.q OR EtherPause3.q)), 
+																					Clk100, EtherPause1.q, !(RESET OR EtherLinkTimeCt.cout));
 
-	EtherPause1.(S,clk,R,clrn) = (EtherBank_1.q AND Ether.TxFrameCRC, Clk100, EtherBankDelay.cout, !EndEtherTx);
+	EtherPause1.(S,clk,R,clrn) = (EtherBank_1.q AND Ether.TxFrameCRC, Clk100, EtherBankDelay.cout, !EndEtherTx OR !EtherLinkTimeCt.cout);
 
-EtherBank_2.(D,clk,ena,clrn) = (EtherPause1.q AND EtherBankDelay.cout, Clk100, EtherPause1.q AND EtherBankDelay.cout, !EtherPause2.q);
+EtherBank_2.(S,clk,R,clrn) = (EtherPause1.q AND EtherBankDelay.cout, Clk100, EtherPause2.q, !(RESET OR EtherLinkTimeCt.cout));
 
-	EtherPause2.(S,clk,R,clrn) = (EtherBank_2.q AND Ether.TxFrameCRC, Clk100, EtherBankDelay.cout, !EndEtherTx);
+	EtherPause2.(S,clk,R,clrn) = (EtherBank_2.q AND Ether.TxFrameCRC, Clk100, EtherBankDelay.cout, !(EndEtherTx OR EtherLinkTimeCt.cout));
 
-EtherBank_3.(D,clk,ena,clrn) = (EtherPause2.q AND EtherBankDelay.cout, Clk100, EtherPause2.q AND EtherBankDelay.cout, !EndEtherTx);
+EtherBank_3.(S,clk,R,clrn) = (EtherPause2.q AND EtherBankDelay.cout, Clk100, EtherPause3.q, !(RESET OR EtherLinkTimeCt.cout));
 
-EtherBankDelay.(clock, clk_en, cnt_en, sclr) = (Clk25, VCC, EtherPause1.q OR EtherPause2.q, EtherBankDelay.cout);
+	EtherPause3.(S,clk,R,clrn) = (EtherBank_3.q AND Ether.TxFrameCRC, Clk100, EtherBankDelay.cout, !(EndEtherTx OR EtherLinkTimeCt.cout));
+
+EtherBankDelay.(clock, clk_en, cnt_en, sclr) = (Clk100, VCC, EtherPause1.q OR EtherPause2.q OR EtherPause3.q, EtherBankDelay.cout);
 
 IF EtherBank_1.q == VCC Then
 		Ether.TxLength[]= 1024;	-- DataBlock length = 1024Bytes = 512 words
@@ -1148,7 +1153,7 @@ IF EtherBank_1.q == VCC Then
 END IF; 
 
 --StartEthTx_Link.(D, clk, reset) = ((!Link_IFace.LinkMessage & Delay_LinkMessage.q) AND Delay_St_Ether_Link.q, Clk100, RESET);
-StartEthTx_Link.(D, clk, reset) = ((EtherBank_1.q OR EtherBank_2.q OR EtherBank_3.q) AND Delay_St_Ether_Link.q, Clk100, RESET);
+StartEthTx_Link.(D, clk, reset) = ((EtherBank_1.q OR EtherBank_2.q OR EtherBank_3.q) AND St_Ether_Link, Clk100, RESET);
 
 StartEthTx  = (%StartEthTx_Camac   OR%              -- Start Transmit by CAMAC .. 
 	((StartOne # StartMulti)& StartEthTx_Link.q) OR -- .. or Start by Link, if allowed
@@ -1161,7 +1166,7 @@ StartEthTx_Cnt.(clock, clk_en, cnt_en) = (Clk25, VCC, StartEthTx);
 StatusPack.(clock, enable, load) = (Clk25, StartEthTx, VCC);
 StatusPack.data[] = (StartEthTx_Cnt.q[], b"00000", EtherBank_3.q,EtherBank_2.q,EtherBank_1.q); 
 
-IF ((Ether.TxFrameCRC == VCC) AND (EtherBank_3.q == VCC))
+IF ((EtherPause3.q == VCC) AND (EtherBankDelay.cout == VCC))
 	Then EndEtherTx = VCC;
 	Else EndEtherTx = GND;
 END IF;
@@ -1538,14 +1543,15 @@ Test6 = EtherBank_1.q;--Data_Strobe;	--Ether.test[6];	--Ether.test[5];	-- Pin__4
 Test7 = Ether.TxFrameCRC;--EthAddrCt.q[1];	--Ether.test[7];	--EthOpCode_save;	-- Pin__5
 Test8 = Ether.TxDataBlck;	--Ether.test[8];	--EthOpCode_saved;	-- Pin__6
 Test9 = Clk25;				--DataIn_TA[0][8];	-- Pin
-%Test1 = EthOpCode_save;--TA_DataStrobe.q;	--Link_IFace.LinkMessage;	--Link_IFace.test[1];	--Ether.test[1];	--Ether.TX_EN;		-- Pin236
-Test2 = St_EthTx_Ether;--St_Ether_Link;--Ether.TxFrameCRC;--Link_IFace.test[2];	--Ether.RxWaitSFD;	--Ether.TxStFrmDel;	-- Pin237
-Test3 = Delay_StEthTx.q;--EtherLinkMessage.q;--Delay_St_Ether_Link.q;--Ether.TxDataBlck;--Link_IFace.test[3];	--Ether.test[2];	--Ether.RxDestAddr;	-- Pin238
-Test4 = StartEthTx;--EtherBank_1.q OR EtherBank_2.q OR EtherBank_3.q;--StartEthTx_Link.q;--Data_Strobe;--Ether.TxDestAddr;--TA_DataStrobe.q;	--Link_IFace.LinkMessage; --Ether.test[3];	--Ether.RxSourAddr;	-- Pin239
-Test5 = Ether.TxPreamble;--EtherLinkTimeCt.q[0];--TAWF_HistRAM.q_b[7];--TAWF_HistRAM_Cnt.q[0];--EtherBank_1.q OR EtherBank_2.q OR EtherBank_3.q;	--Ether.IORq;	--Link_IFace.TxRx;	--Ether.test[4];		--Ether.test[3];	-- Pin240
-Test6 = EtherBank_1.q;--EndEtherTx OR EtherLinkTimeCt.cout;--TAWF_HistRAM.q_b[8];--TAWF_HistRAM_Cnt.q[3];--Ether.TxPkLenTyp;--EtherPause1.q OR EtherPause2.q;		--Data_Strobe;	--Ether.test[6];	--Ether.test[5];	-- Pin__4
-Test7 = EtherBank_2.q;--TAWF_HistRAM_Cnt.q[7];--StartEthTx_Link.q;--EthAddrCt.q[1];	--Ether.test[7];	--EthOpCode_save;	-- Pin__5
-Test8 = EtherBank_3.q;--TAWF_HistRAM_Cnt.q[10];--EthAddrCt.q[10];--Ether.test6;--St_EthTx_Ether;--Ether.test[8];	--EthOpCode_saved;	-- Pin__6
+%Test1 = (St_Ether_Link AND ((!TA_DataStrobe.q AND Delay_TA_DataStrobe.q) OR EmptyMess) 
+						 AND !(EtherBank_1.q OR EtherPause1.q OR EtherBank_2.q OR EtherPause2.q OR EtherBank_3.q OR EtherPause3.q));--TA_DataStrobe.q;	--Link_IFace.LinkMessage;	--Link_IFace.test[1];	--Ether.test[1];	--Ether.TX_EN;		-- Pin236
+Test2 = GND;--St_Ether_Link;--Ether.TxFrameCRC;--Link_IFace.test[2];	--Ether.RxWaitSFD;	--Ether.TxStFrmDel;	-- Pin237
+Test3 = StartEthTx;--EtherLinkMessage.q;--Delay_St_Ether_Link.q;--Ether.TxDataBlck;--Link_IFace.test[3];	--Ether.test[2];	--Ether.RxDestAddr;	-- Pin238
+Test4 = EtherBank_1.q;--EtherBank_1.q OR EtherBank_2.q OR EtherBank_3.q;--StartEthTx_Link.q;--Data_Strobe;--Ether.TxDestAddr;--TA_DataStrobe.q;	--Link_IFace.LinkMessage; --Ether.test[3];	--Ether.RxSourAddr;	-- Pin239
+Test5 = EtherBank_2.q;--EtherLinkTimeCt.q[0];--TAWF_HistRAM.q_b[7];--TAWF_HistRAM_Cnt.q[0];--EtherBank_1.q OR EtherBank_2.q OR EtherBank_3.q;	--Ether.IORq;	--Link_IFace.TxRx;	--Ether.test[4];		--Ether.test[3];	-- Pin240
+Test6 = EtherPause2.q;--EndEtherTx OR EtherLinkTimeCt.cout;--TAWF_HistRAM.q_b[8];--TAWF_HistRAM_Cnt.q[3];--Ether.TxPkLenTyp;--EtherPause1.q OR EtherPause2.q;		--Data_Strobe;	--Ether.test[6];	--Ether.test[5];	-- Pin__4
+Test7 = EtherBank_3.q;--TAWF_HistRAM_Cnt.q[7];--StartEthTx_Link.q;--EthAddrCt.q[1];	--Ether.test[7];	--EthOpCode_save;	-- Pin__5
+Test8 = EtherPause3.q;--TAWF_HistRAM_Cnt.q[10];--EthAddrCt.q[10];--Ether.test6;--St_EthTx_Ether;--Ether.test[8];	--EthOpCode_saved;	-- Pin__6
 %IF (EthAddrCt.q[] == 2000) Then Test9 = VCC;
 						 Else Test9 = GND;--Ether.test7;	--Ether.TxEndFrame;	--DataIn_TA[0][8];	-- Pin
 END IF;%
