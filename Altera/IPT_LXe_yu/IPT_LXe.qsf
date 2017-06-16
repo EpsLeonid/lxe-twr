@@ -101,8 +101,6 @@ set_location_assignment PIN_183 -to DataIn_TA[0][3]
 set_location_assignment PIN_184 -to DataIn_TA[0][2]
 set_location_assignment PIN_185 -to DataIn_TA[0][1]
 set_location_assignment PIN_186 -to DataIn_TA[0][0]
-set_location_assignment PIN_195 -to NChLock[1]
-set_location_assignment PIN_171 -to NChLock[0]
 set_location_assignment PIN_202 -to NChStrobe[1]
 set_location_assignment PIN_182 -to NChStrobe[0]
 set_location_assignment PIN_187 -to NWordFLink_TA[1][1]
@@ -155,4 +153,7 @@ set_location_assignment PIN_148 -to TAWF_DataStrobe
 set_global_assignment -name MIF_FILE LIB/WF_ethernet.mif
 set_location_assignment PIN_41 -to Phase25
 set_location_assignment PIN_34 -to ExtReset
+set_global_assignment -name MISC_FILE "C:/Leon/CMD-3/Electronics/trunk/Altera/IPT_LXe_yu/IPT_LXe.dpf"
+set_location_assignment PIN_171 -to NChLock
+set_location_assignment PIN_195 -to EtherLed
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
