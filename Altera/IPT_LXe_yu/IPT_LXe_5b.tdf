@@ -953,9 +953,9 @@ IF (St_Ether_Link == VCC) Then
 		When 2 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
 		
 --Channel 2
-		When 255 => Ether.DataBus_in[15..0] = (b"00000000", Eth_Reg_LinkOpCode.q[7..0]);
+		When 257 => Ether.DataBus_in[15..0] = (b"00000000", Eth_Reg_LinkOpCode.q[7..0]);
 		
-		When 256 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
+		When 258 => Ether.DataBus_in[15..0] = Eth_Reg_LinkEvNumber.q[];
 		
 --Channel 3
 		When 512 => Ether.DataBus_in[15..0] = StatusPack.q[15..0];
@@ -1117,15 +1117,15 @@ StartADC = StartADC_Camac.q						-- Compulsive START by CAMAC ..
 Delay_StEthTx.(D,clk,reset) = ((St_EthTx_Ether & Ether.RxEndFrame),Clk100,RESET);  -- Delay of Compulsive START
 --StartEthTx_Ether.(D, clk,reset) =(Delay_StEthTx.q, Clk100, RESET);--PulseShaper
 
-Delay_St_Ether_Link.(S,clk,R,clrn) = (St_Ether_Link, Clk100, RESET, !(EndEtherTx OR EtherLinkTimeCt.cout));
+Delay_St_Ether_Link.(S,clk,R,clrn) = ((!TA_DataStrobe.q AND Delay_TA_DataStrobe.q), Clk100, RESET, !(EndEtherTx OR EtherLinkTimeCt.cout));
 
-EtherLinkMessage.(S,clk,R,clrn) = (St_Ether_Link AND ((!TA_DataStrobe.q AND Delay_TA_DataStrobe.q) OR EmptyMess), Clk100, RESET, !(EndEtherTx OR EtherLinkTimeCt.cout));
+EtherLinkMessage.(S,clk,R,clrn) = (St_Ether_Link AND (Delay_St_Ether_Link.q OR EmptyMess), Clk100, RESET, !(EndEtherTx OR EtherLinkTimeCt.cout));
 
 EtherLinkTimeCt.(clock, clk_en, cnt_en, sclr) = (Clk25, VCC, St_Ether_Link AND !EtherLinkMessage.q, EtherLinkTimeCt.cout OR EtherLinkMessage.q);
 --IF EtherLinkTimeCt.cout == VCC Then St_Ether_Link = GND;
 --END IF;
 
-EtherBank_1.(S,clk,R,clrn) = ((St_Ether_Link AND ((!TA_DataStrobe.q AND Delay_TA_DataStrobe.q) OR EmptyMess) 
+EtherBank_1.(S,clk,R,clrn) = ((St_Ether_Link AND (Delay_St_Ether_Link OR EmptyMess) 
 						 AND !(EtherBank_1.q OR EtherPause1.q OR EtherBank_2.q OR EtherPause2.q OR EtherBank_3.q OR EtherPause3.q)), 
 																					Clk100, EtherPause1.q, !(RESET OR EtherLinkTimeCt.cout));
 
@@ -1149,7 +1149,7 @@ IF EtherBank_1.q == VCC Then
 		Eth_InitAddr[]  = 512;--512;	-- initial addr of data in WF Ram to be transmitted 
 	ELSIF EtherBank_3.q == VCC Then
 		Ether.TxLength[]= 1024;	-- DataBlock length = 1024Bytes = 512 words
-		Eth_InitAddr[]  = 1024;--1024;	-- initial addr of data in WF Ram to be transmitted 
+		Eth_InitAddr[]  = 1280;--1024;	-- initial addr of data in WF Ram to be transmitted 
 END IF; 
 
 --StartEthTx_Link.(D, clk, reset) = ((!Link_IFace.LinkMessage & Delay_LinkMessage.q) AND Delay_St_Ether_Link.q, Clk100, RESET);
