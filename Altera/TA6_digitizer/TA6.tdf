@@ -729,7 +729,7 @@ END GENERATE;
 --ChannelCount.(clock, cnt_en, sclr) = (Clk25, DataCount.cout, !Link_IFace.LinkMessage);
 DataCount.(clock, cnt_en, sclr) = (Clk25, TxWFhist.q, StopCount);
 ChannelCount.(clock, cnt_en, sclr) = (Clk25, DataCount.cout, StopCount);
-IF (ChannelCount.q[] == b"101" AND DataCount.cout == VCC )
+IF (ChannelCount.q[] == b"101" AND DataCount.q[] == VCC )
 	THEN StopCount = VCC;
 	ELSE StopCount = GND;
 END IF;
@@ -1039,16 +1039,14 @@ TestCt.aclr				= !PowerUp0;    -- even if NO clock - Reset does occur
 TestRAM.(address[7..0], data[],    clock,    wren                     ) =
         (AddrBus[7..0], DataBus[], Clk100,(DataStrobe & DevSel[15] & RW)); 
 
-Test1	= SerDataOut[7];--Link_IFace.LinkMessage;--PhaseSw.LinkClk_selected; --DDRin.dataout_h[0];			--Link_IFace.LinkMessage;		-- pin 68
-Test2	= SerDataOut[8];--LinkMsg_beg;--!Phase12;                    --Link_IFace.IORq;	-- pin 73
-Test3	= SerDataOut[9];--PLL.locked;--DDRenNequ1;                   --Start_Link.q;			-- pin 76
-Test4	= NWordFLink[0];--SelCommdList_Trig.q;--PowerUp0;--StartProc_Link;           	--StartADC_Link;		-- pin 80
-
---IF((AddrBus[12] == VCC) and (AddrBus[9] == VCC) ) Then Test5 = VCC; Else Test5 = GND; End IF;
-Test5   = TxWFhist.q;--SelCommdList_Trig3.q;--DDRenEqu2;                    --CPU.test4;            --DDRenEqu2;            -- pin 81
-Test6	= DataCount.cout;--TA6Channel[3].test5;--TestCt.q[5];--PowerUp1;--CPU.AccessReq;                --CPU.AccessReq;        --DDRenNEqu2;           -- pin 137
-Test7	= StopCount;--TA6Channel[3].test1;--!Link_IFace.LinkMessage;					--AddrSettled;			--Digitizer1.Test3;		-- pin 139
-Test8	= TA6Channel[3].test1;				--FLink_Data_BUS.q[2];--DevSel[6] # DevSel[7];--Digitizer1.Test2;		-- pin 146
+Test1	= Link_IFace.LinkMessage;--PhaseSw.LinkClk_selected; 													-- pin 231
+Test2	= TAWF_DataStrobe;--LinkMsg_beg;																		-- pin 232
+Test3	= TxWFhist.q;--SerDataOut[9];--PLL.locked;																-- pin 233
+Test4	= DataCount.cout;--SelCommdList_Trig.q;																	-- pin 234
+Test5	= StopCount;--SelCommdList_Trig3.q;																		-- pin 235
+Test6	= SerDataOut[7];--TA6Channel[3].test5;																	-- pin 236
+Test7	= SerDataOut[8];--AddrSettled;																			-- pin 237
+Test8	= NWordFLink[0];--TA6Channel[3].test1;																	-- pin 146
 Test9	= TA6Channel[3].test2;				--FLink_Data_BUS.q[3];--DataStrobe;			--Digitizer1.Test1;		-- pin 147
 Test10	= TA6Channel[3].test3;				--FLink_Data_BUS.q[4];--DataBus[0];			--Digitizer1.Working;	-- pin 148
 

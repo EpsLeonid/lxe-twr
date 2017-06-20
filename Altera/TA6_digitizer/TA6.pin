@@ -66,7 +66,7 @@
  -- Pin directions (input, output or bidir) are based on device operating in user mode.
  ---------------------------------------------------------------------------------
 
-Quartus II Version 9.1 Build 350 03/24/2010 Service Pack 2 SJ Full Version
+Quartus II 64-Bit Version 9.1 Build 350 03/24/2010 Service Pack 2 SJ Full Version
 CHIP  "TA6"  ASSIGNED TO AN: EP3C25Q240C8
 
 Pin Name/Usage               : Location  : Dir.   : I/O Standard      : Voltage : I/O Bank  : User Assignment
@@ -215,7 +215,7 @@ GND                          : 141       : gnd    :                   :         
 ADC_In_Data[2][10]           : 142       : input  : 3.3-V LVTTL       :         : 5         : Y              
 ADC_In_Data[2][11]           : 143       : input  : 3.3-V LVTTL       :         : 5         : Y              
 ADC_OR[2]                    : 144       : input  : 3.3-V LVTTL       :         : 5         : Y              
-RESERVED_INPUT_WITH_WEAK_PULLUP : 145       :        :                   :         : 5         :                
+Test[10]                     : 145       : output : 3.3-V LVTTL       :         : 5         : N              
 Test[8]                      : 146       : output : 3.3-V LVTTL       :         : 5         : Y              
 Test[9]                      : 147       : output : 3.3-V LVTTL       :         : 5         : Y              
 Test_in                      : 148       : input  : 3.3-V LVTTL       :         : 5         : Y              
@@ -296,7 +296,7 @@ GND                          : 222       : gnd    :                   :         
 ADC_In_Data[5][11]           : 223       : input  : 3.3-V LVTTL       :         : 8         : Y              
 ADC_OR[5]                    : 224       : input  : 3.3-V LVTTL       :         : 8         : Y              
 VCCIO8                       : 225       : power  :                   : 3.3V    : 8         :                
-Test[10]                     : 226       : output : 3.3-V LVTTL       :         : 8         : N              
+RESERVED_INPUT_WITH_WEAK_PULLUP : 226       :        :                   :         : 8         :                
 GND                          : 227       : gnd    :                   :         :           :                
 VCCINT                       : 228       : power  :                   : 1.2V    :           :                
 GND                          : 229       : gnd    :                   :         :           :                
