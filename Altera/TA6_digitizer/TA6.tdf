@@ -11,7 +11,7 @@ INCLUDE "lpm_divide.inc";
 INCLUDE "EdgeSensing.inc";
 INCLUDE "LevelSensing.inc" ;
 INCLUDE "LightPulser.inc";
---INCLUDE "DelayLine.inc" ;
+INCLUDE "DelayLine.inc" ;
 INCLUDE "PulseShaper.inc" ;
 INCLUDE "PhaseSwitch.inc";
 --INCLUDE "LVDS_Out.inc";
@@ -169,6 +169,8 @@ FLink_Data_BUS				: lpm_shiftreg with (lpm_width=12, lpm_direction="unused");
 --FLink_cnt					: lpm_counter with (lpm_width = 8, lpm_direction="up"); -- счетчик времени для синхронизации
 
 TxWFhist					: SRFF;
+DelayWriteWFhist			: DelayLine with (DelayCode = 1000,  -- to delay the real END of Write WFHist
+								  DurationCode= 2); --  after LinkMessage-cycle
 DataCount					: lpm_counter with (lpm_width = 8, lpm_direction="up"); -- счетчик данных из памяти канала для передачи по линку в ИПТ
 ChannelCount				: lpm_counter with (lpm_width = 3, lpm_direction="up"); -- счетчик каналов для передачи по линку в ИПТ
 StopCount					: node;
@@ -719,10 +721,11 @@ Clk37_5 = DFF (.d = !Clk37_5, .clk = Clk75);
 SerClk = Clk25;--Clk50;--Clk37_5;--
 Delay_LinkMessage.(D,clk) = (Link_IFace.LinkMessage, Clk100);
 TxWFhist.(S, clk, R, clrn) = (Link_IFace.LinkMessage AND !Delay_LinkMessage.q, Clk100, GND, !StopCount);
+DelayWriteWFhist.(D,clk,reset) = (TxWFhist.q; Clk100, Reset)
 TAWF_DataStrobe = TxWFhist.q;
 
 FOR i IN 0 TO (NUM_CH-1) GENERATE
-	TA6Channel[i].WriteWFhist = !TxWFhist.q;--TestLinkCt.q[11];--Link_IFace.LinkMessage;
+	TA6Channel[i].WriteWFhist = !DelayWriteWFhist.q;--TestLinkCt.q[11];--Link_IFace.LinkMessage;
 END GENERATE;
 
 --DataCount.(clock, cnt_en, sclr) = (Clk25, Link_IFace.LinkMessage, !Link_IFace.LinkMessage);
@@ -744,34 +747,34 @@ IF (TxWFhist.q == GND) Then --Link_IFace.LinkMessage == GND Then
 	SerDataOut[9..0] = (VCC,GND,VCC,GND,VCC,GND,VCC,GND,VCC,GND);
 	NWordFLink[] = NWordCount.q[];
 Else 
-	SerDataOut[9..0] = (ChannelCount.q[1..0],DataCount.q[]);--TestLinkCt.q[9..0];--
-	NWordFLink[] = (GND,ChannelCount.q[2]);
+--	SerDataOut[9..0] = (ChannelCount.q[1..0],DataCount.q[]);--TestLinkCt.q[9..0];--
+--	NWordFLink[] = (GND,ChannelCount.q[2]);
 	CASE ChannelCount.q[] IS 
 		 When b"000" => TA6Channel[0].DAQAddrBus_In[7..0] = DataCount.q[];
 						TA6Channel[0].ReadWFhist		  = TxWFhist.q;
-%						SerDataOut[9..0] = TA6Channel[0].DAQDataBusOut[9..0];
+						SerDataOut[9..0] = TA6Channel[0].DAQDataBusOut[9..0];
 						NWordFLink[] = TA6Channel[0].DAQDataBusOut[11..10];
-%		 When b"001" => TA6Channel[1].DAQAddrBus_In[7..0] = DataCount.q[];
+		 When b"001" => TA6Channel[1].DAQAddrBus_In[7..0] = DataCount.q[];
 						TA6Channel[1].ReadWFhist		  = TxWFhist.q;
-%						SerDataOut[9..0] = TA6Channel[1].DAQDataBusOut[9..0];
+						SerDataOut[9..0] = TA6Channel[1].DAQDataBusOut[9..0];
 						NWordFLink[] = TA6Channel[1].DAQDataBusOut[11..10];
-%		 When b"010" => TA6Channel[2].DAQAddrBus_In[7..0] = DataCount.q[];
+		 When b"010" => TA6Channel[2].DAQAddrBus_In[7..0] = DataCount.q[];
 						TA6Channel[2].ReadWFhist		  = TxWFhist.q;
-%						SerDataOut[9..0] = TA6Channel[2].DAQDataBusOut[9..0];
+						SerDataOut[9..0] = TA6Channel[2].DAQDataBusOut[9..0];
 						NWordFLink[] = TA6Channel[2].DAQDataBusOut[11..10];
-%		 When b"011" => TA6Channel[3].DAQAddrBus_In[7..0] = DataCount.q[];
+		 When b"011" => TA6Channel[3].DAQAddrBus_In[7..0] = DataCount.q[];
 						TA6Channel[3].ReadWFhist		  = TxWFhist.q;
-%						SerDataOut[9..0] = TA6Channel[3].DAQDataBusOut[9..0];
+						SerDataOut[9..0] = TA6Channel[3].DAQDataBusOut[9..0];
 						NWordFLink[] = TA6Channel[3].DAQDataBusOut[11..10];
-%		 When b"100" => TA6Channel[4].DAQAddrBus_In[7..0] = DataCount.q[];
+		 When b"100" => TA6Channel[4].DAQAddrBus_In[7..0] = DataCount.q[];
 						TA6Channel[4].ReadWFhist		  = TxWFhist.q;
-%						SerDataOut[9..0] = TA6Channel[4].DAQDataBusOut[9..0];
+						SerDataOut[9..0] = TA6Channel[4].DAQDataBusOut[9..0];
 						NWordFLink[] = TA6Channel[4].DAQDataBusOut[11..10];
-%		 When b"101" => TA6Channel[5].DAQAddrBus_In[7..0] = DataCount.q[];
+		 When b"101" => TA6Channel[5].DAQAddrBus_In[7..0] = DataCount.q[];
 						TA6Channel[5].ReadWFhist		  = TxWFhist.q;
-%						SerDataOut[9..0] = TA6Channel[5].DAQDataBusOut[9..0];
+						SerDataOut[9..0] = TA6Channel[5].DAQDataBusOut[9..0];
 						NWordFLink[] = TA6Channel[5].DAQDataBusOut[11..10];
-%		 WHEN OTHERS => FLink_Error = VCC;
+		 WHEN OTHERS => FLink_Error = VCC;
 						TA6Channel[0].ReadWFhist		  = GND;
 						TA6Channel[1].ReadWFhist		  = GND;
 						TA6Channel[2].ReadWFhist		  = GND;

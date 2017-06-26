@@ -1119,7 +1119,7 @@ Delay_StEthTx.(D,clk,reset) = ((St_EthTx_Ether & Ether.RxEndFrame),Clk100,RESET)
 
 Delay_St_Ether_Link.(clk,R,clrn) = (Clk100, RESET, !(EndEtherTx OR EtherLinkTimeCt.cout));
 
-IF (EtherLinkTimeCt.q[]> 1400) Then
+IF (EtherLinkTimeCt.q[]> 1000) Then
 	Delay_St_Ether_Link.(S) = (!TA_DataStrobe.q AND Delay_TA_DataStrobe.q);
 	Else 
 	Delay_St_Ether_Link.(S) = GND;
@@ -1154,7 +1154,7 @@ IF EtherBank_1.q == VCC Then
 		Eth_InitAddr[]  = 512;--512;	-- initial addr of data in WF Ram to be transmitted 
 	ELSIF EtherBank_3.q == VCC Then
 		Ether.TxLength[]= 1024;	-- DataBlock length = 1024Bytes = 512 words
-		Eth_InitAddr[]  = 1280;--1024;	-- initial addr of data in WF Ram to be transmitted 
+		Eth_InitAddr[]  = 1024;--1024;	-- initial addr of data in WF Ram to be transmitted 
 END IF; 
 
 --StartEthTx_Link.(D, clk, reset) = ((!Link_IFace.LinkMessage & Delay_LinkMessage.q) AND Delay_St_Ether_Link.q, Clk100, RESET);
@@ -1166,7 +1166,7 @@ StartEthTx  = (%StartEthTx_Camac   OR%              -- Start Transmit by CAMAC .
 	((StartOne # StartMulti)& Delay_StEthTx.q))     -- .. or Start by Ethernet, if allowed
 	AND !Ether.TX_EN ;                              -- if a Transmit is NOT in progress
 
-StartEthTx_Cnt.(clock, clk_en, cnt_en) = (StartEthTx, VCC, StartEthTx);
+StartEthTx_Cnt.(clock, clk_en, cnt_en) = (Clk25%StartEthTx%, VCC, StartEthTx);
 
 StatusPack.(clock, enable, load) = (Clk25, StartEthTx, VCC);
 StatusPack.data[] = (StartEthTx_Cnt.q[], b"00000", EtherBank_3.q,EtherBank_2.q,EtherBank_1.q); 

@@ -578,7 +578,7 @@ END IF;
 --	StopWriteWFhist.(s,r,clk) = (EdgeSensing(.D= LinkMessage, .clk=ADC_clock, .reset=RESET), !WriteRAM, ADC_Clock);
 
 	WFhist_ADCCt.clock = ADC_Clock;
-	WFhist_ADCCt.sclr = (EdgeSensing(.D= LinkMessage, .clk=ADC_clock, .reset=RESET) );
+	WFhist_ADCCt.sclr = (EdgeSensing(.D= ReadWFhist, .clk=ADC_clock, .reset=RESET) );
 	WFhist_ADCCt.clk_en = VCC;
 	WFhist_ADCCt.cnt_en = WriteWFhist;
 
