@@ -721,7 +721,7 @@ Clk37_5 = DFF (.d = !Clk37_5, .clk = Clk75);
 SerClk = Clk25;--Clk50;--Clk37_5;--
 Delay_LinkMessage.(D,clk) = (Link_IFace.LinkMessage, Clk100);
 TxWFhist.(S, clk, R, clrn) = (Link_IFace.LinkMessage AND !Delay_LinkMessage.q, Clk100, GND, !StopCount);
-DelayWriteWFhist.(D,clk,reset) = (TxWFhist.q; Clk100, Reset)
+DelayWriteWFhist.(D,clk,reset) = (TxWFhist.q, Clk100, Reset);
 TAWF_DataStrobe = TxWFhist.q;
 
 FOR i IN 0 TO (NUM_CH-1) GENERATE
