@@ -168,6 +168,8 @@ Delay_LinkMessage	: DFF;
 FLink_Data_BUS				: lpm_shiftreg with (lpm_width=12, lpm_direction="unused");
 --FLink_cnt					: lpm_counter with (lpm_width = 8, lpm_direction="up"); -- счетчик времени для синхронизации
 
+FLink_Reg_LinkOpCode		: LPM_SHIFTREG with (lpm_width=(CommandSize+Pause), -- contains Command
+												 lpm_direction="unused"); -- not important
 TxWFhist					: SRFF;
 DelayWriteWFhist			: DelayLine with (DelayCode = 1000,  -- to delay the real END of Write WFHist
 								  DurationCode= 2); --  after LinkMessage-cycle
@@ -207,6 +209,7 @@ StartProc_Link	: node;
 
 StartADC_Link	: node;
 --StartADC        : PulseShaper with (DurationCode=4);-- all sources of Start ADC combined
+StartWFTx		: node;
 
 OpCode_load		: node; -- puts Reg_OpCode into "load" mode
 --    InDataSave, InDataSaved : node; -- for TEST Only!!
@@ -494,58 +497,58 @@ IF (Link_IFace.LinkMessage == VCC)  then -- If VALID command received,
 		--                StartProc_Link  = Start_Link.q;
 		--WHEN  Write1 => BaseAddr[] = 88;        -- Write 1 word  to Object
 		--                StartProc_Link  = Start_Link.q;
-		WHEN  Read		=> BaseAddr[]    = 80;   --#145-"Read" (=<8words) from Objects 
-						StartProc_Link  = Start_Link.q; -- Start up the Program
-		WHEN  Write		=> BaseAddr[]      =192; --#154-"Write"(=<4words) to Objects
-						StartProc_Link  = Start_Link.q; -- Start up the Program
-		WHEN  Read62   => BaseAddr[] =  2;-- #130-"Read":  Read 62 words from Object(s)
-						StartProc_Link  = Start_Link.q;
-		WHEN  Write8  => BaseAddr[] = 160;-- #137-"Write": Write 8 words  to Object(s)
-						StartProc_Link  = Start_Link.q;
+		WHEN  Read		=> BaseAddr[]	= 80;   --#145-"Read" (=<8words) from Objects 
+						StartProc_Link	= Start_Link.q; -- Start up the Program
+		WHEN  Write		=> BaseAddr[]	=192; --#154-"Write"(=<4words) to Objects
+						StartProc_Link	= Start_Link.q; -- Start up the Program
+		WHEN  Read62   => BaseAddr[]	=  2;-- #130-"Read":  Read 62 words from Object(s)
+						StartProc_Link	= Start_Link.q;
+		WHEN  Write8  => BaseAddr[]		= 160;-- #137-"Write": Write 8 words  to Object(s)
+						StartProc_Link	= Start_Link.q;
 
 		WHEN  StartRegul       =>    -- #193-"START_Normal" (Чтение0)
 						BaseAddr[] = 72;                -- Program: CommdList_Rd000 for test with new system
-						StartProc_Link  = Start_Link.q; -- Start up the Program
-						StartADC_Link   = SelCommdList_Trig.q;--Start_Link.q; -- Start up the Digitizing Cycle
+						StartProc_Link	= Start_Link.q; -- Start up the Program
+						StartADC_Link	= SelCommdList_Trig.q;--Start_Link.q; -- Start up the Digitizing Cycle
 		WHEN  CommdLst_Wr001 =>      -- #202-"Write by CommdLst001" (Запись0)
 						BaseAddr[] =100;                -- Program: CommdList_Wr001
 						StartProc_Link  = Start_Link.q; -- Start up the Program
 
 		WHEN  StartAlter       =>    -- #210-"START_Alternative" (Чтение1)
-						BaseAddr[]      = 28;           -- Program: CommdList_Rd010
-						StartProc_Link  = Start_Link.q; -- Start up the Program
-						StartADC_Link   = Start_Link.q; -- Start up the Digitizing Cycle
+						BaseAddr[]		= 28;           -- Program: CommdList_Rd010
+						StartProc_Link	= Start_Link.q; -- Start up the Program
+						StartADC_Link	= Start_Link.q; -- Start up the Digitizing Cycle
 		WHEN  CommdLst_Wr011 =>      -- #217-"Write by CommdLst011" (Запись1)
 						BaseAddr[] =106;                -- Program: CommdList_Wr011
-						StartProc_Link  = Start_Link.q; -- Start up the Program
+						StartProc_Link	= Start_Link.q; -- Start up the Program
 
 		WHEN  CommdLst_Rd100   =>    -- #226-"Read by CommdLst100" (Чтение2)
-						BaseAddr[]      = 32;           -- Program: CommdList_Rd100
-						StartProc_Link  = Start_Link.q; -- Start up the Program
-						StartADC_Link   = Start_Link.q; -- Start up the Digitizing Cycle
+						BaseAddr[]		= 32;           -- Program: CommdList_Rd100
+						StartProc_Link	= Start_Link.q; -- Start up the Program
+						StartADC_Link	= Start_Link.q; -- Start up the Digitizing Cycle
 		WHEN  CommdLst_Wr101 =>      -- #233-"Write by CommdLst101" (Запись2)
 						BaseAddr[] =112;                -- Program: CommdList_Wr101
-						StartProc_Link  = Start_Link.q; -- Start up the Program
+						StartProc_Link	= Start_Link.q; -- Start up the Program
 
 		WHEN  CommdLst_Rd110   =>    -- #241-"Read  by CommdLst_selected_by_InData" (Чтение3)
-						BaseAddr[]      = 36;           -- Program: CommdList_Rd_InData;
-						StartProc_Link  = Start_Link.q; -- Start up the Program
-						StartADC_Link   = Start_Link.q; -- Start up the Digitizing Cycle
+						BaseAddr[]		= 36;           -- Program: CommdList_Rd_InData;
+						StartProc_Link	= Start_Link.q; -- Start up the Program
+						StartADC_Link	= Start_Link.q; -- Start up the Digitizing Cycle
 		WHEN  CommdLst_Wr111 =>      -- #250-"Write by CommdLst111" (Запись3)
 						BaseAddr[] =118;                -- Program: CommdList_Wr111
-						StartProc_Link  = Start_Link.q; -- Start up the Program
+						StartProc_Link	= Start_Link.q; -- Start up the Program
 
 		WHEN  Rd_SelCommdLst =>     -- #198-"Read  by CommdLst_selected_by_InData"
-						BaseAddr[]        = 72;           --Program: Rd_SelCommdList
-						StartProc_Link    = Start_Link.q;          --Start up the Program
-						StartADC_Link   = SelCommdList_Trig.q;--SelCommdList_Count.q; -- Start up the Digitizing Cycle
+						BaseAddr[]		= 72;           --Program: Rd_SelCommdList
+						StartProc_Link	= Start_Link.q;          --Start up the Program
+						StartADC_Link	= SelCommdList_Trig.q;--SelCommdList_Count.q; -- Start up the Digitizing Cycle
 		WHEN  Wr_SelCommdLst =>     -- #205-"Write by CommdLst_selected_by_InData"
-						BaseAddr[]        =153;           --Program: Wr_SelCommdList
-						StartProc_Link    = Start_Link.q;          --Start up the Program
-						StartADC_Link   = SelCommdList_Trig.q;--SelCommdList_Count.q; -- Start up the Digitizing Cycle
+						BaseAddr[]	=153;           --Program: Wr_SelCommdList
+						StartProc_Link	= Start_Link.q;          --Start up the Program
+						StartADC_Link	= SelCommdList_Trig.q;--SelCommdList_Count.q; -- Start up the Digitizing Cycle
 
-		WHEN OTHERS		=> StartProc_Link = GND;
-						   StartADC_Link  = GND;
+		WHEN OTHERS		=>	StartProc_Link	= GND;
+							StartADC_Link	= GND;
     End CASE;
 End IF ;
 
@@ -717,10 +720,21 @@ END GENERATE;
 
 --************************** Передача данных в IPT ***************************** 
 
+FLink_Reg_LinkOpCode.data[(CommandSize+Pause-1)..0]= Link_IFace.OpCode_out[(CommandSize+Pause-1)..0];
+FLink_Reg_LinkOpCode.(clock, enable, load)= (Clk100, OpCode_load, VCC); -- catch data when RxOpCodeReload=1 
+FLink_Reg_LinkOpCode.(aclr, sclr)			= (StopCount, GND);
+
+CASE FLink_Reg_LinkOpCode.q[7..0] is -- recognizing the particular Operation :
+	WHEN StartRegul		 =>     -- #193-"START_Regular"        (+?oyoo Lst0)
+		 StartWFTx	 = VCC;	--Start up Ethernet transmition with waveforms
+	WHEN Others => 	
+		 StartWFTx	 = GND;	--Start up Ethernet transmition with waveforms
+End CASE;
+
 Clk37_5 = DFF (.d = !Clk37_5, .clk = Clk75);
 SerClk = Clk25;--Clk50;--Clk37_5;--
-Delay_LinkMessage.(D,clk) = (Link_IFace.LinkMessage, Clk100);
-TxWFhist.(S, clk, R, clrn) = (Link_IFace.LinkMessage AND !Delay_LinkMessage.q, Clk100, GND, !StopCount);
+Delay_LinkMessage.(D,clk) = (StartWFTx, Clk100);
+TxWFhist.(S, clk, R, clrn) = (StartWFTx AND !Delay_LinkMessage.q, Clk100, GND, !StopCount);
 DelayWriteWFhist.(D,clk,reset) = (TxWFhist.q, Clk100, Reset);
 TAWF_DataStrobe = TxWFhist.q;
 
