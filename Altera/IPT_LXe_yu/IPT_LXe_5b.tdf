@@ -280,7 +280,7 @@ Eth_WRITE,				-- flag: Ethernet' "Write" command is received
 EtherWRITE		: node; -- flag: Ethernet' "Write" command is received, registered 
 --EtherWR_we		: node; -- Upon Ether' "WRITE" command, enables ETHERNET -> TestRAM
 
-Reg_Block		: lpm_shiftreg with (lpm_width=1, lpm_direction="unused");
+Reg_Block		: lpm_shiftreg with (lpm_width=1, lpm_direction="unused", lpm_svalue = b"0");
 
 SelCommdList_Reg: lpm_shiftreg with (lpm_width=16, lpm_direction="unused");
 SelCommdList_Count: lpm_counter with (lpm_width = 1, lpm_direction="up");
@@ -925,6 +925,7 @@ Eth_Reg_LinkEvNumber.data[] = Link_IFace.InData_out[];
 Eth_Reg_LinkEvNumber.(clock, enable, load)= (Clk100, Link_IFace.IORq, VCC); -- catch data when RxOpCodeReload=1 
 Eth_Reg_LinkEvNumber.(aclr, sclr)		  = (RESET OR EndEtherTx OR EtherLinkTimeCt.cout OR Reg_Block.q[0], GND);
 
+Reg_Block.sset = PwrUpSet1;
 Reg_Block.(data, clock, enable, load) = (DataBus[0], Clk100,(DataStrobe & DevSel[15] & RW),VCC); -- latch the 1st DWord received
 
 CASE Eth_Reg_LinkOpCode.q[7..0] is -- recognizing the particular Operation :

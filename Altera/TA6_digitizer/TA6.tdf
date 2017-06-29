@@ -171,7 +171,7 @@ FLink_Data_BUS				: lpm_shiftreg with (lpm_width=12, lpm_direction="unused");
 FLink_Reg_LinkOpCode		: LPM_SHIFTREG with (lpm_width=(CommandSize+Pause), -- contains Command
 												 lpm_direction="unused"); -- not important
 TxWFhist					: SRFF;
-DelayWriteWFhist			: DelayLine with (DelayCode = 1000,  -- to delay the real END of Write WFHist
+DelayWriteWFhist			: DelayLine with (DelayCode = 100,  -- to delay the real END of Write WFHist
 								  DurationCode= 2); --  after LinkMessage-cycle
 DataCount					: lpm_counter with (lpm_width = 8, lpm_direction="up"); -- счетчик данных из памяти канала для передачи по линку в ИПТ
 ChannelCount				: lpm_counter with (lpm_width = 3, lpm_direction="up"); -- счетчик каналов для передачи по линку в ИПТ
@@ -733,13 +733,13 @@ End CASE;
 
 Clk37_5 = DFF (.d = !Clk37_5, .clk = Clk75);
 SerClk = Clk25;--Clk50;--Clk37_5;--
-Delay_LinkMessage.(D,clk) = (StartWFTx, Clk100);
-TxWFhist.(S, clk, R, clrn) = (StartWFTx AND !Delay_LinkMessage.q, Clk100, GND, !StopCount);
-DelayWriteWFhist.(D,clk,reset) = (TxWFhist.q, Clk100, Reset);
+DelayWriteWFhist.(D,clk,reset) = (StartWFTx, Clk100, Reset);
+Delay_LinkMessage.(D,clk) = (DelayWriteWFhist.q, Clk100);
+TxWFhist.(S, clk, R, clrn) = (DelayWriteWFhist.q AND !Delay_LinkMessage.q, Clk100, GND, !StopCount);
 TAWF_DataStrobe = TxWFhist.q;
 
 FOR i IN 0 TO (NUM_CH-1) GENERATE
-	TA6Channel[i].WriteWFhist = !DelayWriteWFhist.q;--TestLinkCt.q[11];--Link_IFace.LinkMessage;
+	TA6Channel[i].WriteWFhist = !TxWFhist.q;--TestLinkCt.q[11];--Link_IFace.LinkMessage;
 END GENERATE;
 
 --DataCount.(clock, cnt_en, sclr) = (Clk25, Link_IFace.LinkMessage, !Link_IFace.LinkMessage);
