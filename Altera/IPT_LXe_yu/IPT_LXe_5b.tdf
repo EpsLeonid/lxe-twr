@@ -894,7 +894,7 @@ CASE  Reg_EthOpCode.q[7..0] is  -- recognizing the particular Operation :
 	WHEN  H"01" =>  -- "PING" command
 		St_EthTx_Ether  = VCC;  -- Start up the Transmit
 		Ether.TxLength[]=  64;  -- DataBlock length = 64Bytes
-		Eth_InitAddr[]  = 0;--b"00100000000";  -- initial addr of data to be transmitted 
+		Eth_InitAddr[]  = 2000;--b"00100000000";  -- initial addr of data to be transmitted 
 
 	--WHEN  H"03" =>  -- "StartMulti" for sending Ethernet' frames" 
 	--WHEN  H"04" =>  -- "STOP sending Ethernet' frames" 
@@ -999,7 +999,7 @@ ELSIF (St_EthTx_Ether == VCC) Then
 		
 		When others => Ether.DataBus_in[15..0] = TestRAM.q_a[];
 	End case;%
-	Ether.DataBus_in[15..0] = TestRAM.q_a[];--TAWF_HistRAM.q_b[];--
+	Ether.DataBus_in[15..0] = TAWF_HistRAM.q_b[];--TestRAM.q_a[];--
 END IF;
 --============================================================================
 --******** 5. Processor ******************************************************
