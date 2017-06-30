@@ -894,7 +894,7 @@ CASE  Reg_EthOpCode.q[7..0] is  -- recognizing the particular Operation :
 	WHEN  H"01" =>  -- "PING" command
 		St_EthTx_Ether  = VCC;  -- Start up the Transmit
 		Ether.TxLength[]=  64;  -- DataBlock length = 64Bytes
-		Eth_InitAddr[]  = 512;--b"00100000000";  -- initial addr of data to be transmitted 
+		Eth_InitAddr[]  = 0;--b"00100000000";  -- initial addr of data to be transmitted 
 
 	--WHEN  H"03" =>  -- "StartMulti" for sending Ethernet' frames" 
 	--WHEN  H"04" =>  -- "STOP sending Ethernet' frames" 
