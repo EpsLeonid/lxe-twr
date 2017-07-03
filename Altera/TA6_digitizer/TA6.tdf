@@ -171,7 +171,7 @@ FLink_Data_BUS				: lpm_shiftreg with (lpm_width=12, lpm_direction="unused");
 FLink_Reg_LinkOpCode		: LPM_SHIFTREG with (lpm_width=(CommandSize+Pause), -- contains Command
 												 lpm_direction="unused"); -- not important
 TxWFhist					: SRFF;
-DelayWriteWFhist			: DelayLine with (DelayCode = 100,  -- to delay the real END of Write WFHist
+DelayWriteWFhist			: DelayLine with (DelayCode = 90,  -- to delay the real END of Write WFHist
 								  DurationCode= 2); --  after LinkMessage-cycle
 DataCount					: lpm_counter with (lpm_width = 8, lpm_direction="up"); -- счетчик данных из памяти канала для передачи по линку в ИПТ
 ChannelCount				: lpm_counter with (lpm_width = 3, lpm_direction="up"); -- счетчик каналов для передачи по линку в ИПТ

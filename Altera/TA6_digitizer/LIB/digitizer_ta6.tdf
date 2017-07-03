@@ -588,7 +588,7 @@ END IF;
 	DelayReadWFhist.(d, clk, clrn) = (ReadWFhist, ADC_Clock, Reset);
 	EndTxWF.(d, clk, clrn) = (!ReadWFhist AND DelayReadWFhist.q, ADC_Clock, Reset);
 	WFSampleCt.(clock, clk_en, cnt_en, sclr) = (ADC_Clock, Thr_Trig.q AND !LinkMessage, VCC, EndTxWF.q);
-
+	
 	WFhist_RAMAddrBus.(data[], clock, load, enable) = (WFhist_ADCCt.q[], ADC_Clock, VCC, ReadWFhist AND !DelayReadWFhist.q);
 	WFhist_RAMAddr[7..0] = WFhist_RAMAddrBus.q[7..0] + 1 + DAQAddrBus_In[7..0]; -- выставление адреса в момент, когда начался сигнал с запасом в несколько тактов
 						-- значение счетчика при 			 счетчик перебора 
