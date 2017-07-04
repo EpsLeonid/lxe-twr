@@ -1,13 +1,9 @@
-Output: NC Drill Files
-Type  : NC Drill
-From  : Project [LXe_digitizer.PrjPcb]
-   Generated File[New_LXe_twr.TXT]
-   Generated File[New_LXe_twr.DRL]
-   Generated File[New_LXe_twr.LDP]
-   Generated File[New_LXe_twr.DRR]
+Output: Bill of Materials
+Type  : BOM
+From  : Variant [[No Variations]] of Project [LXe_digitizer.PrjPcb]
 
 
-Files Generated   : 4
+Files Generated   : 0
 Documents Printed : 0
 
-Finished Output Generation At 14:30:09 On 25.03.2014
+Finished Output Generation At 17:56:00 On 03.07.2017
