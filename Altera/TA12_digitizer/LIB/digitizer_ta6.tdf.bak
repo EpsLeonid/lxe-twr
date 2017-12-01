@@ -1,0 +1,768 @@
+Title "Digitizer_TA6";
+
+INCLUDE "lpm_shiftreg.inc" ;
+INCLUDE "lpm_counter.inc" ;
+INCLUDE	"lpm_add_sub.inc";
+INCLUDE "lpm_divide.inc";
+INCLUDE "lpm_mux.inc";
+--INCLUDE	"Edge_Sensing_Sync.inc";+
+INCLUDE	"SUM_4.inc";
+INCLUDE	"RAM_digit.inc";
+INCLUDE "Hist_RAM.inc" ;
+INCLUDE "WFhist_ram.inc" ;
+--INCLUDE	"im_ram.inc";
+--INCLUDE	"test_ram.inc";
+INCLUDE "EdgeSensing.inc";
+INCLUDE "DelayLine.inc" ;
+
+CONSTANT	ADC_WIDTH = 12;	-- Кол-во битов АЦП
+CONSTANT	REG_SUM = 4;	-- Кол-во регистров для суммирования
+CONSTANT	MaxTime = 250;  -- Maximal Valid time (2.5mks)
+CONSTANT	TimeRead = 300;  -- Maximal Valid time (3mks)
+CONSTANT	DelayTime= 30;	-- Время задержки в разностном сигнале
+--CONSTANT	PopravDelTime = 52; -- Время задержки = DelayTime - 22 (момент вычитывания значения амплитуды для поиска поправки)
+								-- **нужно протестировать на симуляторе и подобрать время задержки!!!
+-- Only test --
+Constant	Piedistal_def = 120;
+Constant	Threshold_def = 200;
+---------------
+
+SUBDESIGN Digitizer_TA6
+(
+-- General Signals
+			DigitInit				: input; -- initiates a Cycle of data processing (Temporary!)
+			RegInit					: input;
+			ADC_Clock				: input; -- Global FPGA Clock, assumed 100MHz for project 
+			Bus_Clock				: input; -- Global FPGA Clock, assumed 100MHz for project 
+			Reset					: input; -- Common FPGA Reset
+			ADCdata[11..0]			: input; -- Входные данные с АЦП
+			DataBus_In[15..0]		: input; -- отправляемые с Внутренней Шины в Линк данные
+			DataBusOut[15..0]		: output; -- выдаваемые на Внутреннюю Шину из памяти данные
+			Working					: output;
+			LinkMessage				: input;
+			WriteRAM				: input;
+--			Event					: input; -- такт конвеера
+--			LinkMsg					: input; -- сигнал о работе линка (общий стоп)
+--			Start_read				: output;
+			EventFound				: OUTPUT; -- сигнал об обнаружении нужного события		
+
+			Error                   : output; -- сигнал ошибки (неверная команда)
+%	-- Master Mode Signals -- используется при работе данного Модуля в режиме Master)
+	AccessRequest           : output; -- запрос к Арбитру на доступ к шине для чтения/записи данных Пользователя в режиме Master	
+	AccessGranted			: input;  -- Разрешение Арбитра выставить Адрес и направление обмена (захват шины)
+	DirectOut				: output; -- направление передачи данных, на внутреннюю шину или с нее, по умолчанию =GND, передача от внутренних ресурсов платы Модуль,
+	AddrBusOut[15..0]       : output; -- адрес при операциях доступа ко внутренним ресурсам Оцифровщика (чтения/записи по Командному Листу).
+%		-- Slave Mode Signals	-- используется при работе данного Модуля в режиме Slave
+		Select					: input;  -- Выбор Модуля для работы с памятью Командного Листа в режиме Slave (с КАМАК-ом)
+		DirectIn				: input;  -- направление передачи данных, Если =GND, то данный Модуль читается, если =VCC, то пишется.
+		AddrBus_In[9..0]		: input;  -- адрес при операциях доступа чтения/записи Командного Листа с КАМАК-а
+		DataBusStrobe           : input;  -- строб приема/передачи данных наружу (высокий уровень, используя его как Enable, "защелкиваем" по заднему фронту
+
+		Flink_clock				: input; -- частота передачи слов по линку в ИПТ-LXe
+		ReadWFhist				: input; -- сигнал на чтение форм сигналов
+		WriteWFhist				: input; -- сигнал, что запись формы разрешена
+		DAQAddrBus_In[7..0]		: input; -- адрес данных для передачи по быстрому линку, когда пришла команда чтения
+		DAQDataBusOut[11..0]	: output; -- данные для передачи по быстрому линку, когда пришла команда чтения
+
+	Sample[13..0]				: output;
+	Summ[13..0]					: output;
+	Subtr[13..0]	            : output;
+	Zero[13..0]					: output;
+	test1,test2,test3,
+	test4[14..0],test5,
+	test6[13..0],test7[13..0],
+	test8[9..0]					: output ; -- to be conected to test output of main Project 
+)
+
+VARIABLE
+
+--********  Cycle proceeding units  ********
+-- Cycle initiation circuitry
+	DigitInit1				: node; -- stretcher of "DigitInit" signal
+	DigitInit2,
+	DigitInit3				: node; -- 2-clock _/^^\_ in the beginning of Cycle
+--	Working					: node; -- Flag: Cycle in progress, declared as Output
+	InitSet					: node; -- 1-clock _/^\_ for initializing the counters
+	DigitEnd				: node; -- _/^^\_ at the end of Loading Cycle
+
+-- Main Counter of Digitization: counts #_of_Step, defines all control signals' states
+	DigitCt					: LPM_COUNTER with ( lpm_width=14, lpm_direction="up" );
+
+--********  Data Processing circuitry  ********
+%
+	Multiplex			:	lpm_mux with (LPM_WIDTH = 12, LPM_SIZE = 2, LPM_WIDTHS = 1, LPM_PIPELINE = 1); -- регистр уровня порога
+	Mux_Reg				:	lpm_shiftreg with (LPM_WIDTH = 1, LPM_DIRECTION="unused"); -- регистр выбора потока данных
+	Mux					:	node;
+
+-- RAM which imitates the ADC
+	Im_ADC				:	im_ram;
+	Im_ADCCt			:	LPM_COUNTER with (lpm_width = 8, lpm_direction="up" ); -- счетчик 
+--	Im_RAMAddrBus[7..0]	:	node;
+%
+	Hist_ADC			:	hist_ram;
+	Hist_ADCCt			:	LPM_COUNTER with (lpm_width = 9, lpm_direction="up" ); -- счетчик 
+	Hist_RAMAddrBus		:	lpm_shiftreg with (LPM_WIDTH = 9, LPM_DIRECTION="unused");
+	Hist_RAMAddr[9..0]	:	node;
+	StopWrite			:	DelayLine with (DelayCode = 200);
+	StopWrite_trig		:	SRFF;
+--	SaveRam				:	node;
+
+	WFhist				:	WFhist_ram;
+	WFhist_ADCCt		:	LPM_COUNTER with (lpm_width = 8, lpm_direction="up" ); -- счетчик 
+	DelayReadWFhist,
+	EndTxWF				:	DFFE;
+	WFSampleCt			:	lpm_counter with (LPM_WIDTH = 8, LPM_DIRECTION="up"); -- счетчик с момент пересечения порога до прихода команды чтения.
+	WFhist_RAMAddrBus	:	lpm_shiftreg with (LPM_WIDTH = 8, LPM_DIRECTION="unused");
+	WFhist_RAMAddr[9..0]:	node;
+
+%
+	Test_ADC			:	test_ram;
+	Test_ADCCt			:	LPM_COUNTER with (lpm_width = 8, lpm_direction="up" ); -- счетчик 
+%
+--	Ram_Sel[2..0]       :   node; -- мультиплексор для выбора обращения к памятям
+	Ram_Sel				:	node; -- мультиплексор для выбора обращения к памятям
+
+	Threshold_Reg		:	lpm_shiftreg with (LPM_WIDTH = 14, LPM_DIRECTION="unused",LPM_SVALUE = Threshold_def); -- регистр уровня порога
+	SaveTReg			:	node;
+	Piedistal_Reg		:	lpm_shiftreg with (LPM_WIDTH = ADC_WIDTH, LPM_DIRECTION="unused",LPM_SVALUE = Piedistal_def); -- регистр уровня порога
+	SavePReg			:	node;
+
+--	Sum_ped[13..0]		:	node;
+	Sub_Ped				:	lpm_add_sub with (lpm_width = ADC_WIDTH, lpm_direction="sub", LPM_REPRESENTATION = "UNSIGNED",
+												  Lpm_pipeline = 1 );
+
+	RegSum[REG_SUM-1..0]:	lpm_shiftreg with (LPM_WIDTH = ADC_WIDTH, LPM_DIRECTION="unused"); -- регистр входных данных 
+	SUMMATOR			:	SUM_4;	 -- Сумматор на 4 слагаемых
+	DigitInit4,DigitInit5,
+	DigitInit6,DigitInit7:	DFFE;
+	Sum_clken			:	node;
+--	Average_Reg			:	lpm_shiftreg with (LPM_WIDTH = ADC_WIDTH, LPM_DIRECTION="unused"); -- регистр усредненных значений
+--	Aver_Reg			:	lpm_shiftreg with (LPM_WIDTH = REG_SUM, LPM_DIRECTION="unused"); -- регистр усредненных значений деленных на 4
+
+    SampleRAM           :   RAM_digit;      -- память имитирующая линию задержки сэмплов
+	SampleRAM_AddrCnt1	:	LPM_COUNTER with (lpm_width = 8, lpm_direction="up" ); -- счетчик 
+	SampleRAM_AddrCnt2	:	LPM_COUNTER with (lpm_width = 8, lpm_direction="up" ); -- счетчик "отстающий" на Delay
+--	Delay_AddrCt2		:	LPM_COUNTER with (lpm_width = 8, lpm_direction="up" ); -- счетчик 
+
+-- 1clk is used for Loading "SampleRAM_AddrCnt1" with DelayTime, \
+-- 2clk are added to DelayTime by reading_out of SampleRAM       / => Actual Delay = DelayTime + 1
+	DelayTime_Reg		:	lpm_shiftreg with (LPM_WIDTH = 8, LPM_DIRECTION="unused", LPM_SVALUE = DelayTime); -- регистр значения задержки
+
+    SUB					:	lpm_add_sub with (lpm_width = 14, lpm_direction="sub", LPM_REPRESENTATION = "UNSIGNED",
+											  Lpm_pipeline = 1 ); -- сумматор выполняющий фунцию вычитателя сигналов
+
+	DigitZero,DigitZero1,
+	DigitZero2,DigitZero3,
+	DigitZero4,DigitZero5,
+	DigitZero6,DigitZero7,
+	DigitZero8,DigitZero9,
+	DigitZero10,DigitZero11,
+	DigitZero12,DigitZero13,
+	DigitZero14,DigitZero15,
+	DigitZero16,DigitZero17		:	DFFE;
+
+	RegZero[3..0]		:	lpm_shiftreg with (LPM_WIDTH = 14, LPM_DIRECTION="unused"); -- регистр входных данных 
+	Read_Zero_Cnt		:	node;
+	Reg_Zero_Cnt		:	lpm_shiftreg with (LPM_WIDTH = 11, LPM_DIRECTION="unused"); -- значение счетчика в момент пересечения нуля
+%
+	Div1				:	lpm_add_sub with (lpm_width = 14, lpm_direction="sub", 
+											  Lpm_pipeline = 1 ); -- сумматор выполняющий фунцию вычитателя сигналов
+
+	Popravka			:	lpm_add_sub with (lpm_width = 14, lpm_direction="sub", 
+											  Lpm_pipeline = 1 );
+
+--	Popravka_en			:	node;
+
+	Popravka_AddrCnt	:	LPM_COUNTER with (lpm_width = 8, lpm_direction="up"); -- счетчик 
+
+	PopravDelTime_Reg	:	lpm_shiftreg with (LPM_WIDTH = 8, LPM_DIRECTION="unused", LPM_SVALUE = PopravDelTime); -- регистр значения задержки
+
+	Add_Popravka1		:	lpm_add_sub with (lpm_width = 14, lpm_direction="add", Lpm_pipeline = 1 );
+
+--	Add_Popravka2		:	lpm_add_sub with (lpm_width = 14, lpm_direction="add", 
+--											  Lpm_pipeline = 1 );
+
+	Zero_div1			:	lpm_divide	with (LPM_WIDTHN = 14, LPM_WIDTHD = 12, Lpm_pipeline = 7);
+	Zero_div2			:	lpm_divide	with (LPM_WIDTHN = 14, LPM_WIDTHD = 12, Lpm_pipeline = 7);
+
+	RezultReg_Zero		:	lpm_shiftreg with (LPM_WIDTH = 14, LPM_DIRECTION="unused"); -- регистр данных с обоих делителей
+	Read_Rezult_Zero	:	node;
+
+	ZeroSum				:	lpm_add_sub with (lpm_width = 10, lpm_direction="add", Lpm_pipeline = 1 );
+%
+	DelayAver_Reg		:	lpm_shiftreg with (LPM_WIDTH = 14, LPM_DIRECTION="unused"); -- регистр данных с усредненными задержанными на 1 такт сэмплами  
+
+--	SUMPed[REG_SUM-5..0]:	node;
+
+	Max_Reg				:	lpm_shiftreg with (LPM_WIDTH = 14, LPM_DIRECTION="unused"); -- регистр данных (амплитуда)
+	Read_Amp			:	node;
+
+	Thr_Trig			:	SRFF; -- флаг определения порога
+	Zero_Trig			:	SRFF; -- флаг пересечения нуля
+	Max_Trig			:	SRFF; -- флаг определения максимума
+
+--	Value_AddrCt2		:	node;
+	Value_Th			:	node; -- сигнал о превышении порога (стоит пока порог превышен)
+	ZeroFound			:	node; -- сигнал о пересечении разности нуля (тройного пъедистала)
+	Value_Max_Done		:	node; -- сигнал об обнаружении изменения знака разницы между предыдущими и текущими сэмплами
+
+
+	ENDthrFound			:	node; -- флаг на разрешение работы цикла заново 
+	ENDthr[13..0]		:	node;
+	
+	NSampleCt			:	LPM_COUNTER with (lpm_width=11, lpm_direction="up" ); -- счетчик 
+
+	AllReset			:	SRFF; -- общий сброс
+	TimeOutSch			:	node;
+	ENDCycle			:	node; -- флаг окончание работы цикла
+	
+	LinkMessage_reset	:	DFFE;
+	Reset_def			:	node;
+
+	TestLinkCt			:	lpm_counter with (lpm_width = 20, lpm_direction="up"); -- oanoiaue n?ao?ee aey i?iaa?ee ia?aaa?e aaiiuo
+	Test_Reg[9..0]		:	lpm_shiftreg with (LPM_WIDTH = 16, LPM_DIRECTION="unused"); -- тестовые регистры для внешнего чтения 
+							-- #4896-4905 (внутренний адрес 800 - 809)
+	Read_test[9..0]		:	node;
+
+BEGIN
+
+DEFAULTS
+
+--	Value_AddrCt2		= GND;
+	Value_Th			= GND;
+	SampleRAM.data_a[]	= 0; --     Out_Data[] = 0;
+--	Popravka_en			= GND;
+	ZeroFound			= GND;
+	TimeOutSch			= GND;
+	Value_Max_Done		= GND;
+	EventFound			= GND;
+	ENDthrFound 		= GND;
+	ENDCycle 			= GND;
+--	Start_read 			= GND;
+
+END DEFAULTS;
+
+--============================================================================
+--************ Cycle proceeding units ****************************************
+-- Digitizing_Cycle Initializing Circuitry 
+DigitInit1  = SRFF(.s=GND, .r=DigitInit2, 						--\ "DigitInit" 
+                   .clk=ADC_Clock, .clrn=!Reset,				-- > stretcher
+                   .prn=!(DigitInit & !DigitInit2 & !Working)); --/
+--DigitInit2  = SRFF(.s=(DigitInit1 AND Sync),                    -- aligned to PHASE
+--                   .clk=Clock, .r=DigitInit3,.clrn=!Reset);     -- 2-clock _/^^^\_
+DigitInit2  = DFF (.d=DigitInit1, .clk=ADC_Clock,.clrn=!Reset); -- 2-clock   _/^^^\_
+DigitInit3  = DFF (.d=DigitInit2, .clk=ADC_Clock,.clrn=!Reset); -- 2-clock     _/^^^\_
+
+Working     = SRFF(.s=DigitInit2,.clk=ADC_Clock, .r=AllReset.q,   -- level       _/^^^^  ^^^^\_
+                   .clrn=!Reset);
+InitSet     = DigitInit3 AND DigitInit2 ;                   	-- 1-clock     _/^^\_
+
+DigitInit4.(d, clk, clrn) = (DigitInit2, ADC_Clock, !Reset); -- 1-clock   _/^^^\_
+DigitInit5.(d, clk, clrn) = (DigitInit4, ADC_Clock, !Reset); -- 1-clock   _/^^^\_
+DigitInit6.(d, clk, clrn) = (DigitInit5, ADC_Clock, !Reset); -- 1-clock   _/^^^\_
+DigitInit7.(d, clk, clrn) = (DigitInit6, ADC_Clock, !Reset); -- 1-clock   _/^^^\_
+
+--============================================================================
+-- Im_ADC - a RAM which contains data substituted for the ADC data (Тестовая память для проверки алгоритма)
+%	Im_ADC.data_a[9..0] = ADCdata[];
+	Im_ADC.data_a[15..10] = GND;
+	Im_ADC.(address_a[], clock_a, wren_a) = (Im_ADCCt.q[7..0], ADC_Clock, Working);
+%%	Im_ADC.data_a[] = GND;
+	Im_ADC.(address_a[], clock_a, wren_a) = (Im_ADCCt.q[7..0], ADC_Clock, GND);
+	
+--	Im_ADC.(data_b[],address_b[], clock_b)= (DataBus_In[],Im_RAMAddrBus[7..0], Bus_clock);
+	Im_ADC.(data_b[],address_b[], clock_b)= (DataBus_In[],AddrBus_In[7..0], Bus_clock);
+	Im_ADC.wren_b = DataBusStrobe and  DirectIn AND Select AND Ram_SeL[0];
+	
+	Im_ADCCt.clock   = ADC_Clock;
+	Im_ADCCt.sclr = !Working;
+--	Im_ADCCt.clk_en  = VCC;
+--	Im_ADCCt.cnt_en = GND;
+--	Im_RAMAddrBus[7..0] = AddrBus_In[7..0] + Im_ADCCt.q[7..0]; -- выставление адреса в 0 для текущего набора FOR-ов
+
+	Multiplex.(clock, clken) = (ADC_Clock, Working);
+	Multiplex.(data[0][], data[1][], sel[]) = (Im_ADC.q_a[11..0], ADCdata[], Mux_Reg.q[]);
+	
+	Mux_Reg.(data[], clock, enable, load) = (DataBus_In[0], ADC_Clock, Mux, VCC);
+
+-- 4868 адрес регистра 
+IF(AddrBus_In[] == 772)  THEN Mux				= DataBusStrobe and  DirectIn AND Select;
+                              DataBusOut[0]	 	= Mux_Reg.q[];
+							  DataBusOut[15..1] = GND;
+                         ELSE Mux				= GND; 
+END IF;
+%
+
+--============================================================================
+--********** АЛГОРИТМ **************--
+
+--  ...ADCdata[]...
+
+-----------------------------------------------------------
+---- Определение и запись значений пьедистала и порога ----
+
+	Piedistal_Reg.sset = RegInit;
+	Threshold_Reg.sset = RegInit;
+
+	Piedistal_Reg.(data[], clock, enable, load) = (DataBus_In[ADC_WIDTH-1..0], ADC_Clock, RegInit OR SavePReg, VCC);
+	Threshold_Reg.(data[], clock, enable, load) = (DataBus_In[13..0], ADC_Clock, RegInit OR SaveTReg, VCC);
+
+-- 4866 адрес регистра пъедистала
+IF(AddrBus_In[] == 770)  THEN SavePReg					= DataBusStrobe and  DirectIn AND Select;
+                              DataBusOut[ADC_WIDTH-1..0]= Piedistal_Reg.q[];
+							  DataBusOut[15..12] 		= GND;
+                         ELSE SavePReg					= GND; 
+END IF;
+-- 4867 адрес регистра порога
+IF(AddrBus_In[] == 771)  THEN SaveTReg					= DataBusStrobe and  DirectIn AND Select;
+                              DataBusOut[13..0]= Threshold_Reg.q[];
+							  DataBusOut[15..14] 		= GND;
+                         ELSE SaveTReg					= GND; 
+END IF;
+%
+	Piedistal_Reg.(data[], clock, enable, load) = ((GND,GND,GND,GND,SampleRAM.q_b[13..4]), ADC_Clock, Value_Th, VCC);
+%
+-----------------------------------------------------------
+
+--	SUB_Ped.(dataa[ADC_WIDTH-1..0], datab[ADC_WIDTH-1..0]) = (Multiplex.result[], (Piedistal_Reg.q[11..0]));
+	SUB_Ped.(dataa[ADC_WIDTH-1..0], datab[ADC_WIDTH-1..0]) = (ADCdata[11..0], Piedistal_Reg.q[11..0]);
+	SUB_Ped.aclr = AllReset.q;--!Working;
+	SUB_ped.(clock, clken) = (ADC_Clock, VCC);
+
+	RegSum[0].(data[11..0],clock,load,enable) = (SUB_Ped.result[11..0], ADC_Clock, VCC, VCC);
+
+for i in 0 to REG_SUM-2 generate
+	RegSum[i+1].(data[11..0],clock,load,enable) = (RegSum[i].q[], ADC_Clock, VCC, VCC );
+end generate;
+
+--	Sum_clken     = SRFF(.s=DigitInit5,.clk=ADC_Clock, .r=DigitEnd,   -- level       _/^^^^  ^^^^\_
+--                   .clrn=!Reset);
+
+	SUMMATOR.clock = ADC_Clock;
+	SUMMATOR.aclr = AllReset.q;--!Working;
+--	Summator.clken = Sum_clken;
+	SUMMATOR.(data0x[], data1x[], data2x[], data3x[]
+%			  data4x[], data5x[], data6x[], data7x[],
+			  data8x[], data9x[], data10x[],data11x[],
+			  data12x[],data13x[],data14x[],data15x[]%) = 
+			 (RegSum[ 0].q[],RegSum[ 1].q[],RegSum[ 2].q[],RegSum[ 3].q[]%,
+			  RegSum[ 4].q[],RegSum[ 5].q[],RegSum[ 6].q[],RegSum[ 7].q[],
+			  RegSum[ 8].q[],RegSum[ 9].q[],RegSum[10].q[],RegSum[11].q[],
+			  RegSum[12].q[],RegSum[13].q[],RegSum[14].q[],RegSum[15].q[]%);
+
+	SUMM[] = SUMMATOR.result[13..0]; -- 14-битовое усредненное слово
+
+
+IF((SUMM[13..0] > Threshold_Reg.q[13..0]) AND (SUMM[13] == GND) AND (Thr_Trig.q == GND)) THEN Value_Th = VCC; -- сигнал о превышении порога
+																						 ELSE Value_Th = GND;
+END IF; 
+	Thr_Trig.(S,clk,R,clrn) = (Value_Th, ADC_Clock, Reset, !AllReset.q);--Working); -- флаг превышения порога
+
+--*************** "Constant-Fraction Discriminator" section *******************************
+-- Запись и определение памяти
+	SampleRAM.data_a[13..0] = SUMM[13..0];
+	SampleRAM.data_a[15..14]= GND;
+	SampleRAM.address_a[7..0] = SampleRAM_AddrCnt1.q[];
+	SampleRAM.data_b[15..0]	= GND;
+	SampleRAM.(wren_a, wren_b, clock) = (VCC , GND , ADC_Clock);
+
+	SampleRAM.address_b[7..0] = SampleRAM_AddrCnt2.q[];
+%
+-- Мультиплексор в не явном виде
+IF	(ZeroFound == VCC OR Zero_Trig.q == VCC) 
+	THEN SampleRAM.address_b[7..0] = Popravka_AddrCnt.q[];
+	ELSE SampleRAM.address_b[7..0] = SampleRAM_AddrCnt2.q[];
+END IF;
+%
+    SampleRAM_AddrCnt1.(clock, clk_en, cnt_en) = (ADC_Clock, VCC, VCC );
+	SampleRAM_AddrCnt1.sload = InitSet;
+	SampleRAM_AddrCnt1.data[] = DelayTime_Reg.q[];  -- AddrCt1 runs by "Delay" steps in forward of AddrCt2
+--	SampleRAM_AddrCnt1.sclr = !Working;
+
+    SampleRAM_AddrCnt2.(clock, clk_en, cnt_en) = (ADC_Clock, VCC, VCC);
+--	SampleRAM_AddrCnt2.sload = Working;
+	SampleRAM_AddrCnt2.sclr = InitSet;--!Working;
+	
+	DelayTime_Reg.(clock, enable, sset) = (ADC_Clock, VCC, VCC);
+
+--=====Поиск пересечения нуля=====--
+
+--  (Незадержанный сигнал / 4) - Задержанный сигнал 
+	SUB.(dataa[], datab[]) = ((GND, GND, SUMM[13..2]), SampleRAM.q_b[13..0]);
+	SUB.aclr = AllReset.q;--!Working;--InitSet OR Reset;
+	SUB.(clock, clken) = (ADC_Clock, Thr_Trig.q AND !(ZeroFound OR Zero_Trig.q));
+	
+	RegZero[0].(data[13..0],clock,load,enable) = (SUB.result[13..0], ADC_Clock, VCC, !(ZeroFound OR Zero_Trig.q));
+
+for i in 0 to 2 generate
+	RegZero[i+1].(data[13..0],clock,load,enable) = (RegZero[i].q[], ADC_Clock, VCC, !(ZeroFound OR Zero_Trig.q));
+end generate;
+
+IF ((RegZero[1].q[13..10] == b"1111") AND (Thr_Trig.q == VCC) AND (Zero_Trig.q == GND))  
+							THEN ZeroFound = VCC; -- сигнал пересечения разностным сигналом нуля 
+							ELSE ZeroFound = GND;
+END IF;
+	
+	Zero_Trig.(S,clk,R,clrn) = (ZeroFound,ADC_Clock,Reset,!AllReset.q);--Working);	-- флаг пересечения нуля
+
+	Reg_Zero_Cnt.(data[], clock, load, enable, sclr) = (NSampleCt.q[10..0], ADC_Clock, VCC, ZeroFound, AllReset.q);--!Working);
+
+%
+--*********** Внесение поправки на нелинейность (попытка  уменьшить геометрический фактор) в вычисления***********--
+
+--                    D(x1)  -  D(x2) = -[ D(x2)-D(x1) ], must be >0 
+--  		   (nZero-4) - (nZero+12) = -[(nZero+12) - (nZero-4)]
+	Div1.(dataa[13..0], datab[13..0]) = (RegZero[15].q[],SUB.result[13..0]);  --   Znamenatel = -[ D(x2)-D(x1) ]
+--	Div1.(dataa[13..6], datab[13..6]) = (GND, GND);  --   Znamenatel = D(x2)-D(x1)
+	Div1.aclr = !Working;
+	Div1.(clock, clken) = (ADC_Clock, ZeroFound);
+
+	Popravka_AddrCnt.(clock, clk_en, cnt_en) = (ADC_Clock, VCC, !(ZeroFound OR Zero_Trig.q));
+	Popravka_AddrCnt.sload = InitSet;
+	Popravka_AddrCnt.data[] = PopravDelTime_Reg.q[];
+	Popravka_AddrCnt.sclr = !Working;
+
+	PopravDelTime_Reg.(clock, enable, sset) = (ADC_Clock, Working, VCC);
+
+-- Для поправки значение знаменателя умножено на 4, так как при сигнале формы "трапеции" значение поправленного числителя в первом делении
+-- становится отрицательным. Чтобы не было затрудненй и ввода лишних действий было решено просто домножить. => 
+-- Для правильного определения появления сигнала нужно к номеру счетчика добавить значения делений и отнять 8. 
+--		Zero[(13..4) + (3..0)] = (nZero + Zero_div1.quotient - 8) + (Zero_div2.quotient)
+
+		 Popravka.(dataa[], datab[]) = ((Div1.result[11..0], GND, GND), (GND,GND,SampleRAM.q_b[13..2]));
+		 Popravka.(clock, clken) = (ADC_Clock, Working);
+
+		 Add_Popravka1.(dataa[], datab[]) = (RegZero[15].q[], Popravka.result[]);
+		 Add_Popravka1.(clock, clken) = (ADC_Clock, Working);
+	
+	 -- D(x1) is in RegZero[16], and D(x1)>0 by the algorithm itself;  D(x2) is in RegZero[0]
+		 Zero_div1.(numer[],          				  denom[],                     		clock,
+					clken,       																							aclr) = 
+-- 		 ((Add_Popravka1.result[11..0],B"00"), (Div1.result[13..2]), ADC_Clock,
+ 		 ((RegZero[15].q[11..0],B"00"), (Div1.result[13..2]), ADC_Clock,
+		  (DigitZero3.q OR DigitZero4.q OR DigitZero5.q OR DigitZero6.q OR DigitZero7.q OR DigitZero8.q OR DigitZero9.q), !Working);
+
+DigitZero.(d, clk, clrn) = (ZeroFound, ADC_Clock, !Reset);	-- 1-clock   _/^^^\_
+DigitZero1.(d, clk, clrn) = (DigitZero.q, ADC_Clock, !Reset); -- 1-clock   _/^^^\_
+DigitZero2.(d, clk, clrn) = (DigitZero1.q, ADC_Clock, !Reset); -- 1-clock   _/^^^\_
+DigitZero3.(d, clk, clrn) = (DigitZero2.q, ADC_Clock, !Reset); -- 1-clock   _/^^^\_
+DigitZero4.(d, clk, clrn) = (DigitZero3.q, ADC_Clock, !Reset); -- 1-clock   _/^^^\_
+DigitZero5.(d, clk, clrn) = (DigitZero4.q, ADC_Clock, !Reset); -- 1-clock   _/^^^\_
+DigitZero6.(d, clk, clrn) = (DigitZero5.q, ADC_Clock, !Reset); -- 1-clock   _/^^^\_
+DigitZero7.(d, clk, clrn) = (DigitZero6.q, ADC_Clock, !Reset); -- 1-clock   _/^^^\_
+DigitZero8.(d, clk, clrn) = (DigitZero7.q, ADC_Clock, !Reset); -- 1-clock   _/^^^\_
+DigitZero9.(d, clk, clrn) = (DigitZero8.q, ADC_Clock, !Reset); -- 1-clock   _/^^^\_
+DigitZero10.(d, clk, clrn) = (DigitZero9.q, ADC_Clock, !Reset); -- 1-clock   _/^^^\_
+DigitZero11.(d, clk, clrn) = (DigitZero10.q, ADC_Clock, !Reset); -- 1-clock   _/^^^\_
+DigitZero12.(d, clk, clrn) = (DigitZero11.q, ADC_Clock, !Reset); -- 1-clock   _/^^^\_
+DigitZero13.(d, clk, clrn) = (DigitZero12.q, ADC_Clock, !Reset); -- 1-clock   _/^^^\_
+DigitZero14.(d, clk, clrn) = (DigitZero13.q, ADC_Clock, !Reset); -- 1-clock   _/^^^\_
+DigitZero15.(d, clk, clrn) = (DigitZero14.q, ADC_Clock, !Reset); -- 1-clock   _/^^^\_
+DigitZero16.(d, clk, clrn) = (DigitZero15.q, ADC_Clock, !Reset); -- 1-clock   _/^^^\_
+DigitZero17.(d, clk, clrn) = (DigitZero16.q, ADC_Clock, !Reset); -- 1-clock   _/^^^\_
+
+IF 	((GND,GND,Div1.result[13..4]) == GND) 
+
+	THEN Zero_div2.(numer[], denom[], clock, 
+				    clken, aclr) = 
+-- При втором делении знаменатель уменьшен в 4 раза (сдвинут на 2 бита) относительно первого деления для улучшения точности деления
+ 				   (b"00000000000000", b"000000000001", ADC_Clock, 
+			  (DigitZero10.q OR DigitZero11.q OR DigitZero12.q OR DigitZero13.q OR DigitZero14.q OR DigitZero15.q OR DigitZero16.q), !Working);
+
+	ELSE Zero_div2.(numer[],          				  	denom[],                     	clock,	
+			   	    clken,       																							aclr) = 
+-- При втором делении знаменатель уменьшен в 4 раза (сдвинут на 2 бита) относительно первого деления для улучшения точности деления
+ 			 ((Zero_div1.remain[11..0],B"00"), (GND,GND,Div1.result[13..4]), ADC_Clock, 
+			  (DigitZero10.q OR DigitZero11.q OR DigitZero12.q OR DigitZero13.q OR DigitZero14.q OR DigitZero15.q OR DigitZero16.q), !Working);
+
+END IF;
+
+	ZeroSum.(dataa[], datab[]) = (Reg_Zero_Cnt.q[9..0], Zero_div1.quotient[9..0]);
+	ZeroSum.(clock, clken) = (ADC_Clock, DigitZero10.q);
+	
+	RezultReg_Zero.(data[], clock, load, enable) = ((ZeroSum.result[9..0],Zero_div2.quotient[3..0]), ADC_Clock, Thr_Trig.q, DigitZero17.q);
+%
+%-- 4871 адрес регистра уточненного времени пересечения нуля
+IF(AddrBus_In[] == 775)  THEN Read_Rezult_Zero				= DataBusStrobe and  DirectIn AND Select;
+                              DataBusOut[13..0] = RezultReg_Zero.q[];
+							  DataBusOut[15..14] = GND;
+                         ELSE Read_Rezult_Zero				= GND; 
+END IF;%
+
+-----------------------------------------------------------
+--=====Поиск Амплитуды=====--
+-- определяем максимум
+
+	DelayAver_Reg.data[] = SUMM[13..0];
+	DelayAver_Reg.(clock,enable,load,sclr)= (ADC_Clock, Thr_Trig.q, VCC, Reset);
+
+IF((SUMM[13..0] < DelayAver_Reg.q[]) AND (Thr_Trig.q == VCC) AND (Max_Trig.q == GND)) THEN  Value_Max_Done = VCC;
+																					  ELSE  Value_Max_Done = GND;
+END IF;
+	Max_Trig.(S,clk,R,clrn) = (Value_Max_Done, ADC_Clock, Reset,!AllReset.q); -- флаг определения максимума
+	Max_Reg.(data[],clock,enable,load,sclr) = (DelayAver_Reg.q[],ADC_Clock,!Max_Trig.q AND Thr_Trig.q,VCC,!Working);
+
+IF ((Value_Th == VCC) AND (Value_Max_Done == VCC) AND (ZeroFound == VCC))
+		THEN EventFound = VCC;
+		ELSE EventFound = GND;
+END IF;
+
+--=========================================================================================
+--===== Cycle proceeding control =====--
+-- Main Counter
+
+--******** Main Counter of Digitization: *************************************
+--   counts #_of_Clock, defines all control signals' states
+DigitCt.(clock,cnt_en,clk_en,sclr) = (ADC_Clock, LinkMessage, VCC, InitSet OR AllReset.q); -- sets to #00 in the Beg-g_of_Cycle
+
+IF ((DigitCt.q[] == TimeRead) %AND (LinkMessage == GND )%)   -- 
+	Then  DigitEnd   = VCC;     --
+End IF;
+
+-- Общий сброс
+-- максимальное время в течении которого ищем пороги и затем стоят флаги найденных порогов
+	NSampleCt.(clock,cnt_en,clk_en,sclr) = (ADC_Clock, Thr_Trig.q AND !LinkMessage, VCC, WriteRAM); --счетчик тактов от момента пересечения порога
+
+IF(( NSampleCt.q[] >= MaxTime) AND (Max_Trig.q == VCC) AND (Zero_Trig.q == VCC)) THEN TimeOutSch = VCC; 
+																				 ELSE TimeOutSch = GND; 
+END IF;
+
+--IF ((SUMM[] < ENDthr[])) THEN ENDthrFound = VCC; -- поиск малого порога на разрешение работы цикла заново
+IF ((SUMM[] < Threshold_Reg.q[]) AND (Thr_Trig.q == VCC) AND (Zero_Trig.q == VCC)) THEN ENDthrFound = VCC; -- поиск малого порога на разрешение работы цикла заново
+																				   ELSE ENDthrFound = GND;
+END IF;
+
+--	ENDthr[11..0] = Threshold[13..2];
+	
+IF ((Thr_Trig.q == VCC) AND (Zero_Trig.q == VCC)) THEN ENDCycle = VCC; -- флаг окончание работы цикла
+												  ELSE ENDCycle = GND;
+END IF;
+
+	AllReset.S = TimeOutSch %OR DigitEnd %OR Reset OR EdgeSensing(.D=!WriteRAM, .clk=ADC_Clock, .reset=RESET);
+	AllReset.clk = ADC_Clock;
+	AllReset.R = (ENDthrFound AND AllReset.q) OR !Working; -- работа разрешается после пересечения малого порога при уменьшении сигнала
+
+-----------------------------------------------------------
+-- Память истории, данных с АЦП
+
+%IF (Zero_Trig.q XNOR DigitZero.q) THEN Hist_ADC.data_a[13..0] = (GND,GND,Div1.result[13..2]);--Sub.result[13..0];--SUMMATOR.result[14..0];--SampleRAM.q_b[13..0];--
+							 Hist_ADC.data_a[15..14] = GND;
+
+						ELSE Hist_ADC.data_a[9..0] = Zero_div1.quotient[9..0];
+							 Hist_ADC.data_a[15..10] = GND;
+END IF;
+%	Hist_ADC.data_a[11..0] = RegSum[0].q[];--Hist_ADCCt.q[];--ADCdata[11..0];--SUMMATOR.result[14..0];--SampleRAM.q_b[13..0];--(GND,GND,Div1.result[13..2]);--Sub.result[13..0];--
+	Hist_ADC.data_a[15..12] = GND;
+--	Hist_ADC.data_a[15] = SUB_ped.cout;
+	Hist_ADC.(address_a[], clock_a, wren_a) = (Hist_ADCCt.q[8..0], ADC_clock, !(StopWrite_trig.q OR LinkMessage));--AND SaveRam));
+
+	StopWrite.(d,clk,reset) = (WriteRam, ADC_Clock, Reset);
+	StopWrite_trig.(s,r,clk) = (StopWrite.q, !WriteRAM, ADC_Clock);
+
+	Hist_ADC.(data_b[],address_b[], clock_b)= (DataBus_In[],Hist_RAMAddr[8..0], Bus_clock);
+--	Hist_ADC.(data_b[],address_b[], clock_b)= (DataBus_In[],AddrBus_In[8..0], Bus_clock);
+	Hist_ADC.wren_b = DataBusStrobe and  DirectIn AND Select AND Ram_Sel;
+
+	Hist_ADCCt.clock = ADC_Clock;
+	Hist_ADCCt.sclr = (EdgeSensing(.D= LinkMessage, .clk=ADC_clock, .reset=RESET) & StopWrite_trig.q);
+	Hist_ADCCt.clk_en = VCC;
+	Hist_ADCCt.cnt_en = !StopWrite_trig.q OR !LinkMessage;
+
+	Hist_RAMAddrBus.(data[], clock, load, enable) = (Hist_ADCCt.q[], ADC_Clock, VCC, EdgeSensing(.D=WriteRAM, .clk=ADC_Clock, .reset=RESET));
+	Hist_RAMAddr[8..0] = Hist_RAMAddrBus.q[8..0] +1 + AddrBus_In[8..0]; -- выставление адреса в 0 для текущего значения счетчика адресса
+
+-----------------------------------------------------------
+
+	WFhist.data[11..0] = RegSum[0].q[11..0];--ADCdata[9..0];--TestLinkCt.q[11..0];--
+	WFhist.(wraddress[], wrclock, wren) = (WFhist_ADCCt.q[7..0], ADC_clock, WriteWFhist);--AND SaveRam));
+--	WFhist.(rdaddress[], rdclock, rden) = (DAQAddrBus_In[7..0], Flink_clock, ReadWFhist);--AND SaveRam));
+	WFhist.(rdaddress[], rdclock, rden) = (WFhist_RAMAddr[7..0], Flink_clock, ReadWFhist);--AND SaveRam));
+
+--	StopWriteWFhist.(s,r,clk) = (EdgeSensing(.D= LinkMessage, .clk=ADC_clock, .reset=RESET), !WriteRAM, ADC_Clock);
+
+	WFhist_ADCCt.clock = ADC_Clock;
+	WFhist_ADCCt.sclr = (EdgeSensing(.D= ReadWFhist, .clk=ADC_clock, .reset=RESET) );
+	WFhist_ADCCt.clk_en = VCC;
+	WFhist_ADCCt.cnt_en = WriteWFhist;
+	%
+	DelayReadWFhist.(d, clk, clrn) = (ReadWFhist, ADC_Clock, Reset);
+	EndTxWF.(d, clk, clrn) = (!ReadWFhist AND DelayReadWFhist.q, ADC_Clock, Reset);
+	WFSampleCt.(clock, clk_en, cnt_en, sclr) = (ADC_Clock, Thr_Trig.q AND !LinkMessage, VCC, EndTxWF.q);
+	%
+	WFhist_RAMAddrBus.(data[], clock, load, enable) = (WFhist_ADCCt.q[], ADC_Clock, VCC, ReadWFhist AND !DelayReadWFhist.q);
+	WFhist_RAMAddr[7..0] = WFhist_RAMAddrBus.q[7..0] + 1 + DAQAddrBus_In[7..0]; -- выставление адреса в момент, когда начался сигнал с запасом в несколько тактов
+						-- значение счетчика при 			 счетчик перебора 
+						-- 		общем стопе					 адресов для посылки
+
+	DAQDataBusOut[] = WFhist.q[];--TestLinkCt.q[9..0];--
+
+-----------------------------------------------------------
+-- Тестовая память для проверки данных --
+
+--	Test_ADC.data_a[9..0] = Zero_div1.quotient[9..0];
+%IF (Zero_Trig.q XNOR DigitZero.q) THEN Test_ADC.data_a[13..0] = RegZero[15].q[13..0];--Sub.result[13..0];--Zero_div2.quotient[3..0];--SampleRAM.q_b[13..0];--
+									   Test_ADC.data_a[15..14] = GND;
+
+								  ELSE Test_ADC.data_a[13..0] = (Zero_div1.remain[11..0],B"00");
+							 		   Test_ADC.data_a[15..14] = GND;
+END IF;
+	Test_ADC.data_a[13..0] = Sub.result[13..0];--Zero_div2.quotient[3..0];--SampleRAM.q_b[13..0];--RegZero[15].q[13..0];--
+	Test_ADC.data_a[15..14] = GND;
+	Test_ADC.(address_a[], clock_a, wren_a) = (Test_ADCCt.q[7..0], ADC_Clock, Working);
+
+	Test_ADC.(data_b[],address_b[], clock_b)= (DataBus_In[15..0],AddrBus_In[7..0], Bus_clock);
+	Test_ADC.wren_b = DataBusStrobe and  DirectIn AND Select AND Ram_SeL[2];
+
+	Test_ADCCt.clock   = ADC_Clock;
+	Test_ADCCt.sclr = !Working;
+%
+%-- 4096 - 4351 начальный адрес памяти иммитирующей данные АЦП
+IF(AddrBus_In[] >= 0 AND AddrBus_In[] <= 255)   THEN DataBusOut[15..0] = Im_ADC.q_b[]; RAM_Sel[0] = VCC;
+												ELSE RAM_Sel[0] = GND;
+END IF;%
+-- 4352 - 4607 начальный адрес "памяти истории"
+IF(AddrBus_In[] >= 0 AND AddrBus_In[] <= 767) THEN DataBusOut[15..0] = Hist_ADC.q_b[]; RAM_Sel = VCC;
+													--DataBusOut[15..12] = GND;
+											  ELSE RAM_Sel = GND;
+END IF;
+
+%-- 4608 - 4863
+IF(AddrBus_In[] >= 512 AND AddrBus_In[] <= 767) THEN DataBusOut[] = Test_ADC.q_b[]; RAM_Sel[2] = VCC;
+												ELSE RAM_Sel[2] = GND;
+END IF;
+%
+-- 4872 адрес регистра амплитуды
+IF(AddrBus_In[] == 776)  THEN Read_Amp			= DataBusStrobe and  DirectIn AND Select;
+							  DataBusOut[13..0]	= Max_Reg.q[];
+							  DataBusOut[15..14] = GND;
+                         ELSE Read_Amp			= GND; 
+END IF;
+-- 4870 адрес регистра номера "сэмпла" при пересечении нуля
+IF(AddrBus_In[] == 774)  THEN Read_Zero_Cnt					= DataBusStrobe and  DirectIn AND Select;
+                              DataBusOut[10..0] = Reg_Zero_Cnt.q[];
+							  DataBusOut[15..11] = GND;
+                         ELSE Read_Zero_Cnt					= GND; 
+END IF;
+
+--=========================================================================================
+--only for test
+TestLinkCt.(clock, clk_en)	= (ADC_Clock, VCC); -- Test Counter, can be used to drive LED blinking
+TestLinkCt.cnt_en			= !LinkMessage;
+TestLinkCt.aclr				= GND;    -- even if NO clock - Reset does occur
+
+
+	test1 = Thr_Trig.q;
+	test2 = Zero_Trig.q;
+	test3 = AllReset.q;--LinkMessage;
+--	IF RegSum[0].q[] > 100 THEN test1 = VCC; ELSE test1 = GND; END IF;
+--	IF RegSum[0].q[] > 200 THEN test2 = VCC; ELSE test2 = GND; END IF;
+--	IF RegSum[0].q[] > 400 THEN test3 = VCC; ELSE test3 = GND; END IF;
+			--SUMMATOR.result[6] OR SUMMATOR.result[7] OR SUMMATOR.result[8] OR SUMMATOR.result[9] OR 
+			--SUMMATOR.result[10] OR SUMMATOR.result[11] OR SUMMATOR.result[12];
+	%AllReset.q = ZeroFound OR DigitZero.q OR DigitZero1.q OR DigitZero2.q OR DigitZero3.q OR DigitZero4.q OR DigitZero5.q OR DigitZero6.q OR
+			DigitZero7.q OR DigitZero8.q OR DigitZero9.q OR DigitZero10.q OR DigitZero11.q OR DigitZero12.q OR DigitZero13.q OR 
+			DigitZero14.q OR DigitZero15.q OR DigitZero16.q OR DigitZero17.q;%
+%	test4[] = RegZero[ 0].q[13..0];
+	test5[] = RegZero[16].q[13..0];
+	test6[] = Div2.result[];
+	test7[] = (B"000000",SampleRAM_AddrCnt1.q[]);--
+	test8[] = (GND,GND,SampleRAM_AddrCnt2.q[]);--NSampleCt.q[];
+	test4[] = (Zero_div1.remain[11..0],B"00");--RegZero[ 0].q[13..0];
+	test5[] = (Add_Popravka1.result[11..0],B"00");--(GND,GND,GND,GND,Div1.result[13..4]);--Zero_div1.quotient[];--Div2.result[];--RegZero[16].q[13..0];
+	test6[] = Zero_div2.quotient[];--Div2.result[];
+	test7[] = Popravka.result[];--Reg_Zero2.q[];--(B"000000",SampleRAM_AddrCnt1.q[]);--
+--	test7[] = (RegZero[16].q[11..0],B"00");--RezultReg_Zero.q[];
+	test8[] = (GND,GND,SampleRAM_AddrCnt2.q[]);--NSampleCt.q[];
+		Sample[13..0] = (GND,GND,Div1.result[13..2]);--SampleRAM.q_b[13..0];--
+		Subtr[] = Popravka_AddrCnt.q[];--(Add_Popravka2.result[11..0],B"00");--
+--		Subtr[] = SUB.result[13..0];--Reg_Zero2.q[];--(B"000000",SampleRAM_AddrCnt1.q[]);--
+		Zero[] = Zero_div1.quotient[];
+--		Zero[] = RegZero[7].q[];
+%
+		Sample[] = GND;--(GND,GND,Div1.result[13..2]);--(GND,GND,GND,GND,Max_Reg.q[]);--
+		Subtr[] = SUB.result[13..0];--Popravka.result[];--(GND,GND,GND,GND,RegSum[13].q[]);--SUB.result[13..0];
+		Zero[] = RegZero[1].q[13..0];--Zero_div1.quotient[];
+	test4[] = (GND,GND,GND,RegSum[0].q[]);--SUMMATOR.result[13..0]);--(Zero_div1.remain[11..0],B"00");--RegZero[ 0].q[13..0];
+	test5 = StopWrite_trig.q;--Zero_div2.quotient[];--(GND,GND,GND,GND,Div1.result[13..4]);
+	test6[] = GND;--(Add_Popravka1.result[11..0],B"00");--(GND,GND,SampleRAM.q_b[13..2]);--
+	test7[] = RegZero[3].q[13..0];--(B"000000",SampleRAM_AddrCnt1.q[]);
+	test8[] = (GND,GND,SampleRAM_AddrCnt2.q[]);--(GND,GND,Popravka_AddrCnt.q[]);--NSampleCt.q[];
+
+--=========================================================================================
+	Test_Reg[9..0].(clock,load,enable,sclr) = (ADC_Clock,VCC, GND,!Working);
+--	Test_Reg[8..0].(clock,load,sclr) = (ADC_Clock,VCC,!Working);
+	Test_Reg[9..0].data[] = GND;
+%
+	Test_Reg[0].(data[13..0],enable) = (Sub.result[13..0], DigitZero1.q);
+
+IF(AddrBus_In[] == 800)  THEN Read_test[0]		= DataBusStrobe and  DirectIn AND Select;
+                              DataBusOut[13..0]	= Test_Reg[0].q[13..0];
+							  DataBusOut[15..14] = GND;
+                         ELSE Read_test[0]		= GND; 
+END IF;
+
+	Test_Reg[1].(data[13..0],enable) = (RegZero[15].q[13..0], DigitZero1.q);
+
+IF(AddrBus_In[] == 801)  THEN Read_test[1]		= DataBusStrobe and  DirectIn AND Select;
+                              DataBusOut[13..0]	= Test_Reg[1].q[13..0];
+							  DataBusOut[15..14] = GND;
+                         ELSE Read_test[1]		= GND; 
+END IF;
+
+	Test_Reg[2].(data[13..0],enable) = (RegZero[1].q[13..0], DigitZero1.q);
+
+IF(AddrBus_In[] == 802)  THEN Read_test[2]		= DataBusStrobe and  DirectIn AND Select;
+                              DataBusOut[13..0]	= Test_Reg[2].q[13..0];
+							  DataBusOut[15..14] = GND;
+                         ELSE Read_test[2]		= GND; 
+END IF;
+
+	Test_Reg[3].(data[13..0],enable) = (RegZero[3].q[13..0], DigitZero1.q);
+
+IF(AddrBus_In[] == 803)  THEN Read_test[3]		= DataBusStrobe and  DirectIn AND Select;
+                              DataBusOut[13..0]	= Test_Reg[3].q[13..0];
+							  DataBusOut[15..14] = GND;
+                         ELSE Read_test[3]		= GND; 
+END IF;
+
+	Test_Reg[4].(data[13..0],enable) = (RegZero[5].q[13..0], DigitZero1.q);
+
+IF(AddrBus_In[] == 804)  THEN Read_test[4]		= DataBusStrobe and  DirectIn AND Select;
+                              DataBusOut[13..0]	= Test_Reg[4].q[13..0];
+							  DataBusOut[15..14] = GND;
+                         ELSE Read_test[4]		= GND; 
+END IF;
+
+	Test_Reg[5].(data[13..0],enable) = (RegZero[7].q[13..0], DigitZero1.q);
+
+IF(AddrBus_In[] == 805)  THEN Read_test[5]		= DataBusStrobe and  DirectIn AND Select;
+                              DataBusOut[13..0]	= Test_Reg[5].q[13..0];
+							  DataBusOut[15..14] = GND;
+                         ELSE Read_test[5]		= GND; 
+END IF;
+
+	Test_Reg[6].(data[13..0],enable) = (RegZero[9].q[13..0], DigitZero1.q);
+
+IF(AddrBus_In[] == 806)  THEN Read_test[6]		= DataBusStrobe and  DirectIn AND Select;
+                              DataBusOut[13..0]	= Test_Reg[6].q[13..0];
+							  DataBusOut[15..14] = GND;
+                         ELSE Read_test[6]		= GND; 
+END IF;
+
+	Test_Reg[7].(data[13..0],enable) = (RegZero[11].q[13..0], DigitZero1.q);
+
+IF(AddrBus_In[] == 807)  THEN Read_test[7]		= DataBusStrobe and  DirectIn AND Select;
+                              DataBusOut[13..0]	= Test_Reg[7].q[13..0];
+							  DataBusOut[15..14] = GND;
+                         ELSE Read_test[7]		= GND; 
+END IF;
+
+	Test_Reg[8].(data[13..0],enable) = (RegZero[13].q[13..0], DigitZero1.q);
+
+IF(AddrBus_In[] == 808)  THEN Read_test[8]		= DataBusStrobe and  DirectIn AND Select;
+                              DataBusOut[13..0]	= Test_Reg[8].q[13..0];
+							  DataBusOut[15..14] = GND;
+                         ELSE Read_test[8]		= GND; 
+END IF;
+%	
+END;
