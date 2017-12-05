@@ -2,101 +2,105 @@
 
 <pin_planner>
 	<pin_info>
-		<pin name="ADC_In_Data[11][1]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[11][1](n)" >
+		<pin name="ADC_In_Data[11][1]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[11][1](n)" >
 		</pin>
-		<pin name="ADC_In_Data[11][0]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[11][0](n)" >
+		<pin name="ADC_In_Data[11][0]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[11][0](n)" >
 		</pin>
-		<pin name="ADC_In_Data[10][1]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[10][1](n)" >
+		<pin name="ADC_In_Data[10][1]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[10][1](n)" >
 		</pin>
-		<pin name="ADC_In_Data[10][0]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[10][0](n)" >
+		<pin name="ADC_In_Data[10][0]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[10][0](n)" >
 		</pin>
-		<pin name="ADC_In_Data[9][1]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[9][1](n)" >
+		<pin name="ADC_In_Data[9][1]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[9][1](n)" >
 		</pin>
-		<pin name="ADC_In_Data[9][0]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[9][0](n)" >
+		<pin name="ADC_In_Data[9][0]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[9][0](n)" >
 		</pin>
-		<pin name="ADC_In_Data[8][1]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[8][1](n)" >
+		<pin name="ADC_In_Data[8][1]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[8][1](n)" >
 		</pin>
-		<pin name="ADC_In_Data[8][0]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[8][0](n)" >
+		<pin name="ADC_In_Data[8][0]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[8][0](n)" >
 		</pin>
-		<pin name="ADC_In_Data[7][1]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[7][1](n)" >
+		<pin name="ADC_In_Data[7][1]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[7][1](n)" >
 		</pin>
-		<pin name="ADC_In_Data[7][0]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[7][0](n)" >
+		<pin name="ADC_In_Data[7][0]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[7][0](n)" >
 		</pin>
-		<pin name="ADC_In_Data[6][1]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[6][1](n)" >
+		<pin name="ADC_In_Data[6][1]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[6][1](n)" >
 		</pin>
-		<pin name="ADC_In_Data[6][0]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[6][0](n)" >
+		<pin name="ADC_In_Data[6][0]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[6][0](n)" >
 		</pin>
-		<pin name="ADC_In_Data[5][1]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[5][1](n)" >
+		<pin name="ADC_In_Data[5][1]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[5][1](n)" >
 		</pin>
-		<pin name="ADC_In_Data[5][0]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[5][0](n)" >
+		<pin name="ADC_In_Data[5][0]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[5][0](n)" >
 		</pin>
-		<pin name="ADC_In_Data[4][1]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[4][1](n)" >
+		<pin name="ADC_In_Data[4][1]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[4][1](n)" >
 		</pin>
-		<pin name="ADC_In_Data[4][0]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[4][0](n)" >
+		<pin name="ADC_In_Data[4][0]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[4][0](n)" >
 		</pin>
-		<pin name="ADC_In_Data[3][1]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[3][1](n)" >
+		<pin name="ADC_In_Data[3][1]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[3][1](n)" >
 		</pin>
-		<pin name="ADC_In_Data[3][0]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[3][0](n)" >
+		<pin name="ADC_In_Data[3][0]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[3][0](n)" >
 		</pin>
-		<pin name="ADC_In_Data[2][1]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[2][1](n)" >
+		<pin name="ADC_In_Data[2][1]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[2][1](n)" >
 		</pin>
-		<pin name="ADC_In_Data[2][0]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[2][0](n)" >
+		<pin name="ADC_In_Data[2][0]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[2][0](n)" >
 		</pin>
-		<pin name="ADC_In_Data[1][1]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[1][1](n)" >
+		<pin name="ADC_In_Data[1][1]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[1][1](n)" >
 		</pin>
-		<pin name="ADC_In_Data[1][0]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[1][0](n)" >
+		<pin name="ADC_In_Data[1][0]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[1][0](n)" >
 		</pin>
-		<pin name="ADC_In_Data[0][1]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[0][1](n)" >
+		<pin name="ADC_In_Data[0][1]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[0][1](n)" >
 		</pin>
-		<pin name="ADC_In_Data[0][0]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[0][0](n)" >
+		<pin name="ADC_In_Data[0][0]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[0][0](n)" >
 		</pin>
-		<pin name="ADC_In_Data[0][0](n)" source="Assignments" diff_pair_node="ADC_In_Data[0][0]" >
+		<pin name="LinkData" direction="Bidir" source="Hierarchy Database" diff_pair_node="LinkData(n)" >
 		</pin>
-		<pin name="ADC_In_Data[0][1](n)" source="Assignments" diff_pair_node="ADC_In_Data[0][1]" >
+		<pin name="ADC_In_Data[0][0](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[0][0]" >
 		</pin>
-		<pin name="ADC_In_Data[1][0](n)" source="Assignments" diff_pair_node="ADC_In_Data[1][0]" >
+		<pin name="ADC_In_Data[0][1](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[0][1]" >
 		</pin>
-		<pin name="ADC_In_Data[1][1](n)" source="Assignments" diff_pair_node="ADC_In_Data[1][1]" >
+		<pin name="ADC_In_Data[1][0](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[1][0]" >
 		</pin>
-		<pin name="ADC_In_Data[2][0](n)" source="Assignments" diff_pair_node="ADC_In_Data[2][0]" >
+		<pin name="ADC_In_Data[1][1](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[1][1]" >
 		</pin>
-		<pin name="ADC_In_Data[2][1](n)" source="Assignments" diff_pair_node="ADC_In_Data[2][1]" >
+		<pin name="ADC_In_Data[2][0](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[2][0]" >
 		</pin>
-		<pin name="ADC_In_Data[4][0](n)" source="Assignments" diff_pair_node="ADC_In_Data[4][0]" >
+		<pin name="ADC_In_Data[2][1](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[2][1]" >
 		</pin>
-		<pin name="ADC_In_Data[3][1](n)" source="Assignments" diff_pair_node="ADC_In_Data[3][1]" >
+		<pin name="ADC_In_Data[3][0](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[3][0]" >
 		</pin>
-		<pin name="ADC_In_Data[3][0](n)" source="Assignments" diff_pair_node="ADC_In_Data[3][0]" >
+		<pin name="ADC_In_Data[3][1](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[3][1]" >
 		</pin>
-		<pin name="ADC_In_Data[8][0](n)" source="Assignments" diff_pair_node="ADC_In_Data[8][0]" >
+		<pin name="ADC_In_Data[4][0](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[4][0]" >
 		</pin>
-		<pin name="ADC_In_Data[8][1](n)" source="Assignments" diff_pair_node="ADC_In_Data[8][1]" >
+		<pin name="ADC_In_Data[4][1](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[4][1]" >
 		</pin>
-		<pin name="ADC_In_Data[9][0](n)" source="Assignments" diff_pair_node="ADC_In_Data[9][0]" >
+		<pin name="ADC_In_Data[5][0](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[5][0]" >
 		</pin>
-		<pin name="ADC_In_Data[9][1](n)" source="Assignments" diff_pair_node="ADC_In_Data[9][1]" >
+		<pin name="ADC_In_Data[5][1](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[5][1]" >
 		</pin>
-		<pin name="ADC_In_Data[10][0](n)" source="Assignments" diff_pair_node="ADC_In_Data[10][0]" >
+		<pin name="ADC_In_Data[6][0](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[6][0]" >
 		</pin>
-		<pin name="ADC_In_Data[10][1](n)" source="Assignments" diff_pair_node="ADC_In_Data[10][1]" >
+		<pin name="ADC_In_Data[6][1](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[6][1]" >
 		</pin>
-		<pin name="ADC_In_Data[11][0](n)" source="Assignments" diff_pair_node="ADC_In_Data[11][0]" >
+		<pin name="ADC_In_Data[7][0](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[7][0]" >
 		</pin>
-		<pin name="ADC_In_Data[11][1](n)" source="Assignments" diff_pair_node="ADC_In_Data[11][1]" >
+		<pin name="ADC_In_Data[7][1](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[7][1]" >
 		</pin>
-		<pin name="ADC_In_Data[4][1](n)" source="Assignments" diff_pair_node="ADC_In_Data[4][1]" >
+		<pin name="LinkData(n)" source="Assignments" diff_pair_node="LinkData" >
 		</pin>
-		<pin name="ADC_In_Data[5][0](n)" source="Assignments" diff_pair_node="ADC_In_Data[5][0]" >
+		<pin name="ADC_In_Data[8][0](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[8][0]" >
 		</pin>
-		<pin name="ADC_In_Data[5][1](n)" source="Assignments" diff_pair_node="ADC_In_Data[5][1]" >
+		<pin name="ADC_In_Data[8][1](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[8][1]" >
 		</pin>
-		<pin name="ADC_In_Data[6][0](n)" source="Assignments" diff_pair_node="ADC_In_Data[6][0]" >
+		<pin name="ADC_In_Data[9][0](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[9][0]" >
 		</pin>
-		<pin name="ADC_In_Data[6][1](n)" source="Assignments" diff_pair_node="ADC_In_Data[6][1]" >
+		<pin name="ADC_In_Data[9][1](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[9][1]" >
 		</pin>
-		<pin name="ADC_In_Data[7][0](n)" source="Assignments" diff_pair_node="ADC_In_Data[7][0]" >
+		<pin name="ADC_In_Data[10][0](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[10][0]" >
 		</pin>
-		<pin name="ADC_In_Data[7][1](n)" source="Assignments" diff_pair_node="ADC_In_Data[7][1]" >
+		<pin name="ADC_In_Data[10][1](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[10][1]" >
+		</pin>
+		<pin name="ADC_In_Data[11][0](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[11][0]" >
+		</pin>
+		<pin name="ADC_In_Data[11][1](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[11][1]" >
 		</pin>
 	</pin_info>
 	<buses>

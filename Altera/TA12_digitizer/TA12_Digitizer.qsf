@@ -48,14 +48,73 @@ set_global_assignment -name DEVICE_FILTER_PIN_COUNT 484
 set_global_assignment -name DEVICE_FILTER_SPEED_GRADE 7
 set_global_assignment -name MIN_CORE_JUNCTION_TEMP 0
 set_global_assignment -name MAX_CORE_JUNCTION_TEMP 85
-set_global_assignment -name NOMINAL_CORE_SUPPLY_VOLTAGE 1.0V
+set_global_assignment -name NOMINAL_CORE_SUPPLY_VOLTAGE 1.2V
 set_global_assignment -name AHDL_FILE TA12_Digitizer.tdf
 set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
 set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
 set_global_assignment -name LL_ROOT_REGION ON -section_id "Root Region"
 set_global_assignment -name LL_MEMBER_STATE LOCKED -section_id "Root Region"
-set_global_assignment -name TIMEQUEST_MULTICORNER_ANALYSIS ON
-set_global_assignment -name TIMEQUEST_DO_CCPP_REMOVAL ON
 set_global_assignment -name SEARCH_PATH lib
 set_global_assignment -name SEARCH_PATH "d:\\users\\leon\\work\\cmd-3\\el_lxe\\electronics\\trunk\\altera\\lib"
+set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[0][0]
+set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[0][1]
+set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[10][0]
+set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[10][1]
+set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[11][0]
+set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[11][1]
+set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[1][0]
+set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[1][1]
+set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[2][0]
+set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[2][1]
+set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[3][0]
+set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[3][1]
+set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[4][0]
+set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[4][1]
+set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[5][0]
+set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[5][1]
+set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[6][0]
+set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[6][1]
+set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[7][0]
+set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[7][1]
+set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[8][0]
+set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[8][1]
+set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[9][0]
+set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[9][1]
+set_location_assignment PIN_AA14 -to ADC_In_Data[0][0]
+set_location_assignment PIN_AB14 -to "ADC_In_Data[0][0](n)"
+set_location_assignment PIN_AA15 -to ADC_In_Data[0][1]
+set_location_assignment PIN_AB15 -to "ADC_In_Data[0][1](n)"
+set_location_assignment PIN_AA16 -to ADC_In_Data[1][0]
+set_location_assignment PIN_AB16 -to "ADC_In_Data[1][0](n)"
+set_location_assignment PIN_AA17 -to ADC_In_Data[1][1]
+set_location_assignment PIN_AB17 -to "ADC_In_Data[1][1](n)"
+set_location_assignment PIN_AA20 -to ADC_In_Data[2][0]
+set_location_assignment PIN_AB20 -to "ADC_In_Data[2][0](n)"
+set_location_assignment PIN_Y21 -to ADC_In_Data[2][1]
+set_location_assignment PIN_Y22 -to "ADC_In_Data[2][1](n)"
+set_location_assignment PIN_W21 -to ADC_In_Data[3][0]
+set_location_assignment PIN_W22 -to "ADC_In_Data[3][0](n)"
+set_location_assignment PIN_V21 -to ADC_In_Data[3][1]
+set_location_assignment PIN_V22 -to "ADC_In_Data[3][1](n)"
+set_location_assignment PIN_U21 -to ADC_In_Data[4][0]
+set_location_assignment PIN_U22 -to "ADC_In_Data[4][0](n)"
+set_location_assignment PIN_R21 -to ADC_In_Data[4][1]
+set_location_assignment PIN_R22 -to "ADC_In_Data[4][1](n)"
+set_location_assignment PIN_P21 -to ADC_In_Data[5][0]
+set_location_assignment PIN_P22 -to "ADC_In_Data[5][0](n)"
+set_location_assignment PIN_M21 -to ADC_In_Data[5][1]
+set_location_assignment PIN_M22 -to "ADC_In_Data[5][1](n)"
+set_location_assignment PIN_J21 -to ADC_In_Data[6][0]
+set_location_assignment PIN_J22 -to "ADC_In_Data[6][0](n)"
+set_location_assignment PIN_H21 -to ADC_In_Data[6][1]
+set_location_assignment PIN_H22 -to "ADC_In_Data[6][1](n)"
+set_location_assignment PIN_F21 -to ADC_In_Data[7][0]
+set_location_assignment PIN_F22 -to "ADC_In_Data[7][0](n)"
+set_location_assignment PIN_D21 -to ADC_In_Data[7][1]
+set_location_assignment PIN_D22 -to "ADC_In_Data[7][1](n)"
+set_global_assignment -name STRATIX_DEVICE_IO_STANDARD "2.5 V"
+set_global_assignment -name MISC_FILE "D:/Users/Leon/Work/CMD-3/el_lxe/Electronics/trunk/Altera/TA12_digitizer/TA12_Digitizer.dpf"
+set_instance_assignment -name IO_STANDARD "BUS LVDS" -to LinkData
+set_location_assignment PIN_Y2 -to LinkData
+set_location_assignment PIN_Y1 -to "LinkData(n)"
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
