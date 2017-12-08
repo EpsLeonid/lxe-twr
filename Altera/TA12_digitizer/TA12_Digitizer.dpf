@@ -2,21 +2,21 @@
 
 <pin_planner>
 	<pin_info>
-		<pin name="ADC_In_Data[11][1]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[11][1](n)" >
+		<pin name="ADC_In_Data[11][1]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[11][1](n)" >
 		</pin>
-		<pin name="ADC_In_Data[11][0]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[11][0](n)" >
+		<pin name="ADC_In_Data[11][0]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[11][0](n)" >
 		</pin>
-		<pin name="ADC_In_Data[10][1]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[10][1](n)" >
+		<pin name="ADC_In_Data[10][1]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[10][1](n)" >
 		</pin>
-		<pin name="ADC_In_Data[10][0]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[10][0](n)" >
+		<pin name="ADC_In_Data[10][0]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[10][0](n)" >
 		</pin>
-		<pin name="ADC_In_Data[9][1]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[9][1](n)" >
+		<pin name="ADC_In_Data[9][1]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[9][1](n)" >
 		</pin>
-		<pin name="ADC_In_Data[9][0]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[9][0](n)" >
+		<pin name="ADC_In_Data[9][0]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[9][0](n)" >
 		</pin>
-		<pin name="ADC_In_Data[8][1]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[8][1](n)" >
+		<pin name="ADC_In_Data[8][1]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[8][1](n)" >
 		</pin>
-		<pin name="ADC_In_Data[8][0]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[8][0](n)" >
+		<pin name="ADC_In_Data[8][0]" direction="Unknown" source="Hierarchy Database" diff_pair_node="ADC_In_Data[8][0](n)" >
 		</pin>
 		<pin name="ADC_In_Data[7][1]" direction="Input" source="Hierarchy Database" diff_pair_node="ADC_In_Data[7][1](n)" >
 		</pin>
@@ -56,6 +56,12 @@
 		</pin>
 		<pin name="ADC_In_Data[0][1](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[0][1]" >
 		</pin>
+		<pin name="ADC_In_Data[10][0](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[10][0]" >
+		</pin>
+		<pin name="ADC_In_Data[11][0](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[11][0]" >
+		</pin>
+		<pin name="ADC_In_Data[11][1](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[11][1]" >
+		</pin>
 		<pin name="ADC_In_Data[1][0](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[1][0]" >
 		</pin>
 		<pin name="ADC_In_Data[1][1](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[1][1]" >
@@ -94,13 +100,7 @@
 		</pin>
 		<pin name="ADC_In_Data[9][1](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[9][1]" >
 		</pin>
-		<pin name="ADC_In_Data[10][0](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[10][0]" >
-		</pin>
 		<pin name="ADC_In_Data[10][1](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[10][1]" >
-		</pin>
-		<pin name="ADC_In_Data[11][0](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[11][0]" >
-		</pin>
-		<pin name="ADC_In_Data[11][1](n)" direction="Input" source="Assignments" diff_pair_node="ADC_In_Data[11][1]" >
 		</pin>
 	</pin_info>
 	<buses>
