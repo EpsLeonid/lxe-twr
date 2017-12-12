@@ -1,15 +1,15 @@
-Fitter Status : Failed - Wed Dec 06 10:50:59 2017
+Fitter Status : Successful - Tue Dec 12 15:14:58 2017
 Quartus II 64-Bit Version : 9.1 Build 350 03/24/2010 SP 2 SJ Full Version
 Revision Name : TA12_Digitizer
 Top-level Entity Name : TA12_Digitizer
 Family : Cyclone IV E
 Device : EP4CE40F23C7
 Timing Models : Preliminary
-Total logic elements : 6,040 / 39,600 ( 15 % )
-    Total combinational functions : 4,445 / 39,600 ( 11 % )
-    Dedicated logic registers : 3,769 / 39,600 ( 10 % )
-Total registers : 3769
-Total pins : 81 / 329 ( 25 % )
+Total logic elements : 5,608 / 39,600 ( 14 % )
+    Total combinational functions : 4,411 / 39,600 ( 11 % )
+    Dedicated logic registers : 3,757 / 39,600 ( 9 % )
+Total registers : 3757
+Total pins : 99 / 329 ( 30 % )
 Total virtual pins : 0
 Total memory bits : 157,696 / 1,161,216 ( 14 % )
 Embedded Multiplier 9-bit elements : 0 / 232 ( 0 % )
