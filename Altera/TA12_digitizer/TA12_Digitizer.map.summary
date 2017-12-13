@@ -1,8 +1,35 @@
+<<<<<<< .mine
+Analysis & Synthesis Status : Successful - Thu Dec 07 14:05:43 2017
+||||||| .r112
+Analysis & Synthesis Status : Successful - Wed Dec 06 10:50:53 2017
+=======
 Analysis & Synthesis Status : Successful - Tue Dec 12 15:14:24 2017
+>>>>>>> .r113
 Quartus II 64-Bit Version : 9.1 Build 350 03/24/2010 SP 2 SJ Full Version
 Revision Name : TA12_Digitizer
 Top-level Entity Name : TA12_Digitizer
 Family : Cyclone IV E
+<<<<<<< .mine
+Total logic elements : N/A until Partition Merge
+    Total combinational functions : N/A until Partition Merge
+    Dedicated logic registers : N/A until Partition Merge
+Total registers : N/A until Partition Merge
+Total pins : N/A until Partition Merge
+Total virtual pins : N/A until Partition Merge
+Total memory bits : N/A until Partition Merge
+Embedded Multiplier 9-bit elements : N/A until Partition Merge
+Total PLLs : N/A until Partition Merge
+||||||| .r112
+Total logic elements : 6,040
+    Total combinational functions : 4,445
+    Dedicated logic registers : 3,769
+Total registers : 3769
+Total pins : 81
+Total virtual pins : 0
+Total memory bits : 157,696
+Embedded Multiplier 9-bit elements : 0
+Total PLLs : 1
+=======
 Total logic elements : 6,006
     Total combinational functions : 4,411
     Dedicated logic registers : 3,757
@@ -12,3 +39,4 @@ Total virtual pins : 0
 Total memory bits : 157,696
 Embedded Multiplier 9-bit elements : 0
 Total PLLs : 1
+>>>>>>> .r113

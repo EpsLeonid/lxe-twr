@@ -48,8 +48,6 @@ set_global_assignment -name EDA_OUTPUT_DATA_FORMAT "VERILOG HDL" -section_id eda
 set_global_assignment -name USE_GENERATED_PHYSICAL_CONSTRAINTS OFF -section_id eda_blast_fpga
 set_global_assignment -name MIN_CORE_JUNCTION_TEMP 0
 set_global_assignment -name MAX_CORE_JUNCTION_TEMP 85
-set_global_assignment -name TIMEQUEST_MULTICORNER_ANALYSIS ON
-set_global_assignment -name TIMEQUEST_DO_CCPP_REMOVAL ON
 set_instance_assignment -name IO_STANDARD "BUS LVDS" -to p
 set_instance_assignment -name IO_STANDARD "BUS LVDS" -to n
 set_location_assignment PIN_AA5 -to p
@@ -72,7 +70,6 @@ set_global_assignment -name NOMINAL_CORE_SUPPLY_VOLTAGE 1.2V
 set_global_assignment -name DEVICE_FILTER_PACKAGE FBGA
 set_global_assignment -name DEVICE_FILTER_PIN_COUNT 484
 set_global_assignment -name DEVICE_FILTER_SPEED_GRADE 7
-set_global_assignment -name USE_CONFIGURATION_DEVICE OFF
 set_global_assignment -name MISC_FILE "D:/Users/Leon/Work/CMD-3/el_lxe/Electronics/trunk/Altera/AlteraBLVDS_edit/AlteraBLVDS_edit/CycloneIII_blvds_restored/CycloneIII_blvds.dpf"
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
 set_global_assignment -name MISC_FILE "D:/Users/Leon/Work/CMD-3/el_lxe/Electronics/trunk/Altera/CycloneIII_blvds_restored/CycloneIII_blvds.dpf"
