@@ -94,14 +94,14 @@ LedR			: output;   -- drives the Red LED                       -> Pin63
 LedG			: output;   -- drives the Green LED                     -> Pin64
 LedB			: output;   -- drives the Blue(Yellow) LED              -> Pin65
 
--- 2. UpLink signals 
+-- 2. Data transfer signals 
 -- 2a. UpLink signals 
 LinkClk			: input;    -- Clock from Link's ClockLine              <- Pin 
 LinkData		: bidir;    -- Data <-> Link's DataLine                 <->Pin 
 LinkTxRx		: output;   -- iai?aaeaiea ia?aaa?e a "DataLine"        -> Pin 
 
 -- 2b. FastLink signals 
-SerDataOut[9..0]			: output;  -- aaiiua aey ia?aaa?e n iiiiuu? Serializer-a a EIO
+SerDataOut[13..0]			: output;  -- aaiiua aey ia?aaa?e n iiiiuu? Serializer-a a EIO
 NWordFLink[1..0]			: output;  -- iiia? neiaa a aaiiuo aey ia?aaa?e n iiiiuu? Serializer-a a EIO
 RPWDN						: output;  -- aee/auee Serializer-a
 TPWDN						: output;  -- aee/auee Deserializer part
@@ -111,11 +111,23 @@ SerClk						: output;  -- oaeoiaue neaiae Serializer-a
 FLink_Sync					: input;  -- neaiae neio?iiecaoee Serializer-a/Deserializer-a
 TAWF_DataStrobe				: output;
 
+-- 2c. Ethernet Phy device ports     LXT972
+RxClk			: input;        --                                <- Pin
+CRS				: input;        -- Carrier_Sense                  <- Pin
+RxDV			: input;        -- Data_Valid                     <- Pin
+RxD[3..0]		: input; 
+RxEr			: input;        -- RxEr not in use!!!! pin109-corner
+
+TxClk			: input;
+TxEn			: input;
+TxD[3..0]		: input;
+COL				: input;        -- Collision_Detect not used
+
 -- 3. Digitizers  
 ADC_In_Data[NUM_CH-1..0][1..0]	: input;    -- input of data from ADC Pin197..219, Pin110..123,...
 ADC_FrameClk[2..0]				: input;
 
-ExtReset			: input = GND;  -- external Reset (tied to GND --VCC)   <- Pin6
+ExtReset			: input = GND;  -- external Reset (tied to GND --VCC)   <- Pin
 
 Test_in				: input;
 Test[10..1]			: output;
@@ -722,7 +734,7 @@ END IF;
 NWordCount.(clock, cnt_en) = (Clk25, VCC);
 FLink_Data_BUS.data[11..10] = NWordCount.q[];
 FLink_Data_BUS.clock = Clk25;
-
+SerDataOut[13..10] = b"1010";
 IF (TxWFhist.q == GND) Then --Link_IFace.LinkMessage == GND Then
 	--FLink_Data_BUS.data[5..0]	= (VCC,GND,VCC,GND,VCC,GND);--TA6Channel[5..0].EventFound;	-- Trigger efficiency check
 	--FLink_Data_BUS.data[9..6]	= (VCC,GND,VCC,GND);--TA6Channel[4..0].EventFound;
