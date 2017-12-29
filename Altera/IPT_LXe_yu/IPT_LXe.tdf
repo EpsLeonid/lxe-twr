@@ -41,7 +41,7 @@ Constant CommdList_Offset	= H"0C00";	-- #3072  RAM block containing the Command 
 Constant CommdList_Size		= 1024;		-- #3072..#4095
 
 --Constant ThisDeviceAddr     = H"666666008CEF"; 
-Constant ThisDeviceAddr		= H"0555555555CF"; 
+Constant ThisDeviceAddr		= H"055555555520"; 
 
 Constant Link_IFace_Offset	= 2048+32;  -- #2080=H"0820" - Link's InData_Port
                                         -- #2081=H"0821" - Link's Data_Port

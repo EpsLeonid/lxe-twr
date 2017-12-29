@@ -60,7 +60,7 @@ endmodule
 // Retrieval info: CONNECT: @datain 0 0 1 0 datain 0 0 1 0
 // Retrieval info: CONNECT: dataout 0 0 1 0 @dataout 0 0 1 0
 // Retrieval info: GEN_FILE: TYPE_NORMAL diffin.v TRUE
-// Retrieval info: GEN_FILE: TYPE_NORMAL diffin.inc FALSE
+// Retrieval info: GEN_FILE: TYPE_NORMAL diffin.inc TRUE
 // Retrieval info: GEN_FILE: TYPE_NORMAL diffin.cmp TRUE
 // Retrieval info: GEN_FILE: TYPE_NORMAL diffin.bsf TRUE FALSE
 // Retrieval info: GEN_FILE: TYPE_NORMAL diffin_inst.v TRUE

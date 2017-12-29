@@ -7,6 +7,9 @@ INCLUDE "lpm_shiftreg.inc" ;
 INCLUDE "lpm_counter.inc" ;
 INCLUDE	"lpm_add_sub.inc";
 INCLUDE "lpm_divide.inc";
+INCLUDE "pdo.inc";
+INCLUDE "seio.inc";
+INCLUDE "diffin.inc";
 
 INCLUDE "EdgeSensing.inc";
 INCLUDE "LevelSensing.inc" ;
@@ -68,6 +71,8 @@ Constant Bunch_Crossing_12_5_FLS_Offset	= H"3110";	-- 12560
 Constant TestRAM_Offset 		= H"7000";	-- 28672, Test RAM block
 Constant TestRAM_Size			= 256;		-- 256words * 16bits
 
+Constant ThisDeviceAddr		= H"055555555520"; 
+
 CONSTANT ADC_Bits				= 12;	-- eiee?anoai aoiaiuo aeo n AOI
 CONSTANT NUM_CH					= 12;	-- eiee?anoai eaiaeia
 CONSTANT TA_Bits				= 10;	-- eiee?anoai aeo a auno?ii eeiea
@@ -97,8 +102,9 @@ LedB			: output;   -- drives the Blue(Yellow) LED              -> Pin65
 -- 2. Data transfer signals 
 -- 2a. UpLink signals 
 LinkClk			: input;    -- Clock from Link's ClockLine              <- Pin 
-LinkData		: bidir;    -- Data <-> Link's DataLine                 <->Pin 
-LinkTxRx		: output;   -- iai?aaeaiea ia?aaa?e a "DataLine"        -> Pin 
+LinkData_p		: bidir;    -- Data <-> Link's DataLine                 <->Pin 
+LinkData_n		: bidir;    -- Data <-> Link's DataLine                 <->Pin 
+--LinkTxRx		: output;   -- iai?aaeaiea ia?aaa?e a "DataLine"        -> Pin 
 
 -- 2b. FastLink signals 
 SerDataOut[13..0]			: output;  -- aaiiua aey ia?aaa?e n iiiiuu? Serializer-a a EIO
@@ -174,6 +180,11 @@ LinkFlash			: LightPulser with (Duration = 50, RefClock = 100000); -- Green
 --******** 3a. Up_Link
 Link_IFace			: UpLink with (RefClock = 100);
 Delay_LinkMessage	: DFF;
+
+b2v_inst2			: pdo;
+b2v_inst3			: seio;
+b2v_inst4			: seio;
+b2v_inst5			: diffin;
 
 --============================================================================
 --******** 3b. Fast_Link TA6/12->IPT
@@ -427,15 +438,15 @@ Synchro12	= DFF(.d=(!Clk25Del1 & Clk25Del2 & !Phase12), .clk=!Clk100 );
 Synchro25	= DFF(.d=(!Clk25Del1 & Clk25Del2), .clk=!Clk100 );
 
 --********************************** Iauee noii ***********************************	
-Event_ES_Beg.(d,clk)  = (!LinkData%ia?aue aeo aoiaiie iinueee, io?ii eni?aaeou% AND !Event_Trig.q, CLK100); -- Ii?aaaeaiea noa?oiaiai aeoa
-LinkMsg_Trig.(d,clk)  = (!Link_IFace.LinkMessage, CLK100);    
-Event_ES_End.(d,clk)  = (LinkMsg_Trig.q, CLK100);
-Event_Trig.(S,clk,R)  = (Event_ES_Beg.q, CLK100, Event_ES_End.q);
+--Event_ES_Beg.(d,clk)  = (!LinkData%ia?aue aeo aoiaiie iinueee, io?ii eni?aaeou% AND !Event_Trig.q, CLK100); -- Ii?aaaeaiea noa?oiaiai aeoa
+--LinkMsg_Trig.(d,clk)  = (!Link_IFace.LinkMessage, CLK100);    
+--Event_ES_End.(d,clk)  = (LinkMsg_Trig.q, CLK100);
+--Event_Trig.(S,clk,R)  = (Event_ES_Beg.q, CLK100, Event_ES_End.q);
 
-Event_ES_Beg_.(d,clk) = (!LinkData%ia?aue aeo aoiaiie iinueee, io?ii eni?aaeou% AND !Event_Trig_.q, CLK50); -- Ii?aaaeaiea noa?oiaiai aeoa
-LinkMsg_Trig_.(d,clk) = (!Link_IFace.LinkMessage, CLK50);    
-Event_ES_End_.(d,clk) = (LinkMsg_Trig_.q, CLK50);
-Event_Trig_.(S,clk,R) = (Event_ES_Beg_.q, CLK50, Event_ES_End_.q);
+--Event_ES_Beg_.(d,clk) = (!LinkData%ia?aue aeo aoiaiie iinueee, io?ii eni?aaeou% AND !Event_Trig_.q, CLK50); -- Ii?aaaeaiea noa?oiaiai aeoa
+--LinkMsg_Trig_.(d,clk) = (!Link_IFace.LinkMessage, CLK50);    
+--Event_ES_End_.(d,clk) = (LinkMsg_Trig_.q, CLK50);
+--Event_Trig_.(S,clk,R) = (Event_ES_Beg_.q, CLK50, Event_ES_End_.q);
 
 --============================================================================
 -- ******** 2. Indicators section ********************************************
@@ -457,15 +468,21 @@ R_Flash.(clock, event)  =(Clk100,Error);-- Error is defined in Control Unit sect
 									
 --============================================================================
 --******** 3. LINK's Interface ***********************************************
---	Serial Port
-%		DDR_InLVDS[i][j].(datain, inclock, aclr) = (ADC_In_Data[i][j], Clk300_adc, Reset);
-		DDR_Reg_pos[i][j].(shiftin, clock, enable, load) = (DDR_InLVDS[i][j].dataout_h, Clk300_adc, VCC, GND);
-		DDR_Reg_neg[i][j].(shiftin, clock, enable, load) = (DDR_InLVDS[i][j].dataout_l, Clk300_adc, VCC, GND);
 %
 LinkData    = TRI (!Link_IFace.LinkData_out, Link_IFace.TxRx);-- Output to Pin
 Link_IFace.LinkData_in = !LinkData ;                          -- Input from Pin
 LinkTxRx    =  ( Link_IFace.TxRx );     -- Tx/Rx control, High => Tx
-	
+%
+Link_IFace.LinkData_in = (b2v_inst5.dataout AND !Link_IFace.TxRx);
+
+b2v_inst2.i = !Link_IFace.LinkData_out;
+b2v_inst3.(datain, oe) = (b2v_inst2.o, Link_IFace.TxRx);
+b2v_inst4.(datain,oe) = (b2v_inst2.obar, Link_IFace.TxRx);
+b2v_inst5.(datain, datain_b) = (LinkData_p, LinkData_n);
+
+LinkData_p = b2v_inst3.dataout;
+LinkData_n = b2v_inst4.dataout;
+
 -- Project Bus Port
 Link_IFace.Clock	=	Clk100 ;
 
