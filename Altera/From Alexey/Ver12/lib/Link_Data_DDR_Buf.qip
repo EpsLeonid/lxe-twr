@@ -1,5 +1,0 @@
-set_global_assignment -name IP_TOOL_NAME "ALTDDIO_IN"
-set_global_assignment -name IP_TOOL_VERSION "8.1"
-set_global_assignment -name MISC_FILE [file join $::quartus(qip_path) "Link_Data_DDR_Buf.tdf"]
-set_global_assignment -name MISC_FILE [file join $::quartus(qip_path) "Link_Data_DDR_Buf.inc"]
-set_global_assignment -name MISC_FILE [file join $::quartus(qip_path) "Link_Data_DDR_Buf.ppf"]
