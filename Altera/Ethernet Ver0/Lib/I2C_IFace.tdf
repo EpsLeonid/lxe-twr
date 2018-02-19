@@ -1,0 +1,256 @@
+TITLE "I2C iFace";
+-- Функция для работы с I2C интерфейсом
+
+INCLUDE "lpm_counter.inc" ;
+INCLUDE "lpm_shiftreg.inc" ;
+INCLUDE "Edge_Sensing.inc"; 
+ 
+CONSTANT WORD_WIDTH   = 16;
+ 
+CONSTANT STA_FIX_TIME = 4000; -- в нс
+CONSTANT STO_FIX_TIME = 4000;
+CONSTANT T_HD_DATA    = 0;
+CONSTANT T_SU_DATA    = 300; --250
+CONSTANT T_FREE_BUS   = 4700; --4700
+CONSTANT TX_RX_SPEED  = 100; -- скорость обмена в кбит/с
+
+
+
+PARAMETERS
+(
+  FREQUENCY    = 100 -- входная частота в МГц
+
+);
+
+CONSTANT CLK_DIV           = FREQUENCY*1000 div TX_RX_SPEED; -- определение коэффициента деления входной частоты до частоты передачи I2C интефейса
+CONSTANT HALF_CLK_DIV      = CLK_DIV div 2;
+CONSTANT CLK_COUNTER_SIZE  = CEIL (LOG2(CLK_DIV));      -- определение размера счетчика
+
+CONSTANT FREE_BUS_NCLK     = T_FREE_BUS div (1000 div FREQUENCY);
+CONSTANT STA_FIX_TIME_NCLK = STA_FIX_TIME div (1000 div FREQUENCY);
+CONSTANT STO_FIX_TIME_NCLK = STO_FIX_TIME div (1000 div FREQUENCY);
+CONSTANT T_SU_DATA_NCLK    = T_SU_DATA div (1000 div FREQUENCY);
+
+
+--CONSTANT NUM_BYTE_TxRx     = 3;
+CONSTANT NUM_BYTE_Tx       = 3;    -- число байт отправляемых байт
+CONSTANT NUM_BYTE_Rx       = 24;   -- число принимаемых байт
+
+
+Subdesign I2C_IFace 
+(
+ 
+   Clock                          : input;   -- Clock
+   SDA_In                         : input;   -- data line входная                 
+  
+       
+   SDA                            : output;  -- data line
+   SCL                            : output;  -- clock line
+   SDA_Direct_Out                 : output;    
+   nLDAC[9..0]                    : output;
+       
+   DataBus_In[15..0]			  : input;  -- отправляемые с Внутренней Шины в Модуль данные
+   DataBusOut[15..0]     	  	  : output; -- выдаваемые на Внутреннюю Шину из Модуля данные (младшие 16бит шины R)
+   
+   DataBusStrobe 			 	  : input;  -- строб приема/передачи данных наружу (высокий уровень, защелкиваем по заднему фронту)
+   Select					 	  : input;  -- флаг выбора модуля для операций доступа
+   DirectIn					  	  : input;  -- направление передачи данных, Если =GND, то данный Модуль читается, если =VCC, то пишется.
+   AddrBus_In[7..0]			 	  : input;  -- адрес ВР модуля при операциях доступа (чтения/записи) 
+   
+ --  TestA, TestB                   : output;
+ )
+
+Variable
+
+      
+     FreqCounter                  : LPM_COUNTER with ( lpm_width=CLK_COUNTER_SIZE, lpm_direction="up" );  
+     FreqCntClr                   : node; 
+     DivClk                       : node;
+     OUT_Clock_DFF                : DFF; 
+     OUT_Clock                    : node;
+     CycleSampleEn                : DFFE; --Edge_Sensing;
+     SampleClk                    : node;
+     CycleSampleEnRx              : DFFE; --Edge_Sensing;
+     SampleClkRx                  : node;
+     
+     TxRxStart_ES                 : Edge_Sensing;
+     TxRxCycle                    : SRFF;
+     FullCycle                    : SRFF;
+     WorkCnt                      : LPM_COUNTER with ( lpm_width=8, lpm_direction="up" ); 
+     TxRxCycleEnd                 : node; 
+     
+   
+     -- Transmitter Part
+     TxShifter                    : LPM_SHIFTREG with (lpm_width=9+NUM_BYTE_Tx*9+2, lpm_direction="left"); -- регистр-передатчик выходных данных 
+     TxDataReg[NUM_BYTE_Tx-1..0]: LPM_SHIFTREG with (lpm_width=8, lpm_direction="left"); -- регистр-буфер выходных данных  
+     AddrReg                      : LPM_SHIFTREG with (lpm_width=8, lpm_direction="left");
+     AddrRegEn                    : node;
+     
+     RxShifter                    : LPM_SHIFTREG with (lpm_width=9+NUM_BYTE_Rx*9+2, lpm_direction="left"); -- регистр-приемник входных данных 
+     RxDataReg[NUM_BYTE_Rx-1..0]  : LPM_SHIFTREG with (lpm_width=8, lpm_direction="left"); -- регистр-буфер входных данных  
+     RxDataRegEn                  : node;
+       
+     TxRxStart                    : node;
+     SaveReg[NUM_BYTE_Tx-1..0]    : node;
+     
+     LDAC_Reg                     : LPM_SHIFTREG with (lpm_width=10, lpm_direction="left");
+     LDAC_En                      : node;
+     LDAC_RegEn                   : node;
+     LDAC_SRFF                    : SRFF;
+     
+     
+     FullCycleEnd                 : node;
+     StartEnd                     : node;
+     StartBeg                     : node;
+     SDA_En                       : node;
+     ASK_EN                       : node;
+     ASK_answer                   : node;
+     SDA_DFF                      : DFF;            
+    
+  
+BEGIN
+ 
+ 
+    FreqCounter.(clock,sclr) = (Clock,FreqCntClr OR TxRxStart_ES.q);
+    IF(FreqCounter.q[] == CLK_DIV-1) THEN -- формирование периода передачи данных
+       FreqCntClr = VCC;
+    ELSE
+       FreqCntClr = GND;
+    END IF;
+    IF(FreqCounter.q[] <= HALF_CLK_DIV-1) THEN -- для получения выходной тактовой частоты на шину SCL
+       DivClk = VCC;
+    ELSE
+       DivClk = GND;
+    END IF;
+    IF(FreqCounter.q[] == HALF_CLK_DIV-1) THEN -- sample enable для чтения данных по I2C
+       SampleClkRx = VCC;
+    ELSE
+       SampleClkRx = GND;
+    END IF;
+    IF(FreqCounter.q[] == HALF_CLK_DIV-T_SU_DATA_NCLK-1) THEN  -- sample enable для записи данных по I2C
+       SampleClk = VCC;
+    ELSE
+       SampleClk = GND;
+    END IF;
+    OUT_Clock_DFF.(d,clk)  = (DivClk AND TxRxCycle.q ,Clock);
+        
+    OUT_Clock                   = OUT_Clock_DFF.q;                 -- тактовая частота для линии SCL
+    CycleSampleEn.(d,clk,ena)   = (SampleClk,Clock,FullCycle.q);   -- строб подготовки данных для отправки
+    CycleSampleEnRx.(d,clk,ena) = (SampleClkRx,Clock,FullCycle.q); -- строб подготовки данных для приема
+
+    
+    TxRxStart_ES.(d,clk,clr)   = (TxRxStart AND !FullCycle.q, Clock, GND);
+    FullCycle.(S,clk,R)        = (TxRxStart_ES.q, Clock, FullCycleEnd); -- полный цикл передачи
+    TxRxCycle.(S,clk,R)        = (StartEnd, Clock, TxRxCycleEnd);
+       
+    
+    TxShifter.(clock,enable,load,shiftin) = (Clock, CycleSampleEn.q OR TxRxStart_ES.q, TxRxStart_ES.q, GND); -- регистр для отправки данных
+   % TxShifter.data[0]      = VCC;  -- СТОП условие
+    TxShifter.data[1]      = GND;  -- ASK
+    TxShifter.data[9..2]   = !TxDataReg[2].q[7..0];
+    TxShifter.data[10]     = GND;  -- ASK
+    TxShifter.data[18..11] = !TxDataReg[1].q[7..0];
+    TxShifter.data[19]     = GND;  -- ASK
+    TxShifter.data[27..20] = !TxDataReg[0].q[7..0];
+    TxShifter.data[28]     = GND;  -- ASK
+    TxShifter.data[36..29] = !AddrReg.q[7..0];
+    TxShifter.data[37]     = VCC;  -- СТАРТ условие%
+    
+    FOR i IN 0 to NUM_BYTE_Tx-1  GENERATE
+       TxShifter.data[1+i*9]        = GND;                                     -- ответ ASK
+       TxShifter.data[9+i*9..2+i*9] = !TxDataReg[NUM_BYTE_Tx-1-i].q[7..0];   -- данные
+    END GENERATE;
+    TxShifter.data[0]                                  = VCC;                -- СТОП условие
+    TxShifter.data[1+NUM_BYTE_Tx*9]                    = GND;                -- ответ ASK
+    TxShifter.data[9+NUM_BYTE_Tx*9..2+NUM_BYTE_Tx*9] = !AddrReg.q[7..0];   -- адрес
+    TxShifter.data[9+NUM_BYTE_Tx*9+1]                  = VCC;                -- СТАРТ условие
+  
+   
+   
+    RxShifter.(clock,enable,shiftin) = (Clock, CycleSampleEnRx.q AND AddrReg.q[0], SDA_In);
+    RxDataRegEn = FullCycleEnd AND AddrReg.q[0];
+    FOR i IN 0 to NUM_BYTE_Rx-1  GENERATE
+        RxDataReg[i].(clock,enable,load) = (Clock,RxDataRegEn,VCC);
+        RxDataReg[NUM_BYTE_Rx-1-i].data[7..0] = RxShifter.q[9+9*i..2+9*i];
+    END GENERATE;
+    
+   
+    
+    WorkCnt.(Clock,cnt_en,sclr)   = (Clock, CycleSampleEn.q AND FullCycle.q, FullCycleEnd); -- основной счетчик, задающий времянку обмена 
+    IF(AddrReg.q[0] == GND) THEN-- режим записи
+		IF(WorkCnt.q[] == 1)  THEN StartEnd = VCC; -- окончание формирования СТАРТ условие
+							  ELSE StartEnd = GND; 
+		END IF;
+		IF(WorkCnt.q[] == 18) THEN LDAC_En = VCC;  -- флаг LDAC. Запись в EEPROM нового адреса/защелкивание данных из входных регистров в регистры DAC. Внешний сигнал
+							  ELSE LDAC_En = GND; 
+		END IF;
+   
+		IF(WorkCnt.q[] == 9+NUM_BYTE_Tx*9+1) THEN TxRxCycleEnd = VCC; -- окончание цикла приема/передачи данных 
+							                 ELSE TxRxCycleEnd = GND; 
+		END IF;
+		IF(WorkCnt.q[] == 9+NUM_BYTE_Tx*9+2) THEN FullCycleEnd = VCC; -- окончание всего цикла работы, включая СТАРТ условие и СТОП условие
+						                     ELSE FullCycleEnd = GND; 
+		END IF;
+	END IF;	
+	IF(AddrReg.q[0] == VCC) THEN -- режим чтения
+		IF(WorkCnt.q[] == 1)  THEN StartEnd = VCC; -- окончание формирования СТАРТ условие
+							  ELSE StartEnd = GND; 
+		END IF;
+		IF(WorkCnt.q[] == 9+NUM_BYTE_Rx*9+1) THEN TxRxCycleEnd = VCC; -- окончание цикла приема/передачи данных 
+											 ELSE TxRxCycleEnd = GND; 
+		END IF;
+		IF(WorkCnt.q[] == 9+NUM_BYTE_Rx*9+2) THEN FullCycleEnd = VCC; -- окончание всего цикла работы, включая СТАРТ условие и СТОП условие
+											 ELSE FullCycleEnd = GND; 
+		END IF;
+	END IF;	
+    
+    FOR i IN 0 to NUM_BYTE_Rx-1  GENERATE  -- формирование стробов в моменты ответов ASK
+        IF(WorkCnt.q[] == 18+9*i)  THEN ASK_EN = VCC;
+		                           ELSE ASK_EN = GND;
+        END IF;
+    END GENERATE;
+    ASK_answer = !(ASK_EN AND AddrReg.q[0]); -- управление для переключения направления передачи в момент ответов ASK
+         
+    IF(WorkCnt.q[] <= 9) THEN SDA_En = VCC;  -- управление для переключения направления передачи при режимах чтения или передачи
+                         ELSE IF(AddrReg.q[0] == VCC) THEN  SDA_En = GND; 
+                                                      ELSE  SDA_En = VCC;                                 
+                              END IF;
+    END IF;                          
+        
+    SDA_DFF.(d,clk) = (!(TxShifter.shiftout AND SDA_En) AND ASK_answer, Clock);
+   
+    SDA = SDA_DFF.q;  -- выходная шина данных SDA
+    SCL = !OUT_Clock; -- выходная шина татовой частоты SCL
+    SDA_Direct_Out = !ASK_answer; 
+    
+    LDAC_SRFF.(S,clk,R) = (LDAC_En, Clock, FullCycleEnd); -- управление LDAC
+    FOR i IN 0 to 9 GENERATE
+       nLDAC[i] = !(LDAC_Reg.q[i] AND LDAC_SRFF.q); 
+    END GENERATE;
+ 
+-- регистры данных и т.д.
+    IF(AddrBus_In[7..0] == 0) THEN DataBusOut[7..0]  = AddrReg.q[7..0];  AddrRegEn   = DataBusStrobe and  DirectIn AND Select; END IF; -- регистр Адреса
+    IF(AddrBus_In[7..0] == 1) THEN DataBusOut[9..0]  = LDAC_Reg.q[9..0]; LDAC_RegEn  = DataBusStrobe and  DirectIn AND Select; END IF; -- регистр маски LDAC
+    IF(AddrBus_In[7..0] == 2) THEN TxRxStart         = DataBusStrobe and  DirectIn AND Select; END IF;                                 -- запуск обмена
+    FOR i IN 0 to NUM_BYTE_Tx-1 GENERATE																							   -- регистры данных для отправки
+       IF(AddrBus_In[7..0] == i+3) THEN DataBusOut[7..0] = TxDataReg[i].q[7..0]; 
+                                           DataBusOut[15..8] = GND;
+                                               SaveReg[i] = VCC;
+                                   ELSE SaveReg[i] = GND;        
+       END IF;
+       TxDataReg[i].(data[7..0], clock, enable, load) = (DataBus_In[7..0], Clock, DataBusStrobe and  DirectIn AND Select AND SaveReg[i], VCC);
+    END GENERATE;
+    FOR i IN 0 to NUM_BYTE_Rx-1 GENERATE																							   -- регистры данных для приема
+       IF(AddrBus_In[7..0] == i+NUM_BYTE_Tx+3) THEN DataBusOut[7..0]  = RxDataReg[i].q[7..0]; 
+                                                    DataBusOut[15..8] = GND;
+       END IF;
+    END GENERATE;
+    
+       
+    LDAC_Reg.(data[9..0],clock,enable,load) = (DataBus_In[9..0],Clock,LDAC_RegEn,VCC);   
+    AddrReg.(data[7..0],clock,enable,load)  = (DataBus_In[7..0],Clock,AddrRegEn,VCC);
+ 
+ 
+     
+  
+END; -- Конец модуля

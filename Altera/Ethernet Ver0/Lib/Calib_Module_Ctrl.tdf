@@ -1,0 +1,73 @@
+TITLE "Calibration module control";
+
+INCLUDE "lpm_shiftreg.inc" ;
+INCLUDE "Pulse_Shaper.inc" ;
+
+
+SUBDESIGN Calib_Module_Ctrl
+(
+   Calib_Start                 : input ; -- сигнал запуска
+   Clock 					   : input ; -- тактовые частоты
+   
+   LED_Ctrl[11..0]             : output; -- сигналы калибровки
+
+   
+   DataBus_In[15..0]		   : input;  -- отправляемые с Внутренней Шины в Модуль данные
+   DataBusOut[15..0]     	   : output; -- выдаваемые на Внутреннюю Шину из Модуля данные (младшие 16бит шины R)
+  
+   DataBusStrobe 			   : input;  -- строб приема/передачи данных наружу (высокий уровень, защелкиваем по заднему фронту)
+   Select					   : input;  -- Выбор Модуля для работы с памятью Командного Листа в режиме Slave (с КАМАК-ом)
+   DirectIn					   : input;  -- направление передачи данных, Если =GND, то данный Модуль читается, если =VCC, то пишется.
+   AddrBus_In[7..0]			   : input;  -- адрес при операциях доступа чтения/записи Командного Листа с КАМАК-а
+
+)
+
+VARIABLE
+---------------------------------------------------------------------------------------------
+-- Begin of "Skeleton Project" Var
+   Calib_Delay[11..0]          	   : Pulse_Shaper with (MAX_DURATION=2147483648);
+   Calib_Shaper[11..0]        	   : Pulse_Shaper with (MAX_DURATION=32768);
+   
+   Calib_LSB_Delay_Reg[11..0]      : LPM_SHIFTREG with (lpm_width=16);
+   Calib_LSB_Delay_Reg_CS[11..0]   : node;
+   Calib_MSB_Delay_Reg[11..0]      : LPM_SHIFTREG with (lpm_width=16);
+   Calib_MSB_Delay_Reg_CS[11..0]   : node;
+   
+   Calib_Shaper_Reg[11..0]     	   : LPM_SHIFTREG with (lpm_width=16);
+   Calib_Shaper_Reg_CS[11..0]  	   : node;
+ 
+-- End of "Skeleton Project" Var
+------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------
+	
+BEGIN
+
+    FOR i IN 0 to 11 GENERATE
+        Calib_Delay[i].(d,clk,cnt_en,clr,Duration[])  = ( Calib_Start     , Clock, VCC, GND, Calib_MSB_Delay_Reg[i].q[],Calib_LSB_Delay_Reg[i].q[]);
+        Calib_Shaper[i].(d,clk,cnt_en,clr,Duration[]) = (!Calib_Delay[i].q, Clock, VCC, GND, Calib_Shaper_Reg[i].q[]);
+        LED_Ctrl[i]                                   =   Calib_Shaper[i].q;
+    END GENERATE;
+    
+   --********************************* 
+    FOR i IN 0 to 11 GENERATE  
+       IF (AddrBus_In[] == i*2)   THEN DataBusOut[] = Calib_LSB_Delay_Reg[i].q[];  Calib_LSB_Delay_Reg_CS[i]  = VCC;  -- адреса 0,2,4,6..22  регистры задержки младшие 16 бит
+								  ELSE Calib_LSB_Delay_Reg_CS[i]  = GND;
+       END IF; 
+       IF (AddrBus_In[] == i*2+1) THEN DataBusOut[] = Calib_MSB_Delay_Reg[i].q[];  Calib_MSB_Delay_Reg_CS[i]  = VCC;  -- адреса 1,3,5,7..23  регистры задержки старшие 16 бит
+								  ELSE Calib_MSB_Delay_Reg_CS[i]  = GND;
+       END IF; 
+       
+       IF (AddrBus_In[] == i+24) THEN DataBusOut[] = Calib_Shaper_Reg[i].q[]; Calib_Shaper_Reg_CS[i] = VCC;  -- адреса 24..35 регистры длительности
+								 ELSE Calib_Shaper_Reg_CS[i]  = GND;
+       END IF;  
+    END GENERATE;
+
+
+    FOR i IN 0 to 11 GENERATE
+       Calib_LSB_Delay_Reg[i].( data[], clock, enable, load) = (DataBus_In[], Clock, Calib_LSB_Delay_Reg_CS[i]  AND DataBusStrobe AND DirectIn AND Select , VCC);
+       Calib_MSB_Delay_Reg[i].( data[], clock, enable, load) = (DataBus_In[], Clock, Calib_MSB_Delay_Reg_CS[i]  AND DataBusStrobe AND DirectIn AND Select , VCC);
+       Calib_Shaper_Reg[i].(data[], clock, enable, load) = (DataBus_In[], Clock, Calib_Shaper_Reg_CS[i] AND DataBusStrobe AND DirectIn AND Select , VCC);
+    END GENERATE;
+    
+    
+END;

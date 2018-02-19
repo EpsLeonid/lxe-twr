@@ -1,0 +1,103 @@
+-- Copyright (C) 1991-2008 Altera Corporation
+-- Your use of Altera Corporation's design tools, logic functions 
+-- and other software and tools, and its AMPP partner logic 
+-- functions, and any output files from any of the foregoing 
+-- (including device programming or simulation files), and any 
+-- associated documentation or information are expressly subject 
+-- to the terms and conditions of the Altera Program License 
+-- Subscription Agreement, Altera MegaCore Function License 
+-- Agreement, or other applicable license agreement, including, 
+-- without limitation, that your use is for the sole purpose of 
+-- programming logic devices manufactured by Altera and sold by 
+-- Altera or its authorized distributors.  Please refer to the 
+-- applicable agreement for further details.
+
+-- Quartus II generated Memory Initialization File (.mif)
+
+WIDTH=16;
+DEPTH=256;
+
+ADDRESS_RADIX=UNS;
+DATA_RADIX=UNS;
+
+CONTENT BEGIN
+	[0..63]  :   0;
+	64   :   1793;
+	65   :   1794;
+	66   :   1795;
+	67   :   1796;
+	68   :   1544;
+	69   :   1549;
+	70   :   1550;
+	71   :   1551;
+	[72..79]  :   0;
+	80   :   36875;
+	81   :   37131;
+	82   :   37387;
+	83   :   37643;
+	84   :   37899;
+	85   :   38155;
+	86   :   38411;
+	87   :   38667;
+	88   :   38923;
+	89   :   39179;
+	90   :   39435;
+	91   :   39691;
+	92   :   39947;
+	93   :   40203;
+	94   :   40459;
+	95   :   40715;
+	96   :   40971;
+	97   :   41227;
+	98   :   41483;
+	99   :   41739;
+	100  :   41995;
+	101  :   42251;
+	102  :   42507;
+	103  :   42763;
+	104  :   43019;
+	105  :   43275;
+	106  :   43531;
+	107  :   43787;
+	108  :   44043;
+	109  :   44299;
+	110  :   26629;
+	111  :   26630;
+	112  :   26631;
+	113  :   26632;
+	114  :   26633;
+	115  :   30725;
+	116  :   30726;
+	117  :   30727;
+	118  :   30728;
+	119  :   30729;
+	120  :   26637;
+	121  :   30733;
+	[122..191]  :   0;
+	[192..195]  :   210;
+	196  :   12250;
+	197  :   2;
+	198  :   100;
+	199  :   2;
+	200  :   77;
+	201  :   101;
+	202  :   122;
+	203  :   97;
+	204  :   110;
+	205  :   105;
+	206  :   110;
+	207  :   49;
+	[208..237]  :   1;
+	238  :   597;
+	239  :   21845;
+	240  :   21761;
+	241  :   49320;
+	242  :   7;
+	243  :   597;
+	244  :   21845;
+	245  :   21761;
+	246  :   49320;
+	247  :   7;
+	[248..249]  :   27015;
+	[250..255]  :   0;
+END;

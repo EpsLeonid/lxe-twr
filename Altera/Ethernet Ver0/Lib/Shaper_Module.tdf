@@ -1,0 +1,58 @@
+TITLE "Calibration module control";
+
+INCLUDE "lpm_shiftreg.inc" ;
+INCLUDE "Pulse_Shaper.inc" ;
+
+
+SUBDESIGN Shaper_Module
+(
+   Start_Pulse                 : input ; -- сигнал запуска
+   Clock 					   : input ; -- тактовые частоты
+   
+   Shaped_Pulse                : output; -- сигналы калибровки
+
+   
+   DataBus_In[15..0]		   : input;  -- отправляемые с Внутренней Шины в Модуль данные
+   DataBusOut[15..0]     	   : output; -- выдаваемые на Внутреннюю Шину из Модуля данные (младшие 16бит шины R)
+  
+   DataBusStrobe 			   : input;  -- строб приема/передачи данных наружу (высокий уровень, защелкиваем по заднему фронту)
+   Select					   : input;  -- Выбор Модуля для работы с памятью Командного Листа в режиме Slave (с КАМАК-ом)
+   DirectIn					   : input;  -- направление передачи данных, Если =GND, то данный Модуль читается, если =VCC, то пишется.
+   AddrBus_In[7..0]			   : input;  -- адрес при операциях доступа чтения/записи Командного Листа с КАМАК-а
+
+)
+
+VARIABLE
+---------------------------------------------------------------------------------------------
+-- Begin of "Skeleton Project" Var
+   Shaper                    	   : Pulse_Shaper with (MAX_DURATION=2147483648);
+   
+   Calib_LSB_Shaper_Reg            : LPM_SHIFTREG with (lpm_width=16);
+   Calib_LSB_Shaper_Reg_CS         : node;
+   Calib_MSB_Shaper_Reg            : LPM_SHIFTREG with (lpm_width=16);
+   Calib_MSB_Shaper_Reg_CS         : node;
+   
+ 
+-- End of "Skeleton Project" Var
+------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------
+	
+BEGIN
+
+        Shaper.(d,clk,cnt_en,clr,Duration[]) = ( Start_Pulse, Clock, VCC, GND, Calib_MSB_Shaper_Reg.q[],Calib_LSB_Shaper_Reg.q[]);
+        Shaped_Pulse                         =   Shaper.q;
+
+    
+   --********************************* 
+       IF (AddrBus_In[] == 0) THEN DataBusOut[] = Calib_LSB_Shaper_Reg.q[];  Calib_LSB_Shaper_Reg_CS  = VCC;  -- адрес 0 регистр длительности младшие 16 бит
+							  ELSE Calib_LSB_Shaper_Reg_CS  = GND;
+       END IF; 
+       IF (AddrBus_In[] == 1) THEN DataBusOut[] = Calib_MSB_Shaper_Reg.q[];  Calib_MSB_Shaper_Reg_CS  = VCC;  -- адрес 1 регистр длительности старшие 16 бит
+							  ELSE Calib_MSB_Shaper_Reg_CS  = GND;
+       END IF; 
+       
+       Calib_LSB_Shaper_Reg.( data[], clock, enable, load) = (DataBus_In[], Clock, Calib_LSB_Shaper_Reg_CS  AND DataBusStrobe AND DirectIn AND Select , VCC);
+       Calib_MSB_Shaper_Reg.( data[], clock, enable, load) = (DataBus_In[], Clock, Calib_MSB_Shaper_Reg_CS  AND DataBusStrobe AND DirectIn AND Select , VCC);
+    
+    
+END;

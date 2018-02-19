@@ -1,0 +1,141 @@
+TITLE "USB_One_Reg";
+
+INCLUDE "CMD3_DAQ_Addresses.inc";
+INCLUDE "lpm_shiftreg.inc" ;
+INCLUDE "lpm_counter.inc" ;
+INCLUDE "Edge_Sensing_Sync.inc" ;
+
+Constant RD_End_Cycle_Time	=	25; 
+Constant RD_Sample_Time	=	9; 
+Constant RD_Strobe_Start_Time	=	2; 
+Constant RD_Strobe_Stop_Time	=	12; 
+
+Constant WR_End_Cycle_Time	=	25; 
+Constant WR_Strobe_Start_Time	=	5; 
+Constant WR_Strobe_Stop_Time	=	15; 
+Constant WR_ZZZ_Start_Time	=	2; 
+Constant WR_ZZZ_Stop_Time	=	22; 
+
+Constant BYTE_WIDTH	=	8; 
+
+SUBDESIGN USB_One_Reg
+(
+
+-- Module specific signals
+		-- Neaiaeu ni noi?iiu iineaaiaaoaeuiiai eaiaea
+
+			FT_TXEn				: input ; -- Aaiiua aey i?eaia/ia?aaa?e a/ec eeiea
+			FT_RXFn				: input ;
+			FT_RDn				: OUTPUT; 
+			FT_WR				: OUTPUT;
+			FT_DATA_In[7..0]	: input ;
+			FT_DATA_Out[7..0]	: output ;
+			FT_ZZ				: OUTPUT;
+			USB_Active			: output ;
+--			Last_Byte[7..0]		: output ;
+
+
+-- Standard Bus signaling for Master/Slave connection
+			-- General Signals
+	Bus_Clock	: input ;  -- Global FPGA Clock, assumed 100MHz for T2Q project 
+	Reset					: input=GND ;  -- Common FPGA Reset
+	DataBus_In[15..0]		: input;  -- ioi?aaeyaiua n Aioo?aiiae Oeiu a Eeie aaiiua
+	DataBusOut[15..0]       : output; -- auaaaaaiua ia Aioo?aii?? Oeio ec Eeiea aaiiua
+	DataBusStrobe           : input;  -- no?ia i?eaia/ia?aaa?e aaiiuo ia?o?o (aunieee o?iaaiu, cauaeeeaaai ii caaiaio o?iioo)
+	Error                   : output; -- neaiae ioeaee (iaaa?iay eiiaiaa)
+
+	-- Master Mode Signals -- eniieucoaony i?e ?aaioa aaiiiai Iiaoey a ?a?eia Master)
+	AccessRequest           : output; -- cai?in ia ainooi e oeia aey ?oaiey/caiene aaiiuo Iieuciaaoaey 	
+	AccessGranted			: input;  -- ?ac?aoaiea A?aeo?a aunoaaeou Aa?an e iai?aaeaiea iaiaia (caoaao oeiu)
+	DirectOut				: output; -- iai?aaeaiea ia?aaa?e aaiiuo, ia aioo?aii?? oeio eee n iaa, ii oiie?aie? =GND, ia?aaa?a io aioo?aiieo ?ano?nia ieaou Iiaoeu,
+	AddrBusOut[15..0]       : output; -- aa?an i?e iia?aoeyo ainooia ei aioo?aiiei ?ano?nai Ioeo?iaueea (?oaiey/caiene ii Eiiaiaiiio Eenoo).
+
+			-- Slave Mode Signals	-- eniieucoaony i?e ?aaioa aaiiiai Iiaoey a ?a?eia Slave
+		Select					: input;  -- Auai? Iiaoey aey ?aaiou n iaiyou? Eiiaiaiiai Eenoa a ?a?eia Slave (n EAIAE-ii)
+		Direct_In				: input;  -- iai?aaeaiea ia?aaa?e aaiiuo, Anee =GND, oi aaiiue Iiaoeu ?eoaaony, anee =VCC, oi ieoaony.
+		AddrBus_In[7..0]		: input;  -- aa?an i?e iia?aoeyo ainooia ?oaiey/caiene Eiiaiaiiai Eenoa n EAIAE-a
+	
+--TestOutBus[15..0]				: output ;
+)
+
+
+
+VARIABLE
+RD_Timing_Counter		:	lpm_counter		with (lpm_width=BYTE_WIDTH);
+RD_to_Go				:node;
+RXF_Edge				:	Edge_Sensing_Sync	;
+Start_Read				:node;
+RD_Cycle_is_Active		:SRFF;
+RD_Strob_SRFF			:SRFF;
+
+Fast_input_buffer_FT_Bus	: LPM_SHIFTREG with (lpm_width=BYTE_WIDTH);
+Fast_output_buffer_FT_Bus	: LPM_SHIFTREG with (lpm_width=BYTE_WIDTH);
+
+WR_Timing_Counter		:	lpm_counter		with (lpm_width=BYTE_WIDTH);
+WR_to_Go				:node;
+WR_Cycle_is_Active		:SRFF;
+WR_Strob_SRFF			:SRFF;
+WR_ZZZ_SRFF				:SRFF;
+Out_Buffer_Ena			:node;
+AccessRequest				: SRFFE ;
+
+
+begin
+DEFAULTS
+	RD_to_Go = GND;
+	WR_to_Go = GND;
+	Out_Buffer_Ena = GND;
+END DEFAULTS;
+--Read Proc
+
+	RXF_Edge.(clk,d)	=	(Bus_Clock, (! DFF(.d=FT_RXFn , .clk=Bus_Clock))  );--resyncronize and shape edge
+Start_Read	=	RD_to_Go OR RXF_Edge.q;
+RD_Timing_Counter.(clock, sclr)	=	(Bus_Clock, !RD_Cycle_is_Active);
+RD_Cycle_is_Active.(S,R,clk)	=	((Start_Read), (RD_Timing_Counter.q[]==RD_End_Cycle_Time), Bus_Clock);
+RD_Strob_SRFF.(S,R,clk)		=	((RD_Timing_Counter.q[]==RD_Strobe_Start_Time), (RD_Timing_Counter.q[]==RD_Strobe_Stop_Time), Bus_Clock);
+Fast_input_buffer_FT_Bus.(clock, enable,load,data[]) =(Bus_Clock, (RD_Timing_Counter.q[]==RD_Sample_Time),    VCC, FT_DATA_In[7..0]);
+FT_RDn	=	! RD_Strob_SRFF.q;
+
+--Write Proc
+WR_Timing_Counter.(clock, sclr)	=	(Bus_Clock, !WR_Cycle_is_Active);
+WR_Cycle_is_Active.(S,R,clk)	=	(WR_to_Go, (WR_Timing_Counter.q[]==WR_End_Cycle_Time), Bus_Clock);
+WR_Strob_SRFF.(S,R,clk)		=	((WR_Timing_Counter.q[]==RD_Strobe_Start_Time), (WR_Timing_Counter.q[]==RD_Strobe_Stop_Time), Bus_Clock);
+WR_ZZZ_SRFF.(S,R,clk)		=	((WR_Timing_Counter.q[]==WR_ZZZ_Start_Time), (WR_Timing_Counter.q[]==WR_ZZZ_Stop_Time), Bus_Clock);
+
+
+Fast_output_buffer_FT_Bus.(clock, enable,load,data[])=(Bus_Clock, Out_Buffer_Ena, VCC, DataBus_In[7..0]);
+
+WR_Strob_SRFF.(S,R,clk)		=	((WR_Timing_Counter.q[]==WR_Strobe_Start_Time), (WR_Timing_Counter.q[]==WR_Strobe_Stop_Time), Bus_Clock);
+FT_DATA_Out[7..0]	=	Fast_output_buffer_FT_Bus.q[7..0];
+FT_WR	=	WR_Strob_SRFF.q;
+FT_ZZ	=	WR_ZZZ_SRFF.q;
+
+USB_Active	=	RD_Cycle_is_Active.q OR WR_Cycle_is_Active.q;
+
+--Data_Storage_Buffer.(clock, enable,load,data[])=(Bus_Clock,
+-- Section "User Interface Control" Begin
+--Data_Sim_Buffer.(clock, enable,load,data[])=(Bus_Clock,Data_Sim_Buffer_WE,VCC,DataBus_In[15..0]);
+ -- aaia?aoey cai?ina ia i?aainoaaeaiea/iieo?aiea aaiiuo io/e ?ca? eioa?oaeno
+
+	
+		CASE AddrBus_In[7..0] IS 
+			WHEN 2		=>	DataBusOut[0]= FT_TXEn; DataBusOut[1]= FT_RXFn; DataBusOut[15..2]  = GND;
+			WHEN 1		=>	RD_to_Go	=	(Select AND DataBusStrobe);		DataBusOut[15..0]  = GND;
+			WHEN 0		=>	DataBusOut[7..0]=Fast_input_buffer_FT_Bus.q[7..0];DataBusOut[15..8]= GND;
+			WHEN 3		=>	Out_Buffer_Ena =(Select AND Direct_In AND DataBusStrobe); DataBusOut[7..0]  = Fast_output_buffer_FT_Bus.q[7..0]; DataBusOut[15..8]= GND;
+			WHEN 4		=>	WR_to_Go	=	(Select AND DataBusStrobe);		DataBusOut[15..0]  = GND;
+			WHEN 5		=>	DataBusOut[7..0]=Fast_output_buffer_FT_Bus.q[7..0]; DataBusOut[15..8]= GND;
+
+			WHEN OTHERS	=>	DataBusOut[15..0]  = GND; WR_to_Go	=	GND; RD_to_Go	=	GND; Out_Buffer_Ena	=	GND;
+	END CASE;
+	
+	
+	DirectOut= VCC; --DFF(.d=Interlock, .clk=Clock);
+
+	AccessRequest.S	=	DFF(.d=(RD_Timing_Counter.q==RD_Sample_Time), .clk=Bus_Clock);
+	AccessRequest.clk = Bus_Clock ;
+	AccessRequest.R  = ((DataBusStrobe AND AccessGranted)) ; 
+-- Section "User Interface Control" End
+	AddrBusOut[15..0]	=	LED_IFace_Offset;
+
+end;

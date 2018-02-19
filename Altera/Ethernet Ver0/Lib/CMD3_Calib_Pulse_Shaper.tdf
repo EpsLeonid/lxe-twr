@@ -1,0 +1,115 @@
+TITLE "CMD3 Calibrate Pulse Shaper";
+
+INCLUDE "lpm_shiftreg.inc";
+INCLUDE "Delay_Line.inc";
+INCLUDE "lpm_counter.inc";
+
+
+PARAMETERS
+(
+	NUM_CH     = 6
+);
+
+SUBDESIGN CMD3_Calib_Pulse_Shaper
+(
+  DataIn                    	  : input;  -- входной сигнал
+  DataOut[NUM_CH-1..0]            : output; -- выходной сигнал заданной длительностью  
+  
+  Clock                			  : input;  -- входная частота 
+  Step_Clock                      : input; -- входная частота, регулирующая скорость работы основного счетчика
+
+
+--
+  DataBus_In[15..0]			      : input;  -- полученные с шины проекта данные
+  DataBusOut[15..0]     	  	  : output; -- отправляемые  на шину проекта данные
+  
+  DataBusStrobe 			 	  : input;  -- строб приема/передачи данных наружу (высокий уровень, защелкиваем по заднему фронту)
+  Select					 	  : input;  -- Выбор Модуля для работы с памятью Командного Листа в режиме Slave (с КАМАК-ом)
+  DirectIn					  	  : input;  -- направление передачи данных, Если =GND, то данный Модуль читается, если =VCC, то пишется.
+  AddrBus_In[8..0]			 	  : input;  -- адрес при операциях доступа чтения/записи Командного Листа с КАМАК-а
+
+
+)
+
+VARIABLE
+
+  Pulse_Shaper_Cnt         	   : LPM_COUNTER with ( lpm_width=16, lpm_direction="up" ); -- счетчик 
+  Delay_Mark[NUM_CH-1..0]      : node;
+  Dur_Mark[NUM_CH-1..0]        : node;
+  Dur_Trig[NUM_CH-1..0]        : SRFF;
+  End_Mark[NUM_CH..0]          : node;
+  End_Shaping_Pulse            : node;
+  Start_Shaping                : node;
+
+
+  TDelay_Reg[NUM_CH-1..0]      : lpm_shiftreg with (LPM_WIDTH = 16, LPM_DIRECTION="unused"); -- регистр задержки импульса
+  TDur_Reg[NUM_CH-1..0]        : lpm_shiftreg with (LPM_WIDTH = 16, LPM_DIRECTION="unused"); -- регистр длительности импульса
+  Control_Reg                  : lpm_shiftreg with (LPM_WIDTH = 16, LPM_DIRECTION="unused"); -- регистр управления запуском
+  DeadTime_Reg                 : lpm_shiftreg with (LPM_WIDTH = 16, LPM_DIRECTION="unused"); -- регистр мертвого времени
+  TDelay_Reg_CS[NUM_CH-1..0]   : node;
+  TDur_Reg_CS[NUM_CH-1..0]     : node;
+  Control_Reg_CS               : node;
+  DeadTime_Reg_CS              : node;
+  
+  Start_Shaping_SRFF           : SRFF;
+
+
+BEGIN
+End_Mark[0] = VCC;
+
+Start_Shaping = DataIn;
+
+Start_Shaping_SRFF.(S,clk,R) = (Start_Shaping, Clock, End_Shaping_Pulse); -- время работы, в течении которого формируется один импульс
+Pulse_Shaper_Cnt.(clock,clk_en,sclr,cnt_en) = (Clock,Step_Clock,End_Shaping_Pulse,Start_Shaping_SRFF.q);
+FOR i IN 0 TO NUM_CH-1 GENERATE
+    IF(Pulse_Shaper_Cnt.q[] == TDelay_Reg[i].q[]) THEN Delay_Mark[i] = VCC;
+                                                  ELSE Delay_Mark[i] = GND;
+    END IF;
+    IF(Pulse_Shaper_Cnt.q[] == TDur_Reg[i].q[]) THEN Dur_Mark[i] = VCC;
+                                                ELSE Dur_Mark[i] = GND;
+    END IF;
+    Dur_Trig[i].(S,clk,R)   = (Delay_Mark[i], Clock, Dur_Mark[i]); -- сформированный задержанный калибровочный импульс
+    End_Mark[i+1] = End_Mark[i] AND Dur_Mark[i];
+    DataOut[i] = Dur_Trig[i].q;
+END GENERATE; 
+IF(Pulse_Shaper_Cnt.q[] == DeadTime_Reg.q[])  THEN End_Shaping_Pulse = VCC;
+                                              ELSE End_Shaping_Pulse = GND;
+END IF;
+End_Shaping_Pulse = End_Mark[NUM_CH];
+
+
+
+--********************************      Упраляющие регистры     *******************************
+FOR i IN 0 TO NUM_CH-1 GENERATE
+  TDelay_Reg[i].(data[], clock, enable, load) = (DataBus_In[15..0], Clock, TDelay_Reg_CS[i], VCC);
+  TDur_Reg[i].(data[], clock, enable, load) = (DataBus_In[15..0], Clock, TDur_Reg_CS[i], VCC);
+END GENERATE; 
+Control_Reg.(data[], clock, enable, load) = (DataBus_In[15..0], Clock, Control_Reg_CS, VCC);
+DeadTime_Reg.(data[], clock, enable, load) = (DataBus_In[15..0], Clock, DeadTime_Reg_CS, VCC);
+
+-- 0...5 адреса регистров задержки калибровочных сигналов 
+FOR i IN 0 TO NUM_CH-1 GENERATE
+   IF(AddrBus_In[] == i)  THEN TDelay_Reg_CS[i]     = DataBusStrobe and  DirectIn AND Select;
+                               DataBusOut[15..0]    = TDelay_Reg[i].q[]; 
+                          ELSE TDelay_Reg_CS[i]     = GND;
+   END IF;
+END GENERATE; 
+-- 6...11 адреса регистров длительности калибровочных сигналов 
+FOR i IN NUM_CH TO 2*NUM_CH-1 GENERATE
+   IF(AddrBus_In[] == i)  THEN TDur_Reg_CS[i-NUM_CH]       = DataBusStrobe and  DirectIn AND Select;
+                               DataBusOut[15..0]    = TDur_Reg[i-NUM_CH].q[]; 
+                          ELSE TDur_Reg_CS[i-NUM_CH]       = GND;
+   END IF;
+END GENERATE; 
+-- 12 адрес регистр управления и статуса
+IF(AddrBus_In[] == 2*NUM_CH)  THEN Control_Reg_CS       = DataBusStrobe and  DirectIn AND Select;
+                                   DataBusOut[15..0]    = Control_Reg.q[]; 
+                              ELSE Control_Reg_CS       = GND;
+END IF;
+-- 13 регистр мертвого времени
+IF(AddrBus_In[] == 2*NUM_CH+1)THEN DeadTime_Reg_CS      = DataBusStrobe and  DirectIn AND Select;
+                                   DataBusOut[15..0]    = DeadTime_Reg.q[]; 
+                              ELSE DeadTime_Reg_CS      = GND;
+END IF;
+
+END; -- End design

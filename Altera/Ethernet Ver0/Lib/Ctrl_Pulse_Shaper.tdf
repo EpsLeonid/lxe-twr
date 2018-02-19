@@ -1,0 +1,148 @@
+TITLE "Controlled Pulse Shaper";
+
+INCLUDE "lpm_shiftreg.inc";
+INCLUDE "Delay_Line.inc";
+INCLUDE "lpm_counter.inc";
+INCLUDE "Edge_Sensing_Sync.inc";
+
+
+
+SUBDESIGN Ctrl_Pulse_Shaper
+(
+  DataIn                    	  : input;  -- входной сигнал
+  DataOut                         : output; -- выходной сигнал заданной длительностью 
+  Busy                            : output; 
+  DelayT                          : output;
+  
+  Clock                			  : input;  -- входная частота 
+  Step_Clock                      : input;  -- входная частота, регулирующая скорость работы основного счетчика
+
+
+--  
+  Bus_Clock					      : input;
+  DataBus_In[15..0]			      : input;  -- полученные с шины проекта данные
+  DataBusOut[15..0]     	  	  : output; -- отправляемые  на шину проекта данные
+  DataBusStrobe 			 	  : input;  -- строб приема/передачи данных наружу (высокий уровень, защелкиваем по заднему фронту)
+  Select					 	  : input;  -- Выбор Модуля для работы с памятью Командного Листа в режиме Slave (с КАМАК-ом)
+  DirectIn					  	  : input;  -- направление передачи данных, Если =GND, то данный Модуль читается, если =VCC, то пишется.
+  AddrBus_In[8..0]			 	  : input;  -- адрес при операциях доступа чтения/записи Командного Листа с КАМАК-а
+  Reset					  	      : input=GND; 
+
+)
+
+VARIABLE
+
+Timer_is_precharged				  : SRFF;
+Timer_CNT						  : LPM_COUNTER with ( lpm_width=32);
+End_of_Delay_Mark				  : node;
+LSW_Mark						  : node;
+MSW_Mark						  : node;
+LSW_not_Empty					  : node;
+MSW_not_Empty					  : node;
+
+  
+  Start_Shaping                : Edge_Sensing_Sync;
+
+-- Adding 32bit funct
+  TDelayLSW_Reg                   : lpm_shiftreg with (LPM_WIDTH = 16, LPM_DIRECTION="unused"); -- регистр задержки импульса[15..0]
+  TDelayLSW_Reg_CS				: node;
+  TDelayMSW_Reg                   : lpm_shiftreg with (LPM_WIDTH = 16, LPM_DIRECTION="unused"); -- ?aaeno? caaa??ee eiioeuna[31..16]
+  TDelayMSW_Reg_CS				: node;
+
+  
+  
+  Start_Shaping_SRFF           : SRFF;
+Reset_DFF						: node;
+Start							: node;
+
+
+BEGIN
+
+  Start_Shaping.(d,clk,ena)    = (DataIn,Bus_Clock, VCC);
+  Reset_DFF	                   = DFF(.clk=Clock, .d=Reset);
+  Start	                       = DFF(.clk=Clock, .d=Start_Shaping.q);
+
+  Start_Shaping_SRFF.(S,clk,R) = (Start and (LSW_not_Empty OR MSW_not_Empty), 
+								 Clock, 
+								 End_of_Dead_Time_Mark OR Reset_DFF); -- время работы, в течении которого формируется один импульс
+
+
+
+--Timer Section begin
+  Timer_is_precharged.(S,clk,R) = (Start_Shaping.q, Clock, End_of_Delay_Mark OR Reset_DFF);
+			LSW_not_Empty	=	DFF(.d=(TDelayLSW_Reg.q[] != GND) , .clk=Clock);
+			MSW_not_Empty	=	DFF(.d=(TDelayMSW_Reg.q[] != GND) , .clk=Clock);
+  Timer_CNT.(clock,sclr,cnt_en)	= (Clock, 
+								  ((!(LSW_not_Empty OR MSW_not_Empty)) OR (!Timer_is_precharged.q) OR Reset_DFF),
+								  Step_Clock);
+
+  LSW_Mark	=	DFF(.d=(Timer_CNT.q[15..0]  >= TDelayLSW_Reg.q[15..0]) , .clk=Clock);
+  MSW_Mark	=	DFF(.d=(Timer_CNT.q[31..16] >= TDelayMSW_Reg.q[15..0]) , .clk=Clock);
+
+  IF ((LSW_Mark AND MSW_Mark) and (LSW_not_Empty OR MSW_not_Empty))	THEN End_of_Delay_Mark = VCC;
+																	ELSE End_of_Delay_Mark = GND;
+  END IF;
+--Timer Section end
+
+
+  DataOut = DFF(.d = End_of_Delay_Mark, .clk = Clock);
+  Busy    = Start_Shaping_SRFF;
+  DelayT  = End_of_Delay_Mark; --Delay_Mark;
+
+
+-- Dead Time Section begin
+  Dead_Time_in_Progress.(S,clk,R)   = (End_of_Pulse_Duration_Mark, Clock, End_of_Dead_Time_Mark OR Reset_DFF);
+			Dead_Time_Reg_not_Empty	=	DFF(.d=(DeadTime_Reg.q[] != GND) , .clk=Clock);
+
+  Dead_Time_Cnt.(clock,sclr,cnt_en)	= (Clock, 
+							  		  ((!Dead_Time_Reg_not_Empty) OR (!Dead_Time_in_Progress.q)OR Reset_DFF),
+								      Step_Clock);
+
+  IF ((Dead_Time_Cnt.q[] >= DeadTime_Reg.q[]) and Dead_Time_Reg_not_Empty) 	THEN End_of_Dead_Time_Mark = VCC;
+																			ELSE End_of_Dead_Time_Mark = GND;
+  END IF;
+-- Dead Time Section end
+
+
+
+
+--********************************      Упраляющие регистры     *******************************
+TDelayLSW_Reg.(data[], clock, enable, load) = (DataBus_In[15..0], Bus_Clock, TDelayLSW_Reg_CS, VCC);
+TDelayMSW_Reg.(data[], clock, enable, load) = (DataBus_In[15..0], Bus_Clock, TDelayMSW_Reg_CS, VCC);
+TDur_Reg.(data[], clock, enable, load) 		= (DataBus_In[15..0], Bus_Clock, TDur_Reg_CS, VCC);
+
+Control_Reg.(data[], clock, enable, load) 	= (DataBus_In[15..0], Bus_Clock, Control_Reg_CS, VCC);
+DeadTime_Reg.(data[], clock, enable, load) 	= (DataBus_In[15..0], Bus_Clock, DeadTime_Reg_CS, VCC);
+
+-- адрес регистра задержки калибровочных сигналов 
+-- 0  LSW of Timer Control Register 
+
+IF(AddrBus_In[3..0] == 0)  THEN TDelayLSW_Reg_CS     = DataBusStrobe and  DirectIn AND Select;
+                                DataBusOut[15..0]    = TDelayLSW_Reg.q[]; 
+                           ELSE TDelayLSW_Reg_CS     = GND; 
+END IF;
+-- 1 MSW of Timer Control Register 
+IF(AddrBus_In[3..0] == 1)  THEN TDelayMSW_Reg_CS     = DataBusStrobe and  DirectIn AND Select;
+                                DataBusOut[15..0]    = TDelayMSW_Reg.q[]; 
+                           ELSE TDelayMSW_Reg_CS     = GND;
+END IF;
+
+
+-- 2 адрес регистра длительности калибровочных сигналов 
+IF(AddrBus_In[3..0] == 2)  THEN TDur_Reg_CS          = DataBusStrobe and  DirectIn AND Select;
+                                DataBusOut[15..0]    = TDur_Reg.q[]; 
+                           ELSE TDur_Reg_CS          = GND;
+END IF;
+
+-- 3 адрес регистр управления и статуса
+IF(AddrBus_In[3..0] == 3)  THEN Control_Reg_CS       = DataBusStrobe and  DirectIn AND Select;
+                                DataBusOut[15..0]    = Control_Reg.q[]; 
+                           ELSE Control_Reg_CS       = GND;
+END IF;
+-- 4 регистр мертвого времени
+IF(AddrBus_In[3..0] == 4)  THEN DeadTime_Reg_CS      = DataBusStrobe and  DirectIn AND Select;
+                                DataBusOut[15..0]    = DeadTime_Reg.q[]; 
+                           ELSE DeadTime_Reg_CS      = GND;
+END IF;
+
+END; -- End design

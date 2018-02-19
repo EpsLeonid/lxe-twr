@@ -1,0 +1,113 @@
+TITLE "Copy 64 words from 96LC56BT to Altera RAM";
+
+INCLUDE "Edge_Sensing.inc";
+INCLUDE "lpm_counter.inc";
+INCLUDE "lpm_shiftreg.inc";
+INCLUDE "96LC56BT.inc";
+INCLUDE "2PortRAM256.inc";
+
+CONSTANT WORD_WIDTH           = 16;
+
+CONSTANT OP_CODE_WRITE  	  = B"01";
+CONSTANT OP_CODE_READ  	 	  = B"10";
+
+SUBDESIGN COPY_96LC56BT_TO_RAM
+(
+  	RAM_DO							: INPUT;
+    RAM_Clock						: OUTPUT ;
+    RAM_CS							: OUTPUT ;
+    RAM_DI							: OUTPUT ;
+    
+    DirectOut                       : OUTPUT;
+    
+    Start_Cycle                     : INPUT;
+   
+  -- Standard Bus signaling for Master/Slave connection
+	-- General Signals
+	Bus_Clock						: input;  
+	DataBusStrobe					: input ; 
+    AddrBus_In[7..0]				: input ; 
+    DataBus_In[WORD_WIDTH-1..0]		: input ; -- 
+    DataBusOut[WORD_WIDTH-1..0]		: output; -- 
+	-- Master Mode Signals 
+	Select							: input ;
+	Direct_In						: input; 
+	
+	Test1                           : output;
+    Test2,Test3                     : output;
+)
+
+VARIABLE
+    
+    Ext_RAM 						: 96LC56BT;
+    
+    StartCycle                      : node;
+    Next_Cycle		                : Edge_Sensing;
+    
+    Alt_RAM                         : 2PortRAM256;
+    WordCounter                     : lpm_counter with (lpm_width=8, lpm_direction="up" );
+    Start_Copy_ES                   : Edge_Sensing;
+    Cycle_Copy_SRFF                 : SRFF;
+    End_Copy                        : node;
+    
+    OpCode_BUS[1..0] 				: node;
+    Address_BUS[7..0]				: node;
+    Data_BUS[15..0]					: node;
+
+    
+    RAM_WE							: Edge_Sensing;
+    WC                              : lpm_counter with (lpm_width=16, lpm_direction="up" );
+    
+BEGIN
+
+    Ext_RAM.Clock 		 	 = Bus_Clock;
+    Ext_RAM.OpCode[1..0] 	 = OpCode_BUS[1..0];
+    Ext_RAM.Address_In[7..0] = Address_BUS[7..0];			
+    Ext_RAM.Data_In[15..0]	 = Data_BUS[15..0];			
+    Ext_RAM.Exchange         = StartCycle;
+	Ext_RAM.RAM_DO       	 = RAM_DO;
+	
+	DirectOut 				 = Ext_RAM.DirectOut;
+	RAM_Clock				 = Ext_RAM.RAM_Clock;
+	RAM_CS					 = Ext_RAM.RAM_CS;
+	RAM_DI					 = Ext_RAM.RAM_DI;
+	
+    
+    Start_Copy_ES.(d,clk)                         = (Start_Cycle, Bus_Clock);
+    Cycle_Copy_SRFF.(S,clk,R)					  = (Start_Copy_ES.q, Bus_Clock, End_Copy);
+  
+    RAM_WE.(d,clk) = (Ext_RAM.Data_Out_Ready, Bus_Clock);
+    WordCounter.(clock,cnt_en,clk_en,sclr) = (Bus_Clock, Cycle_Copy_SRFF.q AND Next_Cycle.q, VCC, End_Copy OR Start_Copy_ES.q);
+    
+    IF (WordCounter.q[]==64) THEN End_Copy = VCC;
+                             ELSE End_Copy = GND;
+    END IF;
+    
+    
+    StartCycle = (Next_Cycle.q OR Start_Copy_ES.q) AND !End_Copy;
+    
+    WC.(clock,cnt_en,clk_en,sclr) = (Bus_Clock, Cycle_Copy_SRFF.q, VCC, End_Copy OR Start_Copy_ES.q OR Next_Cycle.q);
+    Next_Cycle.(d,clk) = ((WC.q[]==3000), Bus_Clock);
+    
+    Alt_RAM.clock           = Bus_Clock;
+    Alt_RAM.address_a[7..0] = WordCounter.q[7..0];
+    Alt_RAM.data_a[15..0]   = Ext_RAM.Data_Out[];
+    Alt_RAM.wren_a          = Next_Cycle.q;
+    
+    Alt_RAM.address_b[7..0] = AddrBus_In[7..0];
+    Alt_RAM.data_b[15..0]   = DataBus_In[];
+    Alt_RAM.wren_b			= GND;
+    DataBusOut[]            = Alt_RAM.q_b[]; 
+    
+
+
+    OpCode_BUS[1..0]  = B"10";
+    Address_BUS[7..0] = WordCounter.q[7..0];
+    Data_BUS[15..0]   = GND; 
+    
+    
+    Test1 = Cycle_Copy_SRFF.q;
+    Test2 = Ext_RAM.Data_Out_Ready;
+    Test3 = End_Copy;
+    
+END;

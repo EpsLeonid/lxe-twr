@@ -1,0 +1,88 @@
+TITLE "Skeleton";
+
+
+INCLUDE "lpm_shiftreg.inc" ;
+
+
+
+SUBDESIGN Blocking_Controller 
+(
+   Clock                       : input;
+   Blocking_In[15..0]          : input = GND;
+   POWER_Flag                  : output;
+   BLK_Flag                    : output;
+
+
+   DataBus_In[15..0]		   : input;  -- отправляемые с Внутренней Шины в Модуль данные
+   DataBusOut[15..0]     	   : output; -- выдаваемые на Внутреннюю Шину из Модуля данные (младшие 16бит шины R)
+  
+   DataBusStrobe 			   : input;  -- строб приема/передачи данных наружу (высокий уровень, защелкиваем по заднему фронту)
+   Select					   : input;  -- Выбор Модуля для работы с памятью Командного Листа в режиме Slave (с КАМАК-ом)
+   Direct_In				   : input;  -- направление передачи данных, Если =GND, то данный Модуль читается, если =VCC, то пишется.
+   AddrBus_In[7..0]			   : input;  -- адрес при операциях доступа чтения/записи Командного Листа с КАМАК-а
+)
+
+VARIABLE
+   
+   Polaryti_Reg    			   : LPM_SHIFTREG with (lpm_width=16);
+   Polaryti_Reg_CS             : node;
+   Mask_Reg    			       : LPM_SHIFTREG with (lpm_width=16); 
+   Mask_Reg_CS                 : node;
+   Blocking_Status_Reg  	   : LPM_SHIFTREG with (lpm_width=16);
+   BLK_Enable[16..0]           : node;
+   BLK_Enable_DFF              : DFF;
+   BLK_IN_SRFF[15..0]          : SRFF;
+   Alarm_Reset_NODE            : node;
+   
+   PW_Ctrl_Flag                : SRFF;
+   PW_Flag_ON                  : node;
+   
+   
+------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------
+BEGIN
+
+DEFAULTS
+   BLK_Enable[0] = GND;	
+END DEFAULTS;
+	
+    FOR i IN 0 to 15 GENERATE
+       BLK_IN_SRFF[i].(S,clk,R) = ((Blocking_In[i] XOR Polaryti_Reg.q[i]),Clock, Alarm_Reset_NODE AND !(Blocking_In[i] XOR Polaryti_Reg.q[i]));
+       Blocking_Status_Reg.data[i] = BLK_IN_SRFF[i];
+       BLK_Enable[i+1] = BLK_Enable[i] OR (BLK_IN_SRFF[i].q AND Mask_Reg.q[i]);
+    END GENERATE;
+    
+    BLK_Enable_DFF.(d,clk) = (BLK_Enable[16], Clock);
+    Blocking_Status_Reg.(clock, enable, load) = (Clock, VCC , VCC);
+    Polaryti_Reg.( data[], clock, enable, load) = (DataBus_In[], Clock, Polaryti_Reg_CS AND DataBusStrobe AND Direct_In AND Select , VCC);
+    Mask_Reg.( data[], clock, enable, load) = (DataBus_In[], Clock, Mask_Reg_CS AND DataBusStrobe AND Direct_In AND Select , VCC);
+    
+    
+    PW_Ctrl_Flag.(S,clk,R) = (DataBus_In[0] AND PW_Flag_ON AND DataBusStrobe AND Direct_In AND Select, Clock, ((!DataBus_In[0]) AND DataBusStrobe AND Direct_In AND Select));
+--    PW_Ctrl_Flag.(S,clk,R) = (DataBus_In[0] AND PW_Flag_ON AND DataBusStrobe AND Direct_In AND Select, Clock, (BLK_Enable_DFF.q) OR ((!DataBus_In[0]) AND DataBusStrobe AND Direct_In AND Select));
+    POWER_Flag = PW_Ctrl_Flag.q;
+    BLK_Flag   = !BLK_Enable_DFF.q; 
+
+    IF (AddrBus_In[] == 0)   THEN DataBusOut[] = Blocking_Status_Reg.q[];
+    END IF; 
+    IF (AddrBus_In[] == 1)   THEN DataBusOut[] = Polaryti_Reg.q[]; Polaryti_Reg_CS = VCC;
+							 ELSE Polaryti_Reg_CS = GND;
+    END IF; 
+    IF (AddrBus_In[] == 2)   THEN DataBusOut[] = Mask_Reg.q[]; Mask_Reg_CS = VCC;
+							 ELSE Mask_Reg_CS = GND;
+    END IF;
+    IF (AddrBus_In[] == 3)   THEN DataBusOut[0] = BLK_Enable_DFF.q; 
+                                  DataBusOut[1] = PW_Ctrl_Flag.q; 
+                                  DataBusOut[15..2] = GND;
+    END IF;  
+    IF (AddrBus_In[] == 4)   THEN Alarm_Reset_NODE = DataBusStrobe AND Select;
+							 ELSE Alarm_Reset_NODE = GND;
+    END IF; 
+    IF (AddrBus_In[] == 5)   THEN PW_Flag_ON = VCC;
+							 ELSE PW_Flag_ON = GND;
+    END IF; 
+    
+
+
+
+END;

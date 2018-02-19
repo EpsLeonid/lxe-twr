@@ -1,0 +1,149 @@
+TITLE " Link" ;
+
+INCLUDE "lpm_shiftreg.inc" ;
+INCLUDE "lpm_counter.inc" ;
+INCLUDE "Edge_Sensing.inc" ;
+INCLUDE "Delay_Line.inc" ;
+
+CONSTANT MAXII_START_CODE_WORD = 7;
+
+
+SUBDESIGN MAXII_Link
+(
+   Clock                          : input;
+   BC_Clock                       : input;
+   Sample_Enable                  : input;
+   GPulse                         : input;   
+   Link_Data_Out                  : output;
+   
+   
+   TestOut0,TestOut1,TestOut2     : output;
+  
+ 
+ 
+   DataBus_In[15..0]			  : input;  -- отправляемые с Внутренней Шины в Модуль данные
+   DataBusOut[15..0]     	  	  : output; -- выдаваемые на Внутреннюю Шину из Модуля данные (младшие 16бит шины R)
+   Bus_Clock	                  : input ;
+   DataBusStrobe 			 	  : input;  -- строб приема/передачи данных наружу (высокий уровень, защелкиваем по заднему фронту)
+   Select					 	  : input;  -- Выбор Модуля для работы с памятью Командного Листа в режиме Slave (с КАМАК-ом)
+   DirectIn					  	  : input;  -- направление передачи данных, Если =GND, то данный Модуль читается, если =VCC, то пишется.
+   AddrBus_In[3..0]			 	  : input;  -- адрес при операциях доступа чтения/записи Командного Листа с КАМАК-а
+)
+
+VARIABLE 
+
+
+   TxShifter                      : lpm_shiftreg with (LPM_WIDTH = 35, LPM_DIRECTION="unused");
+   LinkActiveFlag                 : SRFF;
+   StartLinkCycle                 : node;
+   StartLinkCycle_ES              : Edge_Sensing;
+   EndLinkCycle                   : node;
+   LinkBitCounter                 : LPM_COUNTER with ( lpm_width=6);
+ 
+   
+   
+   S_Enable                       : node;
+   Amp_Reg						  : lpm_shiftreg with (LPM_WIDTH = 16, LPM_DIRECTION="unused");
+   Dur_Reg						  : lpm_shiftreg with (LPM_WIDTH = 16, LPM_DIRECTION="unused");
+  -- Ctrl_Reg						  : lpm_shiftreg with (LPM_WIDTH = 16, LPM_DIRECTION="unused");	
+   Exchange_Ctrl                  : node;
+   Amp_Reg_CS					  : node;
+   Dur_Reg_CS					  : node;
+   Ctrl_Reg_CS					  : node;
+   
+   DelayLineCH                    : Delay_Line;
+   Int_GPulse                     : node;
+   --DelayLineCH_CS                 : node;
+  -- All_Reset                      : node;
+   --GPulse_Trig                    : Edge_Sensing;
+
+
+BEGIN -- Начало описания проекта
+
+-- Управление, обмен данными
+
+    IF(LinkActiveFlag.q == VCC) THEN Link_Data_Out     = TxShifter.shiftout;
+                                ELSE Link_Data_Out     = DelayLineCH.DelayedPulse;--GPulse_Trig.q;
+    END IF;
+    --GPulse_Trig.(d,clk) = (GPulse,Clock);
+    
+    
+    DelayLineCH.DataBusStrobe	      = DataBusStrobe ;
+    DelayLineCH.Select			      = Select;
+    DelayLineCH.DirectIn			  = DirectIn ;
+    DelayLineCH.AddrBus_In[3..0]	  = AddrBus_In[3..0];
+    DelayLineCH.DataBus_In[15..0]     = DataBus_In[];
+    DelayLineCH.Bus_Clock             = Bus_Clock;
+    DelayLineCH.Clock                 = Clock;  
+    DelayLineCH.Sample_Enable         = VCC;--BC_Clock;   
+    
+    DelayLineCH.InputPulse            = GPulse OR Int_GPulse;
+    
+    
+    --Link_Data_Out     = TxShifter.shiftout;
+    
+    
+    LinkActiveFlag.(S,R,clk)  = (StartLinkCycle, EndLinkCycle, Clock);
+    --StartLinkCycle_ES.(d,clk) = (Ctrl_Reg.q[0], Clock);
+    StartLinkCycle_ES.(d,clk) = (Exchange_Ctrl, Clock);
+    StartLinkCycle = StartLinkCycle_ES.q;
+    
+    LinkBitCounter.(clock,sclr,cnt_en) = (Clock, EndLinkCycle,LinkActiveFlag.q AND Sample_Enable);
+	IF (LinkBitCounter.q[] == 40) 	
+			THEN	EndLinkCycle = VCC;
+			ELSE	EndLinkCycle = GND;
+	END IF;
+    TxShifter.data[34..32]   = MAXII_START_CODE_WORD; TxShifter.data[31..16] = Amp_Reg.q[]; TxShifter.data[15..0] = Dur_Reg.q[];
+    TxShifter.clock   = Clock;
+    TxShifter.shiftin = GND;
+    TxShifter.(clock,enable) = (Clock, (Sample_Enable AND LinkActiveFlag.q) OR StartLinkCycle);
+	TxShifter.load = StartLinkCycle;
+	
+	
+	
+	S_Enable = DataBusStrobe and  DirectIn AND Select;
+    -- 0 и 1 адреса пишем в регистры задержки калибровочного сигнала
+	IF ( AddrBus_In[3..0] == 0 ) 
+         THEN DataBusOut[]               = DelayLineCH.DataBusOut[];  
+    END IF;
+    IF ( AddrBus_In[3..0] == 1 ) 
+         THEN DataBusOut[]               = DelayLineCH.DataBusOut[];  
+    END IF;
+	-- 2 адрес пишем в Amp_Reg
+    IF ( AddrBus_In[3..0] == 2) 
+         THEN DataBusOut[]               = Amp_Reg.q[];  
+              Amp_Reg_CS                 = S_Enable;
+         ELSE Amp_Reg_CS                 = GND;
+    END IF;
+    -- 3 адрес пишем в Dur_Reg
+    IF ( AddrBus_In[3..0] == 3) 
+         THEN DataBusOut[]               = Dur_Reg.q[];  
+              Dur_Reg_CS                 = S_Enable;
+         ELSE Dur_Reg_CS                 = GND;
+    END IF;
+  %  IF ( AddrBus_In[3..0] == 4) 
+         THEN DataBusOut[]               = Ctrl_Reg.q[];
+              Ctrl_Reg_CS                = S_Enable;
+         ELSE Ctrl_Reg_CS                = GND;
+    END IF;%
+    IF ( AddrBus_In[3..0] == 4) 
+         THEN Exchange_Ctrl              = S_Enable;
+         ELSE Exchange_Ctrl              = GND;
+    END IF;
+    
+    IF ( AddrBus_In[3..0] == 5) 
+         THEN Int_GPulse                 = S_Enable;
+         ELSE Int_GPulse                 = GND;
+    END IF;
+
+	
+	Amp_Reg.(data[], clock, enable, load)     = (DataBus_In[], Bus_Clock, Amp_Reg_CS , VCC);
+	Dur_Reg.(data[], clock, enable, load)     = (DataBus_In[], Bus_Clock, Dur_Reg_CS , VCC);
+   -- Ctrl_Reg.(data[],clock, enable, load)     = (DataBus_In[], Bus_Clock, Ctrl_Reg_CS, VCC);
+
+
+    TestOut0 = StartLinkCycle_ES.q;
+    TestOut1 = LinkActiveFlag.q;
+    TestOut2 = DelayLineCH.DelayedPulse; --GPulse_Trig.q;
+   
+END;  -- Конец описания проекта 

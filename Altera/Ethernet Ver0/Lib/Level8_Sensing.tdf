@@ -1,0 +1,57 @@
+TITLE "Level_Sensing";
+-- This file contain function for High Level Sensing, T2Q project
+-- It produce one clk width output positive pulse for input positive level,
+-- wich is holded at least 3 clk
+ 
+Subdesign Level8_Sensing
+(
+       clk  : input;   -- Clock
+       clr  : input;   -- Common FPGA Reset
+       d    : input;   -- External signal to synchronize
+       q    : output;  -- Synchronized out
+)
+
+Variable
+
+     StartSensing_trg1  : DFF;    
+     StartSensing_trg2  : DFF;  
+     StartSensing_trg3  : DFF;   
+     StartSensing_trg4  : DFF;    
+     StartSensing_trg5  : DFF;  
+     StartSensing_trg6  : DFF; 
+     StartSensing_trg7  : DFF;  
+     StartSensing_trg8  : DFF; 
+     
+Begin
+-- Flip-flop chain begin
+    StartSensing_trg1.d=d;
+         StartSensing_trg1.clk=clk;
+         StartSensing_trg1.clrn=!clr;
+    StartSensing_trg2.d=StartSensing_trg1.q;
+         StartSensing_trg2.clk=clk;
+         StartSensing_trg2.clrn=!clr;
+    StartSensing_trg3.d=StartSensing_trg2.q;
+         StartSensing_trg3.clk=clk;
+         StartSensing_trg3.clrn=!clr;
+    StartSensing_trg4.d=StartSensing_trg3.q;
+         StartSensing_trg4.clk=clk;
+         StartSensing_trg4.clrn=!clr;
+    StartSensing_trg5.d=StartSensing_trg4.q;
+         StartSensing_trg5.clk=clk;
+         StartSensing_trg5.clrn=!clr;
+    StartSensing_trg6.d=StartSensing_trg5.q;
+         StartSensing_trg6.clk=clk;
+         StartSensing_trg6.clrn=!clr;
+    StartSensing_trg7.d=StartSensing_trg6.q;
+         StartSensing_trg7.clk=clk;
+         StartSensing_trg7.clrn=!clr;
+    StartSensing_trg8.d=StartSensing_trg7.q;
+         StartSensing_trg8.clk=clk;
+         StartSensing_trg8.clrn=!clr;
+    
+-- Flip-flop chain end
+
+-- One pulse sync output
+    q=(StartSensing_trg1.q AND StartSensing_trg2.q AND StartSensing_trg3.q AND StartSensing_trg4.q AND StartSensing_trg5.q AND StartSensing_trg6.q AND StartSensing_trg7.q AND StartSensing_trg8.q);
+
+end;

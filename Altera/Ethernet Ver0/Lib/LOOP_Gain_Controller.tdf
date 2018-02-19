@@ -1,0 +1,277 @@
+TITLE "LOOP_Gain_Controller" ;
+-- This file include functions for Loop control of Power Module
+-- of CAMAC_POWER.
+-- This module accepts digitized values from MUX_Controller, and produce PWM to control synchronous power switch.
+
+
+
+INCLUDE "lpm_counter.inc"  ;
+INCLUDE "lpm_shiftreg.inc";
+INCLUDE "Edge_Sensing_Sync.inc";
+INCLUDE "Loop_Subtractor.inc";
+
+CONSTANT WORD_WIDTH				= 	16 ; -- 
+CONSTANT ADC_DATA_WIDTH	        =   18; -- размер данных, приходящих с АЦП (бит)
+
+CONSTANT PWM_Initial_Value		= 	b"0000001111000000";--b"0000000011110000"; -- d100=300ns at 100MHz speed 
+CONSTANT PWM_Base_Period		= 	2000; 				 -- 20us (50kHz at 100MHz speed)
+Constant MAX_Gamma				=	ceil (PWM_Base_Period *8 *8 div 12); -- max PWM width for 7V output at 12V input
+Constant Max_Current_Limit		=	b"000001001110001000";--5000 
+
+CONSTANT PWM_First_Approach     = 	b"0000001100100000" ;	--800
+CONSTANT Drive_to_Sync_GAP		= 	23 ;	-- TAP NUMBER of shiftreg
+CONSTANT Sync_to_Drive_GAP	 	= 	23 ;	-- TAP NUMBER of shiftreg
+CONSTANT MAX_Test_Current	 	= 	8 ;
+
+
+SUBDESIGN LOOP_Gain_Controller
+(
+-- Standard Bus signaling for Master/Slave connection
+	-- General Signals
+	Bus_Clock						: input;  
+	DataBusStrobe					: input ; 
+    AddrBus_In[7..0]				: input ; 
+    DataBus_In[WORD_WIDTH-1..0]		: input ; -- 
+    DataBusOut[WORD_WIDTH-1..0]		: output; -- 
+	-- Master Mode Signals 
+	Select							: input ;
+	Direct_In						: input; 
+ 	Reset							: input = GND ; -- Common FPGA signal Reset (Active HIGH)
+
+----------------  PWM Specific Signals
+	PWM_Clock						: Input ;
+	ADC_goes_to_HOLD_Mode			: Input ;
+
+	PWM_of_Drive_Switch				: Output; 
+	PWM_of_Sync_Switch				: Output; 
+	PWM_Cycle						: Output;
+	Gamma_OVL						: Output;
+	Current_OVL						: Output;
+	
+	Adjust_Dir						: Output;
+	Operations_can_be_started		: Input ;
+	Operations_must_be_stopped		: Input ;
+	Error							: output ; -- Digitizing cycle stop if infinit cycle
+	
+	
+	Power_Enable_Flag_VP    		: output;
+    PWM_Value_VP[15..0]     		: output;
+)
+
+VARIABLE
+	Alarm_Stop							:	node;
+	Power_On							:	Edge_Sensing_Sync;
+	Power_On_Delay						:	LPM_SHIFTREG with (lpm_width=3);
+	Power_Enable_Flag					:	node;
+
+----------- Calculator
+	PWM_Value[15..0]					:	node;
+	
+	PWM_Base_CNT						:	lpm_counter WITH (LPM_WIDTH = 16);
+	Gap1								:	LPM_SHIFTREG with (lpm_width=Drive_to_Sync_GAP);
+	Gap2								:	LPM_SHIFTREG with (lpm_width=Sync_to_Drive_GAP);
+	Drive_Gate, Sync_Gate				:	node;
+	End_of_Drive_Activity				:	node;
+	End_of_PWM_Cycle					:	node;
+	Synchro_End_of_PWM_Cycle			:	node;
+	Simple_End_of_PWM_Cycle				:	node;
+
+	Accumulator							:	lpm_counter WITH (LPM_WIDTH = 16);
+	Q_Point_Reg							:	LPM_SHIFTREG with (lpm_width=16);
+	Gamma_Overload						:	node;
+	Adjust_direction					:	node;
+	Adj_d_bus							:	node;
+	Set_Point_Reg0						:	LPM_SHIFTREG with (lpm_width=16);
+	Set_Point_Reg_load_ena0				:	node;
+	Set_Point_Reg1						:	LPM_SHIFTREG with (lpm_width=16);
+	Set_Point_Reg_load_ena1				:	node;
+    Change_State                        : 	node;
+    
+	Backfeed_Value						:	Loop_Subtractor;
+	Current_Value						: 	Loop_Subtractor;
+
+	Output_Klemme_Value_Reg0			:	LPM_SHIFTREG with (lpm_width=16);-- Edge of board klemme
+	Output_Klemme_Value_Reg_load_ena0	:	node;
+	Output_Klemme_Value_Reg1			:	LPM_SHIFTREG with (lpm_width=16);-- Edge of board klemme
+	Output_Klemme_Value_Reg_load_ena1	:	node;
+	
+	Current_Amp_Value_Reg0				:	LPM_SHIFTREG with (lpm_width=16);
+	Current_Amp_Value_Reg_load_ena0		:	node;
+	Current_Amp_Value_Reg1				:	LPM_SHIFTREG with (lpm_width=16);
+	Current_Amp_Value_Reg_load_ena1		:	node;
+	
+	Feed_Back_Value_Reg0				:	LPM_SHIFTREG with (lpm_width=16);-- Remote load feedback
+	Feed_Back_Value_Reg_load_ena0		:	node;
+	Feed_Back_Value_Reg1				:	LPM_SHIFTREG with (lpm_width=16);-- Remote load feedback
+	Feed_Back_Value_Reg_load_ena1		:	node;
+	
+	Feed_Back_Ret_Value_Reg0			:	LPM_SHIFTREG with (lpm_width=16);
+	Feed_Back_Ret_Value_Reg_load_ena0	:	node;
+	Feed_Back_Ret_Value_Reg1			:	LPM_SHIFTREG with (lpm_width=16);
+	Feed_Back_Ret_Value_Reg_load_ena1	:	node;
+	
+	%Reference_Value_Reg				:	LPM_SHIFTREG with (lpm_width=16);-- Ref_Div
+	Reference_Value_Reg_load_ena	:	node;
+	Power_Value_Reg0				:	LPM_SHIFTREG with (lpm_width=16);-- Primary Power +12V
+	Power_Value_Reg1				:	LPM_SHIFTREG with (lpm_width=16);-- Primary Power +12V
+	Power_Value_Reg_load_ena0		:	node;
+	Power_Value_Reg_load_ena1		:	node;%
+	
+	CSR_Reg							:	LPM_SHIFTREG with (lpm_width=WORD_WIDTH);
+	CSR_Reg_load_ena				:	node;
+	PWM_Value_Reg					:	LPM_SHIFTREG with (lpm_width=WORD_WIDTH);
+	PWM_Value_Reg_load_ena			:	node;
+	PWM_Current_Value_Reg			:	LPM_SHIFTREG with (lpm_width=WORD_WIDTH);
+	
+
+BEGIN
+	DEFAULTS
+		Error = GND;
+	END DEFAULTS;
+
+-- Voltage mode Control
+-- Normalized_Value	=	(Loaded_Value - Pedestal) * koeff
+-- Error_Value	=	Requred_Value - Normalized_Value;
+-- PWM_Value	=	PWM_First_Approach + Integral(Error_Value)
+-- Current mode control
+
+-- Main Control Loop Begin
+	Alarm_Stop						        =	DFF(.clk=PWM_Clock, .d=(Reset OR Operations_must_be_stopped));-- OR Gamma_Overload));
+												
+	Power_On.(clk, d )					    =	(PWM_Clock, Power_On_Delay.shiftout);
+	Power_On_Delay.(clock, shiftin, sclr)	=	(PWM_Clock, Operations_can_be_started, Alarm_Stop);
+	Power_Enable_Flag				        =	SRFF(.clk=PWM_Clock, .S=Power_On.q, .R=Alarm_Stop);
+-- Main Control Loop End
+
+
+--Voltage mode simple stepper approach
+	Accumulator.(Clock, updown, cnt_en)	=	(PWM_Clock, Adjust_direction, DFF(.clk=PWM_Clock, .d=(End_of_Drive_Activity AND Power_Enable_Flag)));
+	Accumulator.(sload, data[])			=	(Gamma_Overload OR Power_On.q OR CSR_Reg.q[0], PWM_Initial_Value); --OR Change_State
+	Gamma_Overload						=	DFF(.clk=PWM_Clock, .d=((Accumulator.q[] > MAX_Gamma) OR (Accumulator.q[] < PWM_Initial_Value))) ;--DFF(.clk=PWM_Clock, .d=(Accumulator.q[] > MAX_Gamma)) ;
+	Change_State                        = 	Set_Point_Reg_load_ena0 OR Set_Point_Reg_load_ena1;
+--	Adjust_direction	=	DFF(.clk=PWM_Clock, .d=(Set_Point_Reg.q[] > Q_Point_Reg.q[]));--if high then count up
+     
+    IF((Set_Point_Reg1.q[15..14],Set_Point_Reg0.q[15..0]) > Backfeed_Value.result[17..0]) THEN Adj_d_bus = VCC;
+																						  ELSE Adj_d_bus = GND;
+    END IF; 
+	--Adj_d_bus			=	DFF(.clk=Bus_Clock, .d=((Set_Point_Reg1.q[15..14],Set_Point_Reg0.q[15..0]) > Backfeed_Value.result[17..0]));
+	Adjust_direction	=	DFF(.clk=PWM_Clock, .d=(DFF(.clk=PWM_Clock, .d=Adj_d_bus)));
+
+
+	Backfeed_Value.(clock, Add_Sub)	    =	(Bus_Clock, GND);
+	Backfeed_Value.(DataA[], DataB[])	=	((Feed_Back_Value_Reg1.q[15..14],Feed_Back_Value_Reg0.q[15..0]),(Feed_Back_Ret_Value_Reg1.q[15..14],Feed_Back_Ret_Value_Reg0.q[15..0]));
+
+-- Current_Value Calculator
+	Current_Value.(clock, Add_Sub)		=	(Bus_Clock, GND);
+	Current_Value.(DataA[], DataB[])	=	((Current_Amp_Value_Reg1.q[15..14],Current_Amp_Value_Reg0.q[15..0]),(Output_Klemme_Value_Reg1.q[15..14],Output_Klemme_Value_Reg0.q[15..0]));
+	Current_OVL							=	DFF(.clk=Bus_Clock, .d=(Current_Value.result[]>= Max_Current_Limit));
+
+
+-- задаем значение длительности для ШИМ-формироватеря от 0 до PWM_Base_Period
+    IF(CSR_Reg.q[0] == VCC) THEN PWM_Value[12..0] = PWM_Value_Reg.q[12..0];
+							ELSE PWM_Value[12..0] = Accumulator.q[15..3];	
+    END IF;
+    PWM_Value[15..13]	= GND;
+--****************************************  PWM Section Begin  *******************************************
+	PWM_Base_CNT.(Clock, sclr)	=	(PWM_Clock, (End_of_PWM_Cycle OR !Power_Enable_Flag) );      -- основной счетчик 
+ 	 
+ 	End_of_PWM_Cycle			=	Simple_End_of_PWM_Cycle OR Synchro_End_of_PWM_Cycle;         -- формирование периода импульса
+	Simple_End_of_PWM_Cycle		=	DFF(.clk=PWM_Clock, .d=(PWM_Base_CNT.q[]>=PWM_Base_Period)); 
+	Synchro_End_of_PWM_Cycle	=	DFF(.clk=PWM_Clock, .d=((PWM_Base_CNT.q[]>=PWM_Base_Period-100))   );
+				
+	End_of_Drive_Activity		=	DFF(.clk=PWM_Clock, .d=((PWM_Base_CNT.q[]==PWM_Value[]) or !Power_Enable_Flag) ); -- формирование длительности импульса
+	Gap1.(Clock, shiftin)		=	(PWM_Clock, End_of_Drive_Activity);
+	Gap2.(Clock, shiftin)		=	(PWM_Clock, End_of_PWM_Cycle);
+	 
+	Drive_Gate	= SRFF(.clk=PWM_Clock,.S=(Gap2.shiftout and !(End_of_Drive_Activity or !Power_Enable_Flag)),.R=(End_of_Drive_Activity or !Power_Enable_Flag));
+	Sync_Gate	= SRFF(.clk=PWM_Clock,.S=Gap1.shiftout,.R=(End_of_PWM_Cycle AND Power_Enable_Flag));
+	
+	PWM_of_Drive_Switch			=	 Drive_Gate;
+	PWM_of_Sync_Switch			=	 Sync_Gate ;
+	 
+--***************************************  PWM Section End   ***********************************************
+							
+	PWM_Cycle	=	Power_On.q;--dff(.clk=PWM_Clock, .d=End_of_PWM_Cycle);
+	Gamma_OVL	=	Gamma_Overload;
+	Adjust_Dir	=	Alarm_Stop;--Adjust_direction;
+							
+							
+	CSR_Reg.(clock, load, enable, data[])					=	(Bus_Clock, VCC, CSR_Reg_load_ena				  ,	DataBus_In[]);  -- регистр управления
+	PWM_Value_Reg.(clock, load, enable, data[])				=	(Bus_Clock, VCC, PWM_Value_Reg_load_ena			  ,	DataBus_In[]);  -- регистр пользовательского значения длительности выходного ШИМ-сигнала
+	PWM_Current_Value_Reg.(clock, load, enable, data[])		=	(Bus_Clock, VCC, VCC					 		  ,	PWM_Value[] ); 
+	
+	Set_Point_Reg0.(clock, load, enable, data[])			=	(Bus_Clock, VCC, Set_Point_Reg_load_ena0		  ,	DataBus_In[]);  -- регистр в котором устанавливаем код напряжения, которое хотим иметь на выходе
+	Set_Point_Reg1.(clock, load, enable, data[])			=	(Bus_Clock, VCC, Set_Point_Reg_load_ena1		  ,	DataBus_In[]);  
+		-- регистры для определения гаммы ШИМ
+	Feed_Back_Ret_Value_Reg0.(clock, load, enable, data[])	=	(Bus_Clock, VCC, Feed_Back_Ret_Value_Reg_load_ena0, DataBus_In[]);  -- опороное напряжение АПЦ (нужно задавать если  АЦП измеряет значение от опоры)
+	Feed_Back_Ret_Value_Reg1.(clock, load, enable, data[])	=	(Bus_Clock, VCC, Feed_Back_Ret_Value_Reg_load_ena1, DataBus_In[]);  -- вычитается из измеренного значения
+	Feed_Back_Value_Reg0.(clock, load, enable, data[])		=	(Bus_Clock, VCC, Feed_Back_Value_Reg_load_ena0	  ,	DataBus_In[]);  -- измернное значение АЦП для определения гаммы ШИМ
+	Feed_Back_Value_Reg1.(clock, load, enable, data[])		=	(Bus_Clock, VCC, Feed_Back_Value_Reg_load_ena1	  ,	DataBus_In[]);
+	    -- регистры для контроля за выходным напряжением 
+	Output_Klemme_Value_Reg0.(clock, load, enable, data[])	=	(Bus_Clock, VCC, Output_Klemme_Value_Reg_load_ena0, DataBus_In[]);  -- опрорное напряжение АПЦ (нужно задавать если  АЦП вызает значение от опоры, вычитается из измеренного значения)
+	Output_Klemme_Value_Reg1.(clock, load, enable, data[])	=	(Bus_Clock, VCC, Output_Klemme_Value_Reg_load_ena1, DataBus_In[]);
+	Current_Amp_Value_Reg0.(clock, load, enable, data[])	=	(Bus_Clock, VCC, Current_Amp_Value_Reg_load_ena0  , DataBus_In[]);  -- измернное значение АЦП для контроля
+	Current_Amp_Value_Reg1.(clock, load, enable, data[])	=	(Bus_Clock, VCC, Current_Amp_Value_Reg_load_ena1  , DataBus_In[]);
+	Q_Point_Reg.(clock, load, enable, data[])				=	(Bus_Clock, VCC, VCC                              , Current_Value.result[15..0]); -- разница между Current_Amp_Value_Reg и Output_Klemme_Value_Reg 
+	
+%	Reference_Value_Reg.(clock, load, enable, data[])		=	(Bus_Clock, VCC, Reference_Value_Reg_load_ena	  ,	DataBus_In[]);  -- неиспользуется
+	Power_Value_Reg0.(clock, load, enable, data[])			=	(Bus_Clock, VCC, Power_Value_Reg_load_ena0        , DataBus_In[]);  -- iaeniieucoaony
+    Power_Value_Reg1.(clock, load, enable, data[])			=	(Bus_Clock, VCC, Power_Value_Reg_load_ena1        , DataBus_In[]);%
+
+    CASE AddrBus_In[7..0]	IS
+		WHEN 0		=>	DataBusOut[]						=	CSR_Reg.q[]; 
+						CSR_Reg_load_ena					=	Select AND Direct_In AND DataBusStrobe;
+		WHEN 1		=>	DataBusOut[]						=	PWM_Value_Reg.q[]; 
+						PWM_Value_Reg_load_ena				=	Select AND Direct_In AND DataBusStrobe;
+						
+		WHEN 2		=>	DataBusOut[]						=	Set_Point_Reg0.q[]; 
+						Set_Point_Reg_load_ena0				=	Select AND Direct_In AND DataBusStrobe;
+		WHEN 3		=>	DataBusOut[]						=	Set_Point_Reg1.q[]; 
+						Set_Point_Reg_load_ena1				=	Select AND Direct_In AND DataBusStrobe;
+		
+		WHEN 4		=>	DataBusOut[]						=	Q_Point_Reg.q[]; 
+        WHEN 5		=>	DataBusOut[]						=	PWM_Current_Value_Reg.q[]; 
+
+		WHEN 6		=>	DataBusOut[]						=	Feed_Back_Ret_Value_Reg0.q[]; 
+						Feed_Back_Ret_Value_Reg_load_ena0	=	Select AND Direct_In AND DataBusStrobe;
+		WHEN 7		=>	DataBusOut[]						=	Feed_Back_Ret_Value_Reg1.q[]; 
+						Feed_Back_Ret_Value_Reg_load_ena1	=	Select AND Direct_In AND DataBusStrobe;
+						
+		WHEN 8		=>	DataBusOut[]						=	Feed_Back_Value_Reg0.q[]; 
+						Feed_Back_Value_Reg_load_ena0		=	Select AND Direct_In AND DataBusStrobe;
+		WHEN 9		=>	DataBusOut[]						=	Feed_Back_Value_Reg1.q[]; 
+						Feed_Back_Value_Reg_load_ena1		=	Select AND Direct_In AND DataBusStrobe;				
+						
+						
+		WHEN 10		=>	DataBusOut[]						=	Current_Amp_Value_Reg0.q[]; 
+						Current_Amp_Value_Reg_load_ena0		=	Select AND Direct_In AND DataBusStrobe;
+		WHEN 11		=>	DataBusOut[]						=	Current_Amp_Value_Reg1.q[]; 
+						Current_Amp_Value_Reg_load_ena1		=	Select AND Direct_In AND DataBusStrobe;
+		
+		
+		WHEN 12		=>	DataBusOut[]						=	Output_Klemme_Value_Reg0.q[]; 
+						Output_Klemme_Value_Reg_load_ena0	=	Select AND Direct_In AND DataBusStrobe;
+		WHEN 13		=>	DataBusOut[]						=	Output_Klemme_Value_Reg1.q[]; 
+						Output_Klemme_Value_Reg_load_ena1	=	Select AND Direct_In AND DataBusStrobe;
+		
+						
+%		WHEN 8		=>	DataBusOut[]						=	Reference_Value_Reg.q[]; 
+						Reference_Value_Reg_load_ena		=	Select AND Direct_In AND DataBusStrobe;%
+		
+								
+%		WHEN 9		=>	DataBusOut[]						=	Power_Value_Reg0.q[WORD_WIDTH-1..0]; 
+						Power_Value_Reg_load_ena0			=	Select AND Direct_In AND DataBusStrobe;
+		WHEN 10		=>	DataBusOut[]						=	Power_Value_Reg1.q[]; 
+						Power_Value_Reg_load_ena1			=	Select AND Direct_In AND DataBusStrobe;%
+		WHEN OTHERS	=>	DataBusOut[]						=	GND;
+	END CASE;
+							
+
+
+
+Power_Enable_Flag_VP = Power_Enable_Flag;
+PWM_Value_VP[]       = PWM_Value[];
+
+
+END;
+

@@ -1,0 +1,1019 @@
+TITLE "Mezanin";
+
+
+INCLUDE "Prj_PLL.inc"      ;
+INCLUDE "Phase_Switch_DD.inc";
+INCLUDE "lpm_counter.inc"  ;
+INCLUDE "lpm_shiftreg.inc" ;
+INCLUDE "LightPulser.inc"  ;
+INCLUDE "Arbiter.inc"      ;
+INCLUDE "RAM.inc"          ;
+INCLUDE "CMD3_Up_Link.inc" ;
+INCLUDE "USB_RAM_Reg.inc"  ;
+INCLUDE "Edge_Sensing.inc"     ;
+INCLUDE "Pulse_Shaper.inc"     ;
+INCLUDE "96LC56BT_RAM.inc" ;
+INCLUDE "POSS_with_Flash.inc";
+INCLUDE "Random_GEN.inc"   ;
+INCLUDE "SILICON_ID.inc";
+INCLUDE "CMD3_Down_Link.inc";
+INCLUDE "Bunch_Crossing_adjust.inc";
+INCLUDE "USB_Sync_Mode.inc";
+INCLUDE "EVC_Ver28_181109.inc";
+INCLUDE "EVM_4x4_231208.inc";
+INCLUDE "Fr_ether100_new.inc";
+INCLUDE "Rx_DDR_Buff.inc";
+INCLUDE "Tx_Eth100_Sync.inc";
+INCLUDE "Eth_Up_Module.inc";
+--INCLUDE "Eth_Buffer_Parcer.inc";
+
+
+
+Constant Link_IFace_Offset 			= H"0C00" ; -- Commad List 
+Constant Link_IFace_Size  			= 1024 ;
+
+Constant Data_RAM_Offset   			= H"2000" ; -- 8192
+Constant Data_RAM_Size     			= 256 ;
+
+Constant USB_IFace_Offset	    	= H"8C00" ;
+Constant USB_IFace_Size		    	= 512 ;
+
+Constant 96LC56BT_RAM_Offset    	= H"5800" ; -- 22528
+Constant 96LC56BT_RAM_Size      	= 256;     
+
+Constant POSS_Offset				= H"1600" ; -- 5632
+Constant POSS_Size				    = 256;
+
+Constant ID_Offset		 	        = H"1800" ; --6144
+Constant ID_Size  			        = 16 ;
+
+Constant Random_Generator_Offset	= H"2400";
+Constant Random_Generator_Size  	= 16 ;
+
+Constant DWLK_NUM                   = 10;--30; --8
+Constant DownLink_IFace_Offset		= H"9000"; -- 36864
+Constant DownLink_IFace_Size		= 256;
+
+Constant Bunch_Crossing_12_5_Offset = H"4000";
+Constant Bunch_Crossing_12_5_Size	= 256;
+
+Constant Event_Ctrl_Offset 			= H"0600" ; -- 1536 
+Constant Event_Ctrl_Size  			= 32 ;
+	
+Constant Event_Meneger_Offset		= H"0700" ; -- 1792
+Constant Event_Meneger_Size			= 32 ;
+
+Constant Mezanin_Mode_Reg_Offset	= H"800"; -- 2048
+
+Constant Eth0_Data_Layer_Parser_Builder_Offset	= H"6000" ; -- 24576
+Constant Eth0_Data_Layer_Parser_Builder_Size	= 4096 ;
+
+Constant Eth1_Data_Layer_Parser_Builder_Offset	= H"7000" ; -- 28672
+Constant Eth1_Data_Layer_Parser_Builder_Size	= 4096 ;
+
+Constant NumDevice              	= 43; --18-- число устройств которое используется в проекте
+
+
+SUBDESIGN Skeleton 
+(
+-- сигналы линка
+   Link_TxRx                   		: output; -- On-Board C-Link UpLink Connector сигнал направления передачи
+   Link_Data                   		: bidir;  -- On-Board C-Link UpLink Connector последовательный вход/выход данных линка
+   Link_MB_TxRx               		: output; -- Translator Board C-Link UpLink Connector
+   Link_MB_Data                     : bidir;  -- Translator Board C-Link UpLink Connector
+ -- Входная частота  
+   FLCLK                       		: input;  -- On-Board Local Quartz Reference frequency внешняя частота с кварца (25 МГц)
+   Phase0                      		: input;  -- C-Link Reference frequency (On-Board C-Link UpLink Connector) внешняя частота с линка (25 МГц) расположенного на мезанине
+   Phase25                     		: output; -- выбранная частота (между FLCLK и Phase0)
+   PLL_Input                   		: input;  -- выбранная частота подается на вход PLL
+   Link_MB_Phase					: input;  -- Translator Board C-Link UpLink Connector внешняя частота с линка (25 МГц) расположенного на мат. плате (MB)
+   Link_Clock_Out                   : output; -- Translator Board C-Link Imitator Connector выходная частота для DWNLnk (25 МГц)
+   
+   -- DWLN   
+   DWLK_Data_Comm[DWLK_NUM-1..0]	: bidir ;	-- Translator Board C-Link DwLink Connectors
+   DWLK_ALL_Tx_Rx			   		: output;	-- Translator Board C-Link DwLink Connectors
+   --DWLK_Ref_Clock					: output;
+
+     
+ -- индикация на панелях
+   LedR, LedG, LedB         		: bidir; -- Standard Skeleton Project indicators идикаторы
+   USB_Status_LED             		: bidir; -- USB status LED светодиод наличия связи по USB 
+ --  LedB1                      		: bidir; -- идикаторы
+--Eth_Phy_0_Activity_LED, Eth_Phy_0_Activity_LED          : bidir;	-- described in Eth section
+
+ -- USB Interface I/O 
+   --FT232H, a-la(FT245R)
+   FT_TX_Enable_n		            : input;
+   FT_RX_Full_n		                : input;
+   FT_WR_Strobe		                : output;
+   FT_RD_Strobe_n		            : output;
+   FT_Data_Bus[7..0]	            : bidir ;
+   FT_PWR_n			                : input;  -- флаг наличия связи по USB
+   --(FT232H)
+   FT_nSIWU					        : output;
+   FT_CLKOUT				        : input;  -- 60MHz clock driven by FT in sync mode
+   FT_nOE                           : output;
+   
+   USB_nReset_Local		            : input;
+   12MHz_to_FT			            : input;
+   12MHz_from_FPGA			        : input;
+   FT_nPWRSAV		                : input;
+   
+ -- ID   
+   Wire_Data                   		: BIDIR ; -- последовательный вход/выход данных 1-wire   
+  
+-- POSS
+   Power_Good				        : input;	--+ Pin136 - Power Good input Formerly not in us
+-- Config Flash EEPROM   control
+   RAM_DO					        : INPUT;	--POSS_EEPROM_DO
+   RAM_Clock				        : OUTPUT;	--POSS_EEPROM_Clock
+   RAM_CS					        : OUTPUT;	--POSS_EEPROM_CS
+   RAM_DI					  	    : BIDIR ;	--POSS_EEPROM_DI
+
+
+
+   
+    
+   
+   
+-- I/O to Phy Ethernet0
+   Eth0_Phy_RxClk                   : input;	--Eth0_Phy_RxClk
+   Eth0_Phy_Crs						: input;	--Eth0_Phy_Crs
+   Eth0_Phy_RxDv				    : input;   	--Eth0_Phy_RxDv
+   Eth0_Phy_RxD[3..0]				: input;	--Eth0_Phy_RxD[3..0]
+   
+   Eth0_Phy_RxErr				    : input;
+   Eth0_Phy_Col                     : input;
+   
+   Eth0_Phy_TxClk					: input;	--Eth0_Phy_TxClk
+   Eth0_Phy_TxEn					: output;	--Eth0_Phy_TxEn
+   Eth0_Phy_TxD[3..0]		   		: output;	--Eth0_Phy_TxD[3..0]
+   
+   Eth0_Phy_MdC					  	: output;	--Eth0_Phy_MdC
+   Eth0_Phy_MdIO					: input;	--Eth0_Phy_MdIO
+   Eth0_Phy_Activity_LED			: bidir;
+   
+-- I/O to Phy Ethernet1
+   Eth1_Phy_RxClk                   : input;	--Eth1_Phy_RxClk
+   Eth1_Phy_Crs						: input;	--Eth1_Phy_Crs
+   Eth1_Phy_RxDv				    : input;   	--Eth1_Phy_RxDv
+   Eth1_Phy_RxD[3..0]				: input;	--Eth1_Phy_RxD[3..0]
+   
+   Eth1_Phy_RxErr				    : input;
+   Eth1_Phy_Col                     : input;
+   
+   Eth1_Phy_TxClk					: input;	--Eth1_Phy_TxClk
+   Eth1_Phy_TxEn					: output;	--Eth1_Phy_TxEn
+   Eth1_Phy_TxD[3..0]		   		: output;	--Eth1_Phy_TxD[3..0]
+   
+   Eth1_Phy_MdC					  	: output;	--Eth1_Phy_MdC
+   Eth1_Phy_MdIO					: input;	--Eth1_Phy_MdIO
+   Eth1_Phy_Activity_LED			: bidir;
+
+
+ %  
+ -- External RAM control -- 8MB synchronouse RAM 18bitAddrx16bitData
+   Mass_RAM_AddrBus[17..0]		: OUTPUT;
+   Mass_RAM_DataBus[15..0]		: BIDIR;
+   Mass_RAM_WriteStrobe			: OUTPUT;
+   Mass_RAM_OE					: OUTPUT;
+ %
+-- Тестовые пины
+       
+)
+
+
+VARIABLE
+---------------------------------------------------------------------------------------------
+-- Begin of "Skeleton Project" Var
+-- 1. Тактовые частоты и управление частотами   
+   PLL                         			: Prj_PLL; 
+   CLK100,CLK175,CLK25         			: node; -- внутреннии частоты
+   Phase_Switcher              			: Phase_Switch_DD with (FmaxThresh=26000, FminThresh=23000); --Cascaded Automatic switch
+   Link_Switcher               			: Phase_Switch_DD with (FmaxThresh=26000, FminThresh=23000);
+      
+-- 2. Индикаторы (Duration в mc, RefClock в kHz)
+   LightR,LightB               			: LightPulser with (Duration = 20, RefClock = 75000); 
+   LightCounter               			: LPM_COUNTER  with (lpm_width=28, lpm_direction="up" ); 
+   Green_LED                   			: node;
+   Eth0_Phy_Activity_LED_pulser, Eth1_Phy_Activity_LED_pulser	: LightPulser with (Duration = 20, RefClock = 100000);
+   USB_Status_LED_pulser 				: LightPulser with (Duration = 40, RefClock = 100000);
+
+-- 3.  Arbiter 
+   Bus_Arbiter                 			: Arbiter with (DeviceMaxNumber=5,ClockMaxTimout=3);
+   Address_Line[17..0] 		   			: node ;  -- 16 битный адрес + 1 бит mem/reg (VCC=> mem) + 1 бит read/write (VCC=>write)
+   Data_Line[15..0]    		   			: node ;  -- 16 битная двунаправленная шина данных
+   
+   Address_Line_[17..0]        			: node ; 
+   Addr_Line_Reg[17..0]        			: DFF ;
+   Data_Line_[15..0]  	       			: node ;
+   Data_Line_Reg[15..0]        			: DFF ;
+   
+   Data_Line_Reg_A[15..0]      			: DFF ;
+   Data_Line_Reg_B[15..0]      			: DFF ;
+   Data_Line_Reg_C[15..0]      			: DFF ;
+   Data_Line_Reg_D[15..0]      			: DFF ;
+   Data_Line_Reg_E[15..0]      			: DFF ;
+   Data_Line_A[15..0]  	       			: node ;
+   Data_Line_B[15..0]  	       			: node ;
+   Data_Line_C[15..0]  	       			: node ;
+   Data_Line_D[15..0]  	       			: node ;
+   Data_Line_E[15..0]  	       			: node ;
+   
+   
+   Address_Valid       		   			: node ;  -- подтверждение 
+   Target_Ready        		   			: node ;
+   Data_Strobe        		   			: node ;  -- сигнал защелкивания данныхи окончания цикла "запрос-подтверждение"
+   USB_AG                      			: node ;
+   Link_AG                     			: node ;
+   POSS_AG                     			: node ;
+   Eth0_AG,Eth1_AG						: node ;
+--  компаратор адреса
+   Dev_Sel_[NumDevice-1..0]    			: DFF ;  -- Clocked comparator output for Select & Target_Ready	
+   OR_Dev_Sel[NumDevice..0]    			: node;
+
+-- 4. USB 
+   USB_IFace		           			: USB_RAM_Reg;--USB_Sync_Mode;-- USB_RAM_Reg;
+   USB_IFace_CS                			: NODE;
+   USB_Ctrl_DFF                			: DFF;
+
+-- 5. Link
+   Link_IFace                  			: CMD3_UP_Link with (RefClock=100);
+   Link_IFace_CS			   			: node;
+   Link_MB_TxRx_			   			: node;
+   Link_MB_Data_               			: node;
+   Link_TxRx_                  			: node;
+   Link_Data_                  			: node;
+   -- общий СТОП
+   Event_ES_Beg                			: Edge_Sensing;
+   Event_ES_End                			: Edge_Sensing; 
+   Event_Trig                  			: SRFF;
+   LinkMsg_Trig                			: DFF;
+   
+-- 6. Skeletel project Test_RAM
+   Data_RAM	     	           			: RAM ; 	-- Testing access to RAM Blocks
+   Data_RAM_CS		           			: node;   -- Output of Address Comparator
+
+      
+-- 7. External RAM -- 8MB synchronouse RAM 18bitAddrx16bitData
+
+   
+   
+-- 8. POSS
+   POSS_IFace			       			: POSS_with_Flash with (NUM_DATA_FLASH_COPY=64);
+   POSS_IFace_CS		       			: NODE;  
+-- Config Flash EEPROM    
+   External_RAM                			: 96LC56BT_RAM;
+   External_RAM_CS             			: node;
+   
+   RAM_CLK_					   			: node;
+   RAM_CS_                     			: node;
+   RAM_DI_                     			: node;
+   RAM_Dir_                    			: node;
+   
+-- 9. Генератор
+   RND_G		               			: Random_Gen;
+   RND_G_CS		               			: node ;
+   
+-- 10. 1-wire ID
+   ID                          			: SILICON_ID with (RefClock = 100, LinkSpeed = 10);
+   ID_CS					  			: node;
+
+-- 11. DWLK   
+   DWLK[DWLK_NUM-1..0]		   			: CMD3_Down_Link with (RefClock=175);
+   DWLK_CS[DWLK_NUM-1..0]	   		  	: node ;
+   DWLK_ALL_Tx_Rx_node[DWLK_NUM..0]   	: node;
+   DWLK_LinkMessage_All[DWLK_NUM..0]  	: node ;
+   DWLK_Data_Comm_[DWLK_NUM-1..0]	  	: node ;
+   
+-- 12. Bunch Crossing   
+   Bunch_Crossing_12_5         			: Bunch_Crossing_adjust with (Cavity_to_Bunch_Ratio = 14, Number_of_Channel=1);
+   Bunch_Crossing_12_5_CS	   			: node ;
+   
+-- 13. Event & Time Control 
+   Event					   			: NODE ;
+   Event_Ctrl_IFace 		   			: EVC_Ver28_181109;
+   Event_Ctrl_IFace_CS		   			: NODE;
+   
+   Event_Manager_IFace 		   			: EVM_4x4_231208 ;
+   Event_Manager_IFace_CS	   			: NODE ;
+   
+-- 14. Work mode control 
+   Mezanin_Mode_Reg            			: LPM_SHIFTREG with (lpm_width=16, lpm_direction="left");
+   Mezanin_Mode_Reg_CS         			: node;
+   
+   
+-- 15. Ethernet_Channel0  
+   Eth0_Data_Layer_Parser_Builder       	: Eth_Up_Module;--Eth_Buffer_Parcer;--Eth_BufferRAM;	
+   Eth0_Data_Layer_Parser_Builder_CS        : node;
+   Eth0_Rx_DDR					   			: Rx_DDR_Buff;
+   Eth0_Rx_Signaling_to_Data_Layer_Coverter : Fr_ether100_new;	--Eth0_Rx_Signaling_to_Data_Layer_Coverter
+   Eth0_Tx_Data_to_Signaling_Layer_Coverter : Tx_Eth100_Sync;	--Eth0_Tx_Data_to_Signaling_Layer_Coverter
+   
+   
+   Eth0_Rx_Data_Reg							: lpm_shiftreg with(lpm_width=7);
+   Eth0_Rx_Clk_Edge_at_DDR					: node;
+   Eth0_RxClk_Edge_at_System_Clock_DDR		: node;
+
+   
+-- 16. Ethernet1   
+   Eth1_Data_Layer_Parser_Builder      		: Eth_Up_Module;--Eth_Buffer_Parcer;--Eth_BufferRAM;
+   Eth1_Data_Layer_Parser_Builder_CS        : node;
+   Eth1_Rx_DDR					   			: Rx_DDR_Buff;
+   Eth1_Rx_Signaling_to_Data_Layer_Coverter : Fr_ether100_new;
+   Eth1_Tx_Data_to_Signaling_Layer_Coverter : Tx_Eth100_Sync;
+   
+   
+   Eth1_Rx_Data_Reg							: lpm_shiftreg with(lpm_width=7);
+   Eth1_Rx_Clk_Edge_at_DDR					: node;
+   Eth1_RxClk_Edge_at_System_Clock_DDR	    : node;
+    
+-- End of "Skeleton Project" Var
+------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------
+
+  	
+BEGIN
+DEFAULTS
+   DWLK_ALL_Tx_Rx_node[0]  = VCC;
+   DWLK_LinkMessage_All[0] = GND;
+END DEFAULTS;
+------------------------------------------------------------------------------------------------------------
+-- 1. Тактовые частоты и управление частотами 
+   -- Phase25    = FLCLK ; -- частота которую будет умножать PLL
+
+    PLL.inclk0 = PLL_Input ;
+    CLK100     = Global(PLL.c0) ;    -- 100 МГц
+    CLK175     = Global(PLL.c1) ;    -- 175 МГц
+    CLK25	   = Global(PLL.c2) ;    -- 25 МГц
+ 
+   -- Автоматический выбор входной частоты (между кварцом и линками:на мат.плате и на мезанине)
+    Phase_Switcher.Reference_Clock  = FLCLK ;  -- сравниваем частоты с кварца
+    Phase_Switcher.Link_Phase0      = Phase0 ; -- и линка в течении 1 мс
+    Phase_Switcher.Reset            = GND; 
+    
+    Phase25 = (Link_Switcher.LinkClock_Enabled AND Link_Switcher.Phase25) OR ((!Link_Switcher.LinkClock_Enabled) AND Phase_Switcher.Phase25);
+   -- Phase25 = Phase_Switcher.Phase25 ; -- частота которую будет умножать PLL
+    
+   -- Проверка наличия входной частоты линка на мат.плате
+    Link_Switcher.Reference_Clock  = FLCLK ;  -- сравниваем частоты с кварца
+    Link_Switcher.Link_Phase0      = Link_MB_Phase;         -- и линка в течении 1 мс
+    Link_Switcher.Reset            = GND; 
+  
+  
+    Link_Clock_Out = FLCLK; 
+--*************************** Индикаторы ***************************
+    LightCounter.clock = CLK100;
+    LightB.(event,clock) = (Link_IFace.LinkMessage, CLK100);
+    LightR.(clock,event) = (CLK100,  Bus_Arbiter.ErrorLight);-- OR Link_IFace.Error );		     
+    Green_LED = (Phase_Switcher.LinkClock_Enabled OR Link_Switcher.LinkClock_Enabled OR LightCounter.q[27]);-- AND PLL.locked;  
+     
+    
+    
+    LedG = OPNDRN(!Green_LED);
+    LedR = DWLK_LinkMessage_All[DWLK_NUM];--LightR.LightOut;
+    LedB = LightB.LightOut;
+    
+    USB_Status_LED = OPNDRN(USB_Status_LED_pulser.LightOut); USB_Status_LED_pulser.(clock, event) = (CLK100, USB_IFace.USB_Active);
+                               
+--    LedB1 = Event_Ctrl_IFace.Start_CLBR_Links;--OPNDRN(!RND_G.WORKING AND LightCounter.q[23]);         --RND_G.WORKING AND LightCounter.q[23] -- синий
+--    USB_Status_LED = Event_ES_Beg.q;--OPNDRN(!USB_Ctrl_DFF.q);
+ 
+ 
+
+--********************************* Arbiter ************************************
+-- запрос на предастовление шины данных
+    Bus_Arbiter.BARQ[4] = Eth1_Data_Layer_Parser_Builder.AccessRequest;
+    Bus_Arbiter.BARQ[3] = Eth0_Data_Layer_Parser_Builder.AccessRequest;
+    Bus_Arbiter.BARQ[2] = POSS_IFace.AccessRequest;
+    Bus_Arbiter.BARQ[1] = USB_IFace.AccessRequest; 
+	Bus_Arbiter.BARQ[0] = Link_IFace.AccessRequest;
+	
+	
+	Bus_Arbiter.clock       = CLK100;
+	Bus_Arbiter.Reset       = GND;
+	Bus_Arbiter.TargetReady = Target_Ready;
+	
+-- потверждение доступа к шине данных
+    Eth1_AG  = Bus_Arbiter.BAGD[4];
+    Eth0_AG  = Bus_Arbiter.BAGD[3];
+    POSS_AG  = Bus_Arbiter.BAGD[2];
+    USB_AG   = Bus_Arbiter.BAGD[1];
+    Link_AG  = Bus_Arbiter.BAGD[0];
+    
+ 
+	
+	Address_Valid      =  Bus_Arbiter.AddressValid ; -- адрес подтвержден
+	Data_Strobe        =  Global (Bus_Arbiter.DataStrobe) ; -- защелкиваем данные
+	
+	OR_Dev_Sel[0] = GND;
+	FOR i IN 0 TO NumDevice-1 Generate
+	   OR_Dev_Sel[i+1] = OR_Dev_Sel[i] OR Dev_Sel_[i].q;
+	END GENERATE;
+    Target_Ready = OR_Dev_Sel[NumDevice]; -- устройство готово принять данные
+                         
+
+--  Определение устройства которому разрешен доступ на шину данных
+--	Address_Line[17..0]  -- 16 битный адрес + 1 бит mem/reg (VCC=> mem) + 1 бит read/write (VCC=>write)
+CASE Bus_Arbiter.BAGD[4..0] IS
+    WHEN b"10000" => Address_Line_[15..0]= Eth1_Data_Layer_Parser_Builder.AddrBusOut[15..0] ; 
+					 Address_Line_[16]	 = VCC;
+					 Address_Line_[17]	 = Eth1_Data_Layer_Parser_Builder.DirectOut ;
+    WHEN b"01000" => Address_Line_[15..0]= Eth0_Data_Layer_Parser_Builder.AddrBusOut[15..0] ; 
+					 Address_Line_[16]	 = VCC;
+					 Address_Line_[17]	 = Eth0_Data_Layer_Parser_Builder.DirectOut ;
+    WHEN b"00100" => Address_Line_[15..0]= POSS_IFace.AddrBusOut[15..0] ; 
+					 Address_Line_[16]	 = VCC;
+					 Address_Line_[17]	 = POSS_IFace.DirectOut ;
+	WHEN b"00010" => Address_Line_[15..0]= USB_IFace.AddrBusOut[15..0] ; 
+					 Address_Line_[16]   = VCC ; -- определение Slave-устройства с которым будет происходить общение (память=VCC или регистр)
+					 Address_Line_[17]   = USB_IFace.DirectOut ;  -- направление передачи
+	WHEN b"00001" => Address_Line_[15..0]= Link_IFace.AddrBusOut[15..0] ;
+	                 Address_Line_[16]   = VCC; -- общение только с памятью
+	                 Address_Line_[17]   = Link_IFace.DirectOut ; -- направление передачи данных, на внутреннюю шину или с нее, по умолчанию =GND, передача от внутренних ресурсов платы Модуль,
+END CASE;
+
+-- определение Slave-устройства с которым будет происходить общение (память или регистр)
+    IF ((Address_Line[15..0] >= Data_RAM_Offset) AND ((Data_RAM_Offset + Data_RAM_Size) >= Address_Line[15..0]) ) 
+       THEN Data_RAM_CS     = VCC;
+       ELSE Data_RAM_CS     = GND;
+    END IF;
+    
+    IF ((Address_Line[15..0] >= Link_IFace_Offset) AND ((Link_IFace_Offset + Link_IFace_Size) >= Address_Line[15..0]) ) 
+       THEN Link_IFace_CS   = VCC ;
+       ELSE Link_IFace_CS   = GND ;
+    END IF ;
+    IF ((Address_Line[15..0] >= USB_IFace_Offset) AND ((USB_IFace_Offset + USB_IFace_Size) > Address_Line[15..0]) ) 
+        THEN USB_IFace_CS   = VCC ;	
+        ELSE USB_IFace_CS   = GND ;
+    END IF ;
+    IF ((Address_Line[15..0] >= 96LC56BT_RAM_Offset) AND ((96LC56BT_RAM_Offset + 96LC56BT_RAM_Size) > Address_Line[15..0]) ) 
+        THEN External_RAM_CS = VCC ;	
+        ELSE External_RAM_CS = GND ;
+    END IF ;
+    IF ((Address_Line[15..0] >= POSS_Offset) AND ((POSS_Offset + POSS_Size) > Address_Line[15..0]) ) 
+        THEN POSS_IFace_CS = VCC ;	
+        ELSE POSS_IFace_CS = GND ;
+    END IF ;
+    IF ((Address_Line[15..0] >= Random_Generator_Offset) AND ((Random_Generator_Offset + Random_Generator_Size) > Address_Line[15..0]) ) 
+	   THEN	RND_G_CS = VCC ;	
+	   ELSE RND_G_CS = GND ;
+    END IF ;
+    IF ( (Address_Line[15..0] >= ID_Offset) AND (Address_Line[15..0] <= ID_Offset + ID_Size) ) 
+        THEN ID_CS  = VCC ;
+        ELSE ID_CS  = GND ;
+    END IF;
+    FOR i IN 0 TO DWLK_NUM-1 GENERATE
+        IF ((Address_Line[15..0] >= DownLink_IFace_Offset+DownLink_IFace_Size*i) AND ((DownLink_IFace_Offset + DownLink_IFace_Size)+DownLink_IFace_Size*i > Address_Line[15..0]) ) 
+           THEN DWLK_CS[i]   = VCC ;	
+           ELSE DWLK_CS[i]   = GND ;
+        END IF ;
+    END GENERATE;   
+    IF ( (Address_Line[15..0] >= Bunch_Crossing_12_5_Offset) AND (Address_Line[15..0] <= Bunch_Crossing_12_5_Offset + Bunch_Crossing_12_5_Size) ) 
+		THEN Bunch_Crossing_12_5_CS = VCC;
+		ELSE Bunch_Crossing_12_5_CS = GND;
+	END IF; 
+	IF ((Address_Line[15..0] >= Event_Ctrl_Offset) AND ((Event_Ctrl_Offset + Event_Ctrl_Size) >= Address_Line[15..0]) ) 
+		THEN Event_Ctrl_IFace_CS = VCC;	
+		ELSE Event_Ctrl_IFace_CS = GND; 
+	END IF ;
+	IF ((Address_Line[15..0] >= Event_Meneger_Offset) AND ((Event_Meneger_Offset + Event_Meneger_Size) >= Address_Line[15..0]) ) 
+		THEN Event_Manager_IFace_CS   = VCC ;	
+		ELSE Event_Manager_IFace_CS   = GND ; 
+	END IF ;
+	IF (Address_Line[15..0] == Mezanin_Mode_Reg_Offset ) 
+        THEN Mezanin_Mode_Reg_CS   = VCC ;	
+        ELSE Mezanin_Mode_Reg_CS   = GND ;
+    END IF ;
+    IF ((Address_Line[15..0] >= Eth0_Data_Layer_Parser_Builder_Offset) AND ((Eth0_Data_Layer_Parser_Builder_Offset + Eth0_Data_Layer_Parser_Builder_Size) > Address_Line[15..0]) ) 
+		THEN Eth0_Data_Layer_Parser_Builder_CS   = VCC ;	
+		ELSE Eth0_Data_Layer_Parser_Builder_CS   = GND ; 
+	END IF ;
+	IF ((Address_Line[15..0] >= Eth1_Data_Layer_Parser_Builder_Offset) AND ((Eth1_Data_Layer_Parser_Builder_Offset + Eth1_Data_Layer_Parser_Builder_Size) > Address_Line[15..0]) ) 
+		THEN Eth1_Data_Layer_Parser_Builder_CS   = VCC ;	
+		ELSE Eth1_Data_Layer_Parser_Builder_CS   = GND ; 
+	END IF ;
+	
+  
+    Dev_Sel_[0].d  = Data_RAM_CS                AND Address_Line[16] ;  -- Address_Line[16] - пережиток прошлого, в какое пространство происходит обращение регистров или памяти
+    Dev_Sel_[1].d  = Link_IFace_CS              AND Address_Line[16] ;
+    Dev_Sel_[2].d  = USB_IFace_CS               AND Address_Line[16] ;
+    Dev_Sel_[3].d  = ID_CS 		        		AND Address_Line[16] ;
+    Dev_Sel_[4].d  = POSS_IFace_CS 		        AND Address_Line[16] ;
+    Dev_Sel_[5].d  = External_RAM_CS			AND Address_Line[16] ;
+    Dev_Sel_[6].d  = RND_G_CS 				    AND Address_Line[16] ;
+    Dev_Sel_[7].d  = Bunch_Crossing_12_5_CS     AND Address_Line[16] ;
+    Dev_Sel_[8].d  = Event_Ctrl_IFace_CS        AND Address_Line[16] ;
+    Dev_Sel_[9].d  = Event_Manager_IFace_CS     AND Address_Line[16] ;
+  --  Dev_Sel_[10].d = GND			 	        AND Address_Line[16] ;
+  --  Dev_Sel_[11].d = GND			            AND Address_Line[16] ;
+  --  Dev_Sel_[12].d = GND 		                AND Address_Line[16] ;
+  --  Dev_Sel_[13].d = GND				        AND Address_Line[16] ;
+  --  Dev_Sel_[14].d = GND				        AND Address_Line[16] ;
+  --  Dev_Sel_[15].d = GND				        AND Address_Line[16] ;
+    FOR i IN 0 TO DWLK_NUM-1 GENERATE
+           Dev_Sel_[i+10].d = DWLK_CS[i] AND Address_Line[16] ; 
+    END GENERATE;  
+    FOR i IN 0 TO 20-1 GENERATE
+           Dev_Sel_[i+20].d = GND ; 
+    END GENERATE;
+     
+    Dev_Sel_[40].d  = Mezanin_Mode_Reg_CS     AND Address_Line[16] ;
+    Dev_Sel_[41].d  = Eth0_Data_Layer_Parser_Builder_CS     AND Address_Line[16] ;
+    Dev_Sel_[42].d  = Eth1_Data_Layer_Parser_Builder_CS     AND Address_Line[16] ;
+   
+   FOR i IN 0 TO NumDevice-1 GENERATE
+      Dev_Sel_[i].clrn = Address_Valid ; -- Dev_Select разрешен пока Address_Valid=VCC
+      Dev_Sel_[i].clk  = CLK100;
+   END GENERATE; 
+   
+   -- определение направления передачи
+   IF Address_Line[17] THEN   -- Мастер-устройство предоставляет данные
+	  CASE  Bus_Arbiter.BAGD[4..0] IS          -- Мультиплексор выбора Master-устройства 
+ 	      WHEN b"10000" => Data_Line_E[]    = Eth1_Data_Layer_Parser_Builder.DataBusOut[] ;
+	      WHEN b"01000" => Data_Line_E[]    = Eth0_Data_Layer_Parser_Builder.DataBusOut[] ;
+ 	      WHEN b"00100" => Data_Line_E[]    = POSS_IFace.DataBusOut[] ;
+	      WHEN b"00010" => Data_Line_E[]    = USB_IFace.DataBusOut[] ;
+	      WHEN b"00001" => Data_Line_E[]    = Link_IFace.DataBusOut[];
+ 	  END CASE;
+   ELSE   -- Мастер-устройство требует данные 
+	  CASE Dev_Sel_[9..0].q IS     -- Мультиплексор выбора Slave-устройства
+    	  WHEN b"0000000001" => Data_Line_A[]   = Data_RAM.q[] ;
+          WHEN b"0000000010" => Data_Line_A[]   = Link_IFace.DataBusOut[] ;
+          WHEN b"0000000100" => Data_Line_A[]   = USB_IFace.DataBusOut[] ;
+          WHEN b"0000001000" => Data_Line_A[]   = ID.DataBusOut[];
+          WHEN b"0000010000" => Data_Line_A[]   = POSS_IFace.DataBusOut[] ;
+          WHEN b"0000100000" => Data_Line_A[]   = External_RAM.DataBusOut[] ;
+          WHEN b"0001000000" => Data_Line_A[]   = RND_G.DataBusOut[] ;
+          WHEN b"0010000000" => Data_Line_A[]   = Bunch_Crossing_12_5.DataBusOut[];
+          WHEN b"0100000000" => Data_Line_A[]   = Event_Ctrl_IFace.DataBusOut[];
+          WHEN b"1000000000" => Data_Line_A[]   = Event_Manager_IFace.DataBusOut[];
+          WHEN OTHERS		 => Data_Line_A[]   = GND; 
+ 	  END CASE;
+      CASE Dev_Sel_[19..10].q IS     -- Мультиплексор выбора Slave-устройства
+          WHEN b"0000000001" => Data_Line_B[]   = DWLK[0].DataBusOut[] ;
+          WHEN b"0000000010" => Data_Line_B[]   = DWLK[1].DataBusOut[] ;
+          WHEN b"0000000100" => Data_Line_B[]   = DWLK[2].DataBusOut[] ;
+          WHEN b"0000001000" => Data_Line_B[]   = DWLK[3].DataBusOut[] ;
+          WHEN b"0000010000" => Data_Line_B[]   = DWLK[4].DataBusOut[] ;
+          WHEN b"0000100000" => Data_Line_B[]   = DWLK[5].DataBusOut[] ;
+          WHEN b"0001000000" => Data_Line_B[]   = DWLK[6].DataBusOut[] ;
+          WHEN b"0010000000" => Data_Line_B[]   = DWLK[7].DataBusOut[] ;
+          WHEN b"0100000000" => Data_Line_B[]   = DWLK[8].DataBusOut[] ;
+          WHEN b"1000000000" => Data_Line_B[]   = DWLK[9].DataBusOut[] ;
+          WHEN OTHERS		 => Data_Line_B[]   = GND; 
+      END CASE;
+      CASE Dev_Sel_[29..20].q IS     -- Мультиплексор выбора Slave-устройства    
+          WHEN b"0000000001" => Data_Line_C[]   = GND;--DWLK[10].DataBusOut[] ;
+          WHEN b"0000000010" => Data_Line_C[]   = GND;--DWLK[11].DataBusOut[] ;
+          WHEN b"0000000100" => Data_Line_C[]   = GND;--DWLK[12].DataBusOut[] ;
+          WHEN b"0000001000" => Data_Line_C[]   = GND;--DWLK[13].DataBusOut[] ;
+          WHEN b"0000010000" => Data_Line_C[]   = GND;--DWLK[14].DataBusOut[] ;
+          WHEN b"0000100000" => Data_Line_C[]   = GND;--DWLK[15].DataBusOut[] ;
+          WHEN b"0001000000" => Data_Line_C[]   = GND;--DWLK[16].DataBusOut[] ;
+          WHEN b"0010000000" => Data_Line_C[]   = GND;--DWLK[17].DataBusOut[] ;
+          WHEN b"0100000000" => Data_Line_C[]   = GND;--DWLK[18].DataBusOut[] ;
+          WHEN b"1000000000" => Data_Line_C[]   = GND;--DWLK[19].DataBusOut[] ;
+          WHEN OTHERS		 => Data_Line_C[]   = GND; 
+      END CASE;
+      CASE Dev_Sel_[42..30].q IS     -- Мультиплексор выбора Slave-устройства       
+          WHEN b"0000000000001" => Data_Line_D[]   = GND;--DWLK[20].DataBusOut[] ;
+          WHEN b"0000000000010" => Data_Line_D[]   = GND;--DWLK[21].DataBusOut[] ;
+          WHEN b"0000000000100" => Data_Line_D[]   = GND;--DWLK[22].DataBusOut[] ;
+          WHEN b"0000000001000" => Data_Line_D[]   = GND;--DWLK[23].DataBusOut[] ;
+          WHEN b"0000000010000" => Data_Line_D[]   = GND;--DWLK[24].DataBusOut[] ;
+          WHEN b"0000000100000" => Data_Line_D[]   = GND;--DWLK[25].DataBusOut[] ;
+          WHEN b"0000001000000" => Data_Line_D[]   = GND;--DWLK[26].DataBusOut[] ;
+          WHEN b"0000010000000" => Data_Line_D[]   = GND;--DWLK[27].DataBusOut[] ;
+          WHEN b"0000100000000" => Data_Line_D[]   = GND;--DWLK[28].DataBusOut[] ;
+          WHEN b"0001000000000" => Data_Line_D[]   = GND;--DWLK[29].DataBusOut[] ;
+          WHEN b"0010000000000" => Data_Line_D[]   = Mezanin_Mode_Reg.q[]  ;
+          WHEN b"0100000000000" => Data_Line_D[]   = Eth0_Data_Layer_Parser_Builder.DataBusOut[];
+          WHEN b"1000000000000" => Data_Line_D[]   = Eth1_Data_Layer_Parser_Builder.DataBusOut[];
+          WHEN OTHERS	      => Data_Line_D[]   = GND; 
+ 	  END CASE;
+   END IF;
+   
+   
+   Data_Line_Reg_E[].d   = Data_Line_E[];
+   Data_Line_Reg_E[].clk = CLK100;
+ 
+   Data_Line_Reg_A[].d   = Data_Line_A[];
+   Data_Line_Reg_A[].clk = CLK100;   
+    
+   Data_Line_Reg_B[].d   = Data_Line_B[];
+   Data_Line_Reg_B[].clk = CLK100;    
+ 
+   Data_Line_Reg_C[].d   = Data_Line_C[];
+   Data_Line_Reg_C[].clk = CLK100;     
+   
+   Data_Line_Reg_D[].d   = Data_Line_D[];
+   Data_Line_Reg_D[].clk = CLK100;   
+    
+-- определение направления передачи
+   IF (Address_Line[17] == VCC) THEN   -- Мастер-устройство предоставляет данные
+       Data_Line_[] = Data_Line_Reg_E[].q; 
+   ELSE                                -- Мастер-устройство требует данные
+     IF (Dev_Sel_[29..0].q == GND ) 
+       THEN	Data_Line_[] = Data_Line_Reg_D[].q; 
+          ELSIF (Dev_Sel_[NumDevice-1..10].q == GND) 
+             THEN Data_Line_[] = Data_Line_Reg_A[].q;
+                ELSIF ((Dev_Sel_[NumDevice-1..20].q == GND) AND (Dev_Sel_[9..0].q == GND))
+                   THEN Data_Line_[] = Data_Line_Reg_B[].q;
+                      ELSE Data_Line_[] = Data_Line_Reg_C[].q;
+     END IF;
+   END IF;  
+
+   Data_Line_Reg[].d   = Data_Line_[];
+   Data_Line_Reg[].clk = CLK100;
+   Data_Line[]         = Data_Line_Reg[].q;
+
+   Addr_Line_Reg[].d   = Address_Line_[];
+   Addr_Line_Reg[].clk = CLK100;
+   Address_Line[]      = Addr_Line_Reg[].q;
+
+--********************** USB Interface I/O connection ***********************
+    USB_IFace.Bus_Clock		= CLK100 ;
+	USB_IFace.AccessGranted	= USB_AG ;
+
+	USB_IFace.DataBusStrobe				= Data_Strobe ;
+	USB_IFace.Direct_In					= Address_Line[17] ;
+	USB_IFace.AddrBus_In[8..0]			= Address_Line[8..0];
+	USB_IFace.DataBus_In[15..0]			= Data_Line[] ;
+	USB_IFace.Select					= Dev_Sel_[2].q ;
+	USB_IFace.Reset						= GND;
+
+	USB_IFace.FT_TXEn		=	FT_TX_Enable_n;
+	USB_IFace.FT_RXFn		=	FT_RX_Full_n;
+	FT_WR_Strobe			=	USB_IFace.FT_WR;
+	FT_RD_Strobe_n			=	USB_IFace.FT_RDn;
+	FOR i in 0 to 7 GENERATE
+	    FT_Data_Bus[i]			=	tri(.in=USB_IFace.FT_DATA_Out[i], .oe=USB_IFace.FT_ZZ) ;
+	    USB_IFace.FT_DATA_In[i]	=	FT_Data_Bus[i];
+	END GENERATE;
+
+
+	FT_nSIWU		= VCC;--	: output ;		--Wake_up/Send_immed
+	FT_nOE			= VCC;--				
+    USB_Ctrl_DFF.(d,clk) = (FT_nPWRSAV,CLK100);  --FT_PWR_n
+    
+    
+%    USB_IFace.AccessGranted		= USB_AG ;
+    USB_IFace.Clock			    = CLK200 ;
+    USB_IFace.Bus_Clock			= CLK100 ;
+    USB_IFace.FT_Clock      	= FT_CLKOUT;
+	USB_IFace.DataBusStrobe		= Data_Strobe ;
+	USB_IFace.Direct_In			= Address_Line[17] ;
+	USB_IFace.AddrBus_In[8..0]	= Address_Line[8..0];
+	USB_IFace.DataBus_In[15..0]	= Data_Line[] ;
+	USB_IFace.Select			= Dev_Sel_[2].q ;
+	USB_IFace.Reset				= GND;
+
+	USB_IFace.FT_TXEn		=	FT_TX_Enable_n;
+	USB_IFace.FT_RXFn		=	FT_RX_Full_n;
+	FOR i in 0 to 7 GENERATE
+	FT_Data_Bus[i]			=	tri(.in=USB_IFace.FT_DATA_Out[i], .oe=USB_IFace.FT_ZZ) ;
+	USB_IFace.FT_DATA_In[i]	=	FT_Data_Bus[i];
+		END GENERATE;
+
+	FT_nSIWU		= VCC;--	: output ;		--Wake_up/Send_immed
+	FT_nOE			= !USB_IFace.FT_OEn;--				: output ;
+	FT_WR_Strobe	= !USB_IFace.FT_WR;
+	FT_RD_Strobe_n	= !USB_IFace.FT_RDn;
+	
+	USB_Ctrl_DFF.(d,clk) = (FT_PWR_n,CLK100);%
+    
+    
+--********************** U-Link Interface I/O connection ***********************
+     -- input
+    Link_IFace.Bus_Clock = CLK100; 
+    Link_IFace.(Clock , DataBus_In[15..0], AccessGranted, DataBusStrobe) =
+               (CLK100,   Data_Line[]    , Link_AG      , Data_Strobe);
+    Link_IFace.Reset			= GND;
+    Link_IFace.DirectIn			= Address_Line[17] ;
+    Link_IFace.AddrBus_In[9..0]	= Address_Line[9..0];
+    Link_IFace.Select			= Dev_Sel_[1].q ;
+    
+    
+    -- Соединение шин данных Link-а 
+   %IF (Link_Switcher.LinkClock_Enabled == VCC)  THEN 
+                                                      Link_MB_TxRx_ 		  = Link_IFace.Link_TxRx; -- направление передачи
+													  Link_IFace.Link_Data_in = !Link_MB_Data_;
+													  Link_MB_Data_ 		  = TRI(.in = !Link_IFace.Link_Data_out, .oe = Link_IFace.Link_TxRx); -- данные для передачи
+													  Link_TxRx_			  = GND;
+													  Link_Data_              = GND;
+												 ELSE 
+													  Link_TxRx_			  = Link_IFace.Link_TxRx; -- направление передачи
+													  Link_IFace.Link_Data_in = !Link_Data_; -- полученные данные
+													  Link_Data_              = TRI(.in = !Link_IFace.Link_Data_out, .oe = Link_IFace.Link_TxRx); -- данные для передачи
+													  Link_MB_TxRx_           = GND;
+													  Link_MB_Data_           = GND;
+    END IF;%
+    
+													  Link_MB_TxRx_ 		  = Link_IFace.Link_TxRx; -- iai?aaeaiea ia?aaa?e
+													  Link_IFace.Link_Data_in = !Link_MB_Data_;
+													  Link_MB_Data_ 		  = TRI(.in = !Link_IFace.Link_Data_out, .oe = Link_IFace.Link_TxRx); -- aaiiua aey ia?aaa?e
+													  Link_TxRx_			  = GND;
+													  Link_Data_              = GND;
+    Link_MB_TxRx = Link_MB_TxRx_;
+    Link_MB_Data = Link_MB_Data_;
+    Link_TxRx    = Link_TxRx_;
+    Link_Data    = Link_Data_;
+      
+-- ************************* Регистры, память данных *******************************
+-- тестовая память
+	Data_RAM.(address[9..0]      , clock   , data[15..0], wren) =
+			 (Address_Line [9..0], CLK100, Data_Line[], Data_Strobe and Dev_Sel_[0].q and Address_Line[17]); 
+			 
+   			 
+-- ***********************************  96LC56BT RAM   **************************************
+    External_RAM.Bus_Clock 				= CLK100; 
+   	External_RAM.DataBusStrobe			= Data_Strobe ;
+	External_RAM.Direct_In				= Address_Line[17] ;
+	External_RAM.AddrBus_In[7..0]		= Address_Line[7..0];
+	External_RAM.DataBus_In[15..0]		= Data_Line[] ;
+	External_RAM.Select					= Dev_Sel_[5].q ;
+	
+	External_RAM.RAM_DO                 = RAM_DO;
+	RAM_Clock 							= RAM_CLK_;--External_RAM.RAM_Clock;
+    RAM_CS								= RAM_CS_;--External_RAM.RAM_CS;
+    RAM_DI								= TRI(.in = RAM_DI_, .oe = RAM_Dir_);
+    
+
+    IF (POSS_IFace.BUSY == GND) THEN RAM_DI_   = External_RAM.RAM_DI;
+									 RAM_Dir_  = External_RAM.DirectOut;
+									 RAM_CLK_  = External_RAM.RAM_Clock;
+									 RAM_CS_   = External_RAM.RAM_CS;
+                               
+								ELSE RAM_DI_   = POSS_IFace.RAM_DI;
+									 RAM_Dir_  = POSS_IFace.RAM_Direct;
+									 RAM_CLK_  = POSS_IFace.RAM_Clock;
+									 RAM_CS_   = POSS_IFace.RAM_CS;
+    END IF;
+     
+-- ***********************************  COPY RAM   **************************************
+    POSS_IFace.Bus_Clock			= CLK100 ;
+	POSS_IFace.AccessGranted		= POSS_AG;
+	POSS_IFace.DataBusStrobe		= Data_Strobe ;
+	POSS_IFace.AddrBus_In[7..0]		= Address_Line[7..0];
+	POSS_IFace.DataBus_In[15..0]	= Data_Line[] ;
+    POSS_IFace.RAM_DO               = RAM_DO;
+    
+    POSS_IFace.POWER_GOOD           = Power_Good;
+    
+--********************************* Generators ************************************
+	RND_G.clock  					= CLK100 ;
+	RND_G.Reset						= GND;
+
+	RND_G.DataBusStrobe				= Data_Strobe;
+	RND_G.Direct					= Address_Line[17] ;
+	RND_G.AddrBusExt[7..0]			= Address_Line[7..0];
+	RND_G.DataBusIn[15..0]			= Data_Line[] ;
+	RND_G.Select					= Dev_Sel_[6].q ;
+		
+--******************************* SILICON ID ***********************************
+    ID.(Clock , DataBus_In[15..0], DataBusStrobe) =
+       (CLK100,   Data_Line[]    , Data_Strobe);
+    ID.Reset			= GND;
+    ID.DirectIn			= Address_Line[17];
+    ID.AddrBus_In[4..0]	= Address_Line[4..0];
+    ID.Select			= Dev_Sel_[3].q;
+
+    ID.Wire_Data_in     = Wire_Data; -- полученные данные
+    Wire_Data           = OPNDRN(.in = !ID.Wire_Data_out); -- данные для передачи
+    
+--********************** D-Link Interface I/O connection ***********************
+    FOR i IN 0 TO DWLK_NUM-1 GENERATE
+		DWLK[i].Bus_Clock				= CLK100;
+		DWLK[i].Reset					= GND;
+		DWLK[i].OpCodeData[]			= Event_Manager_IFace.Transaction_Command[];
+		DWLK[i].FirstWordData[]			= Event_Manager_IFace.FirstWordData[];
+--		DWLK[i].StartLink				= Event_Ctrl_IFace.Start_CLBR_Links;-- AND !Mezanin_Mode_Reg.q[0]) OR (Event_ES_Beg.q AND Mezanin_Mode_Reg.q[0]); -- Enabling LEVEL to start a GROUPE
+		DWLK[i].StartLink				= (Event_Ctrl_IFace.Start_CLBR_Links AND !Mezanin_Mode_Reg.q[0]) OR (Event_Trig.q AND Mezanin_Mode_Reg.q[0]); -- Enabling LEVEL to start a GROUPE
+
+		
+		DWLK[i].Cavity_Clock			= CLK175;
+		DWLK[i].Start_Enable			= Bunch_Crossing_12_5.Start_Enable[0];
+		DWLK[i].Sample_Enable			= Bunch_Crossing_12_5.Sample_Enable[0];
+		--DWLK_Ref_Clock[i]				= Bunch_Crossing_12_5.Refrence_Clock[0];
+
+		DWLK[i].DataBusStrobe			= Data_Strobe ;
+		DWLK[i].DirectIn				= Address_Line[17] ;
+		DWLK[i].AddrBus_In[7..0]		= Address_Line[7..0];
+		DWLK[i].DataBus_In[15..0]		= Data_Line[] ;
+		DWLK[i].Select					= Dev_Sel_[10+i].q ;
+		
+		--DWLK_Data_Comm[i]				= TRI(.in = !DWLK[i].Link_Data_out, .oe = DWLK_All_Tx_Rx);
+		DWLK_Data_Comm[i]				= TRI(.in = !DWLK_Data_Comm_[i], .oe = DWLK_All_Tx_Rx);
+		--DWLK_Data_Comm[i]				= TRI(.in = !((DWLK[i].Link_Data_out AND !Mezanin_Mode_Reg.q[0]) OR (Link_IFace.Median_Filter_out_stream AND (!Link_IFace.Link_TxRx) AND Mezanin_Mode_Reg.q[0])), .oe = DWLK_All_Tx_Rx);
+		DWLK[i].Link_Data_in			= !DWLK_Data_Comm[i] ;
+		DWLK_ALL_Tx_Rx_node[i+1]        = DWLK_ALL_Tx_Rx_node[i] AND DWLK[i].Link_TxRx;
+		DWLK_LinkMessage_All[i+1]       = DWLK_ALL_Tx_Rx_node[i] OR DWLK[i].LinkMessage;
+		DWLK_Data_Comm_[i]              = (DWLK[i].Link_Data_out AND !Mezanin_Mode_Reg.q[0]) OR (Link_IFace.Median_Filter_out_stream AND (!Link_IFace.Link_TxRx) AND Mezanin_Mode_Reg.q[0]);
+    END GENERATE;   
+
+	DWLK_ALL_Tx_Rx						= DWLK_ALL_Tx_Rx_node[DWLK_NUM]; --DWLK[0].Link_TxRx;-- OR DWLK[1].Link_TxRx ; 
+	--DWLK_Ref_Clock		= Bunch_Crossing_12_5.Refrence_Clock[0];
+	
+	%IF(Mezanin_Mode_Reg.q[0]==GND) THEN DWLK_ALL_Tx_Rx = DWLK_ALL_Tx_Rx_node[DWLK_NUM];
+                                   ELSE DWLK_ALL_Tx_Rx = !Link_IFace.Link_TxRx; 
+    END IF;%
+    --LinkMsg_ES.(d,clk) = (Link_IFace.LinkMessage, CLK100); 
+	
+--***************************** Bunch_Crossing adjust *********************************	    
+    Bunch_Crossing_12_5.(Cavity_Clock, BusClock, Bunch_Crossing, DataBus_In[15..0], DataBusStrobe, AddrBus_In[0]) =
+                        (CLK175    , CLK100  , GND		   ,   Data_Line[]    , Data_Strobe  , Address_Line[0]);
+    Bunch_Crossing_12_5.DirectIn	= Address_Line[17];
+    Bunch_Crossing_12_5.Select		= Dev_Sel_[7].q;
+    
+    --***************************** Общий СТОП *********************************	
+    --Event_ES_Beg.(d,clk) = (!Link_MB_Data AND !Event_Trig.q, CLK100); -- Определение стартового бита
+    Event_ES_Beg.(d,clk) = (Link_IFace.Median_Filter_out_stream AND (!Event_Trig.q), CLK100); -- Определение стартового бита
+    LinkMsg_Trig.(d,clk) = (!Link_IFace.LinkMessage, CLK175);  
+    Event_ES_End.(d,clk) = (LinkMsg_Trig.q, CLK100);
+    Event_Trig.(S,clk,R) = (Event_ES_Beg.q, CLK100, Event_ES_End.q);
+    
+
+--***************************** Event Control *********************************	 
+
+--- Event_Controller -- Low-level function for time control -- Section Begin
+	Event_Ctrl_IFace.Bus_Clock				= CLK100 ;
+	Event_Ctrl_IFace.DataBusStrobe			= Data_Strobe ;
+	Event_Ctrl_IFace.AddrBusIn[7..0]		= Address_Line[7..0];
+	Event_Ctrl_IFace.DataBusIn[15..0]		= Data_Line[] ;
+	Event_Ctrl_IFace.DirectIn				= Address_Line[17] ;
+	Event_Ctrl_IFace.Select					= Dev_Sel_[8].q ;
+
+	Event_Ctrl_IFace.Cavity_Clock			= CLK175 ;
+	Event_Ctrl_IFace.Busy_on_Link_Active	= Link_IFace.LinkMessage;
+	Event_Ctrl_IFace.Busy_on_Digitizing		= DWLK_LinkMessage_All[DWLK_NUM];--DWLK_0.LinkMessage  OR DWLK_1.LinkMessage ; --ADC_IFace.Busy_on_Digitizing ; 
+	Event_Ctrl_IFace.Internal_Start_request	= Event_Manager_IFace.Push_Event ;
+	Event_Ctrl_IFace.Time_Set_Command[]		= Event_Manager_IFace.Time_Set_Command[];
+
+	Event									= Event_Ctrl_IFace.Event		; 
+--- Event_Controller -- Low-level function for time control -- Section End
+
+--- Event_Meneger -- High-level function for Event Streaming control -- Section Begin
+	Event_Manager_IFace.Bus_Clock			= CLK100 ;
+	Event_Manager_IFace.DataBusStrobe		= Data_Strobe ;
+	Event_Manager_IFace.AddrBus_In[7..0]	= Address_Line[7..0];
+	Event_Manager_IFace.DataBus_In[15..0]	= Data_Line[] ;
+	Event_Manager_IFace.DirectIn			= Address_Line[17] ;
+	Event_Manager_IFace.Select				= Dev_Sel_[9].q ;
+
+	Event_Manager_IFace.Cavity_Clock		= CLK175;
+	Event_Manager_IFace.Start_at_Edge[1]	= RND_G.Random_Period_Output;
+	Event_Manager_IFace.Start_at_Edge[2]	= RND_G.Det_Period_Output;
+	Event_Manager_IFace.Start_at_Edge[3]	= GND;--Event_ES_Beg.q AND Mezanin_Mode_Reg.q[0];
+	Event_Manager_IFace.Start_at_Edge[4]	= GND;
+
+	Event_Manager_IFace.Start_at_Level[1]	= GND;
+	Event_Manager_IFace.Start_at_Level[2]	= GND;
+	Event_Manager_IFace.Start_at_Level[3]	= GND;
+	Event_Manager_IFace.Start_at_Level[4]	= GND;
+
+	Event_Manager_IFace.Event_in_Progress	= Event ;
+	Event_Manager_IFace.Next_Event_Ena		= Event_Ctrl_IFace.Next_Event_Ena	; 
+--- Event_Meneger -- High-level function for Event Streaming control -- Section End
+
+
+--***************************** Mezanin work mode control  *********************************	 
+    Mezanin_Mode_Reg.(data[],clock, load, enable) = (Data_Line[],CLK100,VCC,Data_Strobe and Dev_Sel_[40].q and Address_Line[17]);
+    
+
+
+--**************************************** Ethernet0  ****************************************************	
+ ------------------------------------- Reciver0 DDR buffer -----------------------------
+    Eth0_Rx_DDR.(inclock, aclr)	=	(CLK100, GND);
+	Eth0_Rx_DDR.datain[3..0]	=	Eth0_Phy_RxD[3..0];		--Rx_Data_Phy[3..0];
+	Eth0_Rx_DDR.datain[5..4]	=	(Eth0_Phy_Crs, Eth0_Phy_RxDv);	--(Carrier_Sens_Phy, Rx_Dv_Phy);
+	Eth0_Rx_DDR.datain[6]		=	Eth0_Phy_RxClk;			--Rx_Ref_Clk_Phy;
+
+	Eth0_Rx_Clk_Edge_at_DDR	    = (	(Eth0_Rx_DDR.dataout_h[6]   AND	!Eth0_Rx_DDR.dataout_l[6])	                  -- Transition is at POS edge of Sys_clk
+								OR 	
+								( DFF(.clk=CLK100, .d=!Eth0_Rx_DDR.dataout_h[6]) AND Eth0_Rx_DDR.dataout_l[6]) -- Transition is at NEG edge of Sys_clk
+							  );
+	Eth0_RxClk_Edge_at_System_Clock_DDR	=	Global(DFF(.clk=CLK100, .d=Eth0_Rx_Clk_Edge_at_DDR));
+	
+	FOR i in 0 to 5 generate
+	    Eth0_Rx_Data_Reg.data[i]=	( Eth0_Rx_DDR.dataout_h[i] and (Eth0_Rx_DDR.dataout_h[6]   AND	!Eth0_Rx_DDR.dataout_l[6]))
+								OR
+								( Eth0_Rx_DDR.dataout_l[i] and !(Eth0_Rx_DDR.dataout_h[6]   AND	!Eth0_Rx_DDR.dataout_l[6]));
+	END GENERATE;
+	Eth0_Rx_Data_Reg.(clock, enable, load)	=	(CLK100, Eth0_Rx_Clk_Edge_at_DDR, VCC);
+ ------------------------------------- Ethernet0 Reciver ---------------------------------
+    Eth0_Rx_Signaling_to_Data_Layer_Coverter.System_Clock 					= CLK100;	
+    Eth0_Rx_Signaling_to_Data_Layer_Coverter.RxClk_Edge_at_System_Clock		= Eth0_RxClk_Edge_at_System_Clock_DDR;
+
+    Eth0_Rx_Signaling_to_Data_Layer_Coverter.Reset						    = GND;
+    Eth0_Rx_Signaling_to_Data_Layer_Coverter.Carr 							= Eth0_Rx_Data_Reg.q[5] AND Eth0_Rx_Data_Reg.q[4];		--Crs and RxDv; -- по наличию этого сигнала идет работа модуля
+    Eth0_Rx_Signaling_to_Data_Layer_Coverter.Rx_Data_nibble_input[3..0] 	= Eth0_Rx_Data_Reg.q[3..0];  
+  ------------------------------------ Ethernet0 Trasmitter ------------------------------
+ 	Eth0_Tx_Data_to_Signaling_Layer_Coverter.System_Clock					=	CLK100;
+	Eth0_Tx_Data_to_Signaling_Layer_Coverter.Reset							=	GND;
+	Eth0_Tx_Data_to_Signaling_Layer_Coverter.Transmit_of_Data_RQ			=	Eth0_Data_Layer_Parser_Builder.Transmit_of_Data_RQ;	-- начало передачи
+	Eth0_Tx_Data_to_Signaling_Layer_Coverter.Data_to_Transmit[7..0]			=	Eth0_Data_Layer_Parser_Builder.Tx_Data[7..0];   		-- данные для передачи
+	--Eth_Tx_In_Progress						=	Eth1_Tx_Data_to_Signaling_Layer_Coverter.Eth_Tx_In_Progress;		-- флаг процесса передачи
+	-- Phy MII connection
+	Eth0_Tx_Data_to_Signaling_Layer_Coverter.MII_Tx_CLK						=	Eth0_Phy_TxClk;
+	Eth0_Phy_TxEn															=	Eth0_Tx_Data_to_Signaling_Layer_Coverter.MII_Tx_En;
+	Eth0_Phy_TxD[3..0]														=	Eth0_Tx_Data_to_Signaling_Layer_Coverter.MII_Tx_Data[3..0];
+	Eth0_Phy_MdC                                							=	GND;
+--	Eth0_Phy_MdIO					: bidir;	
+    
+    Eth0_Phy_Activity_LED	=	opndrn(Eth0_Phy_Activity_LED_pulser.LightOut);
+    Eth0_Phy_Activity_LED_pulser.(clock, event) = (CLK100, Eth0_Data_Layer_Parser_Builder.Transmit_of_Data_RQ);
+
+----------------------------------  Ethernet0 Data_Layer_Parser ------------------------------- 
+    Eth0_Data_Layer_Parser_Builder.Clock 					= CLK100;
+    Eth0_Data_Layer_Parser_Builder.Byte_Strobe_Rx			= DFF(.clk=CLK100, .d=(Eth0_Rx_Signaling_to_Data_Layer_Coverter.Byte_Output_Strobe));
+    Eth0_Data_Layer_Parser_Builder.Rx_Data[7..0]			= Eth0_Rx_Signaling_to_Data_Layer_Coverter.Byte_Output[7..0];
+    Eth0_Data_Layer_Parser_Builder.RxPacket_in_progress		= DFF(.clk=CLK100, .d=(Eth0_Rx_Signaling_to_Data_Layer_Coverter.Data_Frame_is_in_Progress));
+    Eth0_Data_Layer_Parser_Builder.RxPacket_End				= DFF(.clk=CLK100, .d=(Eth0_Rx_Signaling_to_Data_Layer_Coverter.Packet_Good_End OR Eth0_Rx_Signaling_to_Data_Layer_Coverter.Packet_bad_End));
+    
+    
+    Eth0_Data_Layer_Parser_Builder.Byte_Strobe_Tx      	= Eth0_Tx_Data_to_Signaling_Layer_Coverter.Byte_Readed_Strob;  	-- сигнал для смены данных на входе модуля передатчика
+    
+    Eth0_Data_Layer_Parser_Builder.(BUS_Clock, DataBus_In[15..0], DataBusStrobe) =
+								   (CLK100   ,   Data_Line[]    , Data_Strobe);
+    Eth0_Data_Layer_Parser_Builder.Reset			    = GND;
+    Eth0_Data_Layer_Parser_Builder.DirectIn				= Address_Line[17];
+    Eth0_Data_Layer_Parser_Builder.AddrBus_In[11..0]	= Address_Line[11..0];
+    Eth0_Data_Layer_Parser_Builder.Select			    = Dev_Sel_[41].q;
+    
+    Eth0_Data_Layer_Parser_Builder.AccessGranted	    = Eth0_AG ;
+    
+--***************************** Ethernet1  *********************************	
+  -------------------------- Ethernet Reciver ----------------------------------
+    Eth1_Rx_DDR.(inclock, aclr)		=	(CLK100, GND);
+	Eth1_Rx_DDR.datain[3..0]		=	Eth1_Phy_RxD[3..0];		--Rx_Data_Phy[3..0];
+	Eth1_Rx_DDR.datain[5..4]		=	(Eth1_Phy_Crs, Eth1_Phy_RxDv);	--(Carrier_Sens_Phy, Rx_Dv_Phy);
+	Eth1_Rx_DDR.datain[6]			=	Eth1_Phy_RxClk;			--Rx_Ref_Clk_Phy;
+
+	Eth1_Rx_Clk_Edge_at_DDR	    	= (	(Eth1_Rx_DDR.dataout_h[6]   AND	!Eth1_Rx_DDR.dataout_l[6])	                  -- Transition is at POS edge of Sys_clk
+									    OR 	
+									  ( DFF(.clk=CLK100, .d=!Eth1_Rx_DDR.dataout_h[6]) AND	 Eth1_Rx_DDR.dataout_l[6]) -- Transition is at NEG edge of Sys_clk
+							  );
+	Eth1_RxClk_Edge_at_System_Clock_DDR	=	Global(DFF(.clk=CLK100, .d=Eth1_Rx_Clk_Edge_at_DDR));
+	
+	FOR i in 0 to 5 generate
+	    Eth1_Rx_Data_Reg.data[i]	=	( Eth1_Rx_DDR.dataout_h[i] and (Eth1_Rx_DDR.dataout_h[6]   AND	!Eth1_Rx_DDR.dataout_l[6]))
+										OR
+										( Eth1_Rx_DDR.dataout_l[i] and !(Eth1_Rx_DDR.dataout_h[6]   AND	!Eth1_Rx_DDR.dataout_l[6]));
+	END GENERATE;
+	Eth1_Rx_Data_Reg.(clock, enable, load)	=	(CLK100, Eth1_Rx_Clk_Edge_at_DDR, VCC);
+
+
+    Eth1_Rx_Signaling_to_Data_Layer_Coverter.System_Clock 				=	CLK100;	
+    Eth1_Rx_Signaling_to_Data_Layer_Coverter.RxClk_Edge_at_System_Clock	=	Eth1_RxClk_Edge_at_System_Clock_DDR;
+
+    Eth1_Rx_Signaling_to_Data_Layer_Coverter.Reset 						= GND;
+    Eth1_Rx_Signaling_to_Data_Layer_Coverter.Carr 						= Eth1_Rx_Data_Reg.q[5] AND Eth1_Rx_Data_Reg.q[4];		--Crs and RxDv; -- ii iaee?e? yoiai neaiaea eaao ?aaioa iiaoey
+    Eth1_Rx_Signaling_to_Data_Layer_Coverter.Rx_Data_nibble_input[3..0] = Eth1_Rx_Data_Reg.q[3..0];  
+    -- Outputs 
+ %	Rx_Data[7..0]							=	EthRx.Byte_Output[7..0];
+    EthRx_Byte_Strobe						=	DFF(.clk=Main_Clock, .d=(EthRx.Byte_Output_Strobe));
+	EthRx_Packet_End						=	DFF(.clk=Main_Clock, .d=(EthRx.Packet_Good_End));
+	EthRx_Packet_Err						=	DFF(.clk=Main_Clock, .d=(EthRx.Packet_bad_End));
+	EthRx_Packet_in_Progress				=	DFF(.clk=Main_Clock, .d=(EthRx.Data_Frame_is_in_Progress));%
+
+ ------------------------------------ Ethernet Trasmitter ------------------------------
+    --TxClk_Edge_at_System_Clock				=	Global(Eth1_Tx_Data_to_Signaling_Layer_Coverter.TxClk_Edge_at_System_Clock);
+	Eth1_Tx_Data_to_Signaling_Layer_Coverter.System_Clock				=	CLK100;
+	Eth1_Tx_Data_to_Signaling_Layer_Coverter.Reset						=	GND;
+	Eth1_Tx_Data_to_Signaling_Layer_Coverter.Transmit_of_Data_RQ		=	Eth1_Data_Layer_Parser_Builder.Transmit_of_Data_RQ;	 -- начало передачи
+	Eth1_Tx_Data_to_Signaling_Layer_Coverter.Data_to_Transmit[7..0]		=	Eth1_Data_Layer_Parser_Builder.Tx_Data[7..0];   	 -- 
+	
+	
+	--Eth_Tx_In_Progress						=	Eth1_Tx_Data_to_Signaling_Layer_Coverter.Eth_Tx_In_Progress;		-- oeaa i?ioanna ia?aaa?e
+	-- Phy MII connection
+	Eth1_Tx_Data_to_Signaling_Layer_Coverter.MII_Tx_CLK					=	Eth1_Phy_TxClk;
+	Eth1_Phy_TxEn														=	Eth1_Tx_Data_to_Signaling_Layer_Coverter.MII_Tx_En;
+	Eth1_Phy_TxD[3..0]													=	Eth1_Tx_Data_to_Signaling_Layer_Coverter.MII_Tx_Data[3..0];
+	Eth1_Phy_MdC                               							=	GND;
+--	Eth1_Phy_MdIO					: bidir;	
+    Eth1_Phy_Activity_LED	=	opndrn(Eth1_Phy_Activity_LED_pulser.LightOut); 
+    Eth1_Phy_Activity_LED_pulser.(clock, event) = (CLK100, Eth1_Data_Layer_Parser_Builder.Transmit_of_Data_RQ);
+----------------------------------  Ethernet1 Data_Layer_Parser ------------------------------- 
+    Eth1_Data_Layer_Parser_Builder.Clock 					= CLK100;
+    Eth1_Data_Layer_Parser_Builder.Byte_Strobe_Rx			= DFF(.clk=CLK100, .d=(Eth1_Rx_Signaling_to_Data_Layer_Coverter.Byte_Output_Strobe));
+    Eth1_Data_Layer_Parser_Builder.Rx_Data[7..0]			= Eth1_Rx_Signaling_to_Data_Layer_Coverter.Byte_Output[7..0];
+    Eth1_Data_Layer_Parser_Builder.RxPacket_in_progress		= DFF(.clk=CLK100, .d=(Eth1_Rx_Signaling_to_Data_Layer_Coverter.Data_Frame_is_in_Progress));
+    Eth1_Data_Layer_Parser_Builder.RxPacket_End				= DFF(.clk=CLK100, .d=(Eth1_Rx_Signaling_to_Data_Layer_Coverter.Packet_Good_End OR Eth1_Rx_Signaling_to_Data_Layer_Coverter.Packet_bad_End));
+    
+    
+    Eth1_Data_Layer_Parser_Builder.Byte_Strobe_Tx      		= Eth1_Tx_Data_to_Signaling_Layer_Coverter.Byte_Readed_Strob;  	-- neaiae aey niaiu aaiiuo ia aoiaa iiaoey ia?aaao?eea
+    
+    Eth1_Data_Layer_Parser_Builder.(BUS_Clock, DataBus_In[15..0], DataBusStrobe) =
+								   (CLK100   ,   Data_Line[]    , Data_Strobe);
+    Eth1_Data_Layer_Parser_Builder.Reset			    = GND;
+    Eth1_Data_Layer_Parser_Builder.DirectIn				= Address_Line[17];
+    Eth1_Data_Layer_Parser_Builder.AddrBus_In[11..0]	= Address_Line[11..0];
+    Eth1_Data_Layer_Parser_Builder.Select			    = Dev_Sel_[42].q;
+    
+	Eth1_Data_Layer_Parser_Builder.AccessGranted	    = Eth1_AG ;
+
+    
+    
+    			
+END; -- Конец описания проекта

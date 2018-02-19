@@ -1,0 +1,263 @@
+TITLE "Skeleton";
+
+
+INCLUDE "lpm_shiftreg.inc" ;
+INCLUDE "SUB_Sign_Module.inc" ;
+INCLUDE "Level8_Sensing.inc";
+
+
+
+
+SUBDESIGN Alarm_Controller 
+(
+   Clock                       : input;
+   BLK_Flag                    : output;
+
+   DataBus_In[15..0]		   : input;  -- ioi?aaeyaiua n Aioo?aiiae Oeiu a Iiaoeu aaiiua
+   DataBusOut[15..0]     	   : output; -- auaaaaaiua ia Aioo?aii?? Oeio ec Iiaoey aaiiua (ieaaoea 16aeo oeiu R)
+  
+   DataBusStrobe 			   : input;  -- no?ia i?eaia/ia?aaa?e aaiiuo ia?o?o (aunieee o?iaaiu, cauaeeeaaai ii caaiaio o?iioo)
+   Select					   : input;  -- Auai? Iiaoey aey ?aaiou n iaiyou? Eiiaiaiiai Eenoa a ?a?eia Slave (n EAIAE-ii)
+   Direct_In				   : input;  -- iai?aaeaiea ia?aaa?e aaiiuo, Anee =GND, oi aaiiue Iiaoeu ?eoaaony, anee =VCC, oi ieoaony.
+   AddrBus_In[7..0]			   : input;  -- aa?an i?e iia?aoeyo ainooia ?oaiey/caiene Eiiaiaiiai Eenoa n EAIAE-a
+)
+
+VARIABLE
+   
+   Alarm_Reg_Up[15..0]     	   : LPM_SHIFTREG with (lpm_width=16);
+   Alarm_Reg_Up_CS[15..0]      : node;
+   BLK_Status_UP_node[15..0]   : node;
+   BLK_Status_UP_SRFF[15..0]   : SRFF;
+   
+   Alarm_Reg_Down[15..0]       : LPM_SHIFTREG with (lpm_width=16);
+   Alarm_Reg_Down_CS[15..0]    : node;
+   BLK_Status_DOWN_node[15..0] : node;
+   BLK_Status_DOWN_SRFF[15..0] : SRFF;
+   
+   Data_Reg_MSW[15..0]         : LPM_SHIFTREG with (lpm_width=16); 
+   Data_Reg_MSW_CS[15..0]      : node;
+   Data_Reg_LSW[15..0]         : LPM_SHIFTREG with (lpm_width=16); 
+   Data_Reg_LSW_CS[15..0]      : node;
+   
+   Blocking_Status_Reg  	   : LPM_SHIFTREG with (lpm_width=16);
+   Blocking_Status_UP_Reg  	   : LPM_SHIFTREG with (lpm_width=16);
+   Blocking_Status_DOWN_Reg    : LPM_SHIFTREG with (lpm_width=16);
+   
+   Blocking_Status_OR[16..0]   : node;
+   BLK_Status_Reset            : node;
+   
+   Anemometr_Value_node[15..0] : node;
+   
+   LS_BLK_Status_UP[15..0]     : Level8_Sensing;
+   LS_BLK_Status_DOWN[15..0]   : Level8_Sensing;
+   
+   
+   
+   Substructer                 : SUB_Sign_Module;
+   Anemometr_Value_Reg         : LPM_SHIFTREG with (lpm_width=16);
+  
+   
+------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------
+BEGIN
+
+DEFAULTS
+   DataBusOut[]          = GND;
+   Data_Reg_LSW_CS[] 	 = GND;
+   Data_Reg_MSW_CS[] 	 = GND;
+   Alarm_Reg_Up_CS[]     = GND;
+   Alarm_Reg_Down_CS[]   = GND;
+   Blocking_Status_OR[0] = GND;
+   BLK_Status_UP_node[]  = GND;
+   BLK_Status_DOWN_node[]= GND;
+END DEFAULTS;
+
+     FOR i in 0 to 15 GENERATE
+        Alarm_Reg_Up[i].(data[], clock, enable, load) = (DataBus_In[], Clock, Alarm_Reg_Up_CS[i] AND Select AND Direct_In AND DataBusStrobe, VCC);
+        Alarm_Reg_Down[i].(data[], clock, enable, load) = (DataBus_In[], Clock, Alarm_Reg_Down_CS[i] AND Select AND Direct_In AND DataBusStrobe, VCC);        
+        Data_Reg_LSW[i].(data[], clock, enable, load) = (DataBus_In[], Clock, Data_Reg_LSW_CS[i] AND Select AND Direct_In AND DataBusStrobe, VCC);
+        Data_Reg_MSW[i].(data[], clock, enable, load) = (DataBus_In[], Clock, Data_Reg_MSW_CS[i] AND Select AND Direct_In AND DataBusStrobe, VCC);
+
+        Blocking_Status_UP_Reg.data[i]   =  BLK_Status_UP_SRFF[i].q;
+        Blocking_Status_DOWN_Reg.data[i] =  BLK_Status_DOWN_SRFF[i].q;
+        Blocking_Status_Reg.data[i]      =  BLK_Status_UP_SRFF[i].q OR BLK_Status_DOWN_SRFF[i].q; 
+       -- Blocking_Status_OR[i+1] = Blocking_Status_OR[i] OR Blocking_Status_Reg.q[i];
+     END GENERATE;
+        
+     FOR i in 0 to 3 GENERATE
+         LS_BLK_Status_UP[i].(d,clk,clr)   = (BLK_Status_UP_node[i],(Data_Reg_MSW_CS[i] AND Select AND Direct_In AND DataBusStrobe),GND);
+         LS_BLK_Status_DOWN[i].(d,clk,clr) = (BLK_Status_DOWN_node[i],(Data_Reg_MSW_CS[i] AND Select AND Direct_In AND DataBusStrobe),GND);
+         BLK_Status_UP_SRFF[i].(S,clk,R)   = (LS_BLK_Status_UP[i].q,Clock,(!LS_BLK_Status_UP[i].q) AND BLK_Status_Reset);
+         BLK_Status_DOWN_SRFF[i].(S,clk,R) = (LS_BLK_Status_DOWN[i].q,Clock,(!LS_BLK_Status_DOWN[i].q) AND BLK_Status_Reset);
+     END GENERATE;
+     
+     LS_BLK_Status_UP[4].(d,clk,clr)   = (BLK_Status_UP_node[4],(Data_Reg_MSW_CS[4] AND Select AND Direct_In AND DataBusStrobe),GND);
+     LS_BLK_Status_DOWN[4].(d,clk,clr) = (BLK_Status_DOWN_node[4],(Data_Reg_MSW_CS[4] AND Select AND Direct_In AND DataBusStrobe),GND);
+     BLK_Status_UP_SRFF[4].(S,clk,R)   = (BLK_Status_UP_node[4],Clock,(!BLK_Status_UP_node[4]) AND BLK_Status_Reset);
+     BLK_Status_DOWN_SRFF[4].(S,clk,R) = (BLK_Status_DOWN_node[4],Clock,(!BLK_Status_DOWN_node[4]) AND BLK_Status_Reset);
+    
+     FOR i in 5 to 15 GENERATE
+         LS_BLK_Status_UP[i].(d,clk,clr)   = (BLK_Status_UP_node[i],(Data_Reg_MSW_CS[i] AND Select AND Direct_In AND DataBusStrobe),GND);
+         LS_BLK_Status_DOWN[i].(d,clk,clr) = (BLK_Status_DOWN_node[i],(Data_Reg_MSW_CS[i] AND Select AND Direct_In AND DataBusStrobe),GND);
+         BLK_Status_UP_SRFF[i].(S,clk,R)   = (LS_BLK_Status_UP[i].q,Clock,(!LS_BLK_Status_UP[i].q) AND BLK_Status_Reset);
+         BLK_Status_DOWN_SRFF[i].(S,clk,R) = (LS_BLK_Status_DOWN[i].q,Clock,(!LS_BLK_Status_DOWN[i].q) AND BLK_Status_Reset);
+     END GENERATE;
+
+
+     
+    % FOR i in 0 to 4 GENERATE
+        Blocking_Status_OR[i+1] = Blocking_Status_OR[i] OR Blocking_Status_Reg.q[i+1];
+     END GENERATE;%
+     
+     Blocking_Status_OR[6] = Blocking_Status_Reg.q[5] OR Blocking_Status_Reg.q[4] OR Blocking_Status_Reg.q[3] OR Blocking_Status_Reg.q[2] OR Blocking_Status_Reg.q[1];
+    
+     
+     -- условие для верхнего порога первого сенсора
+     Substructer.(dataa[],datab[],clock) = (Data_Reg_MSW[1].q[15..0],Data_Reg_MSW[0].q[15..0],Clock); 
+     IF (Substructer.cout == VCC) THEN Anemometr_Value_node[]      = Substructer.result[];
+								  ELSE Anemometr_Value_node[14..0] = (!Substructer.result[14..0]);
+                                       Anemometr_Value_node[15]    = Substructer.result[15];
+     END IF;
+     Anemometr_Value_Reg.(data[], clock, enable, load) = (Anemometr_Value_node[], Clock, VCC, VCC);
+     IF (Alarm_Reg_Up[0].q[15] == VCC)																									                -- знак минус у порога
+             THEN IF(Anemometr_Value_Reg.q[15] == VCC) THEN BLK_Status_UP_node[0]   = ((Anemometr_Value_Reg.q[14..0]) >= (Alarm_Reg_Up[0].q[14..0]));   -- знак минус у значения АЦП
+                                                       ELSE BLK_Status_UP_node[0]   = VCC;                                                              -- знак плюс у значения АЦП
+                  END IF;
+             ELSE                         																									            -- знак плюс у порога
+                  IF(Anemometr_Value_Reg.q[15] == VCC) THEN BLK_Status_UP_node[0]   = VCC;                                                              -- знак минус у значения АЦП
+                                                       ELSE BLK_Status_UP_node[0]   = ((Anemometr_Value_Reg.q[14..0]) >= (Alarm_Reg_Up[0].q[14..0]));   -- знак плюс у значения АЦП
+                  END IF; 
+     END IF;              
+       -- условие для нижнего порога первого сенсора
+     IF (Alarm_Reg_Down[0].q[15] == VCC) 																								                -- знак минус у порога
+             THEN IF(Anemometr_Value_Reg.q[15] == VCC) THEN BLK_Status_DOWN_node[0] = ((Anemometr_Value_Reg.q[14..0]) <= (Alarm_Reg_Down[0].q[14..0])); -- знак минус у значения АЦП
+                                                       ELSE BLK_Status_DOWN_node[0] = GND;                                                              -- знак плюс у значения АЦП
+                  END IF;
+             ELSE                         																									            -- знак плюс у порога
+                  IF(Anemometr_Value_Reg.q[15] == VCC) THEN BLK_Status_DOWN_node[0] = GND;                                                              -- знак минус у значения АЦП
+                                                       ELSE BLK_Status_DOWN_node[0] = ((Anemometr_Value_Reg.q[14..0]) <= (Alarm_Reg_Down[0].q[14..0])); -- знак плюс у значения АЦП
+                  END IF; 
+     END IF;
+
+     
+            
+     FOR i in 1 to 15 GENERATE
+       -- условие для верхнего порога 
+        IF (Alarm_Reg_Up[i].q[15] == VCC)																									    -- знак минус у порога
+             THEN IF(Data_Reg_MSW[i].q[15] == VCC) THEN BLK_Status_UP_node[i]   = ((Data_Reg_MSW[i].q[14..0]) >= (Alarm_Reg_Up[i].q[14..0]));   -- знак минус у значения АЦП
+                                                   ELSE BLK_Status_UP_node[i]   = VCC; 							                                -- знак плюс у значения АЦП
+                  END IF;
+             ELSE                         																									    -- знак плюс у порога
+                  IF(Data_Reg_MSW[i].q[15] == VCC) THEN BLK_Status_UP_node[i]   = VCC;                                                          -- знак минус у значения АЦП
+                                                   ELSE BLK_Status_UP_node[i]   = ((Data_Reg_MSW[i].q[14..0]) >= (Alarm_Reg_Up[i].q[14..0]));   -- знак плюс у значения АЦП
+                  END IF; 
+        END IF;              
+       -- условие для нижнего порога 
+        IF (Alarm_Reg_Down[i].q[15] == VCC) 																								    -- знак минус у порога
+             THEN IF(Data_Reg_MSW[i].q[15] == VCC) THEN BLK_Status_DOWN_node[i] = ((Data_Reg_MSW[i].q[14..0]) <= (Alarm_Reg_Down[i].q[14..0])); -- знак минус у значения АЦП
+                                                   ELSE BLK_Status_DOWN_node[i] = GND;                                                          -- знак плюс у значения АЦП
+                  END IF;
+             ELSE                         																									    -- знак плюс у порога
+                  IF(Data_Reg_MSW[i].q[15] == VCC) THEN BLK_Status_DOWN_node[i] = GND;                                                          -- знак минус у значения АЦП
+                                                   ELSE BLK_Status_DOWN_node[i] = ((Data_Reg_MSW[i].q[14..0]) <= (Alarm_Reg_Down[i].q[14..0])); -- знак плюс у значения АЦП
+                  END IF; 
+        END IF;
+     END GENERATE;       
+      
+      
+   %    IF (Alarm_Reg_Up[0].q[15] == VCC) AND (Alarm_Reg_Down[0].q[15] == VCC)													    -- знак минус у порогов
+                  THEN IF(Anemometr_Value_Reg.q[15] == VCC) THEN BLK_Status_UP_node[0]   = ((Anemometr_Value_Reg.q[14..0]) >= (Alarm_Reg_Up[0].q[14..0]));   -- знак минус у значения АЦП
+                                                                 BLK_Status_DOWN_node[0] = ((Anemometr_Value_Reg.q[14..0]) <= (Alarm_Reg_Down[0].q[14..0])); 
+                                                            ELSE BLK_Status_DOWN_node[0] = VCC;                       -- знак плюс у значения АЦП
+															     BLK_Status_UP_node[0]   = GND;                         
+                  END IF;
+        END IF;  
+        
+        IF (Alarm_Reg_Up[0].q[15] == VCC) AND (Alarm_Reg_Down[0].q[15] == GND)													    -- знак минус верхний, плюс нижний порог
+                  THEN BLK_Status_UP_node[0]   = VCC;
+                       BLK_Status_DOWN_node[0] = VCC;
+        END IF;  
+        
+        IF (Alarm_Reg_Up[0].q[15] == GND) AND (Alarm_Reg_Down[0].q[15] == VCC)													    -- знак плюс верхний, минус нижний порог
+                  THEN IF(Anemometr_Value_Reg.q[15] == VCC) THEN BLK_Status_UP_node[0]   = GND;   										-- знак минус у значения АЦП
+                                                                 BLK_Status_DOWN_node[0] = ((Anemometr_Value_Reg.q[14..0]) >= (Alarm_Reg_Down[0].q[14..0])); 
+                                                            ELSE BLK_Status_DOWN_node[0] = GND; 										-- знак плюс у значения АЦП
+															     BLK_Status_UP_node[0]   = ((Anemometr_Value_Reg.q[14..0]) >= (Alarm_Reg_Up[0].q[14..0]));                        
+                  END IF;
+        END IF;  
+       
+        IF (Alarm_Reg_Up[0].q[15] == GND) AND (Alarm_Reg_Down[0].q[15] == GND)													    -- знак плюс верхний, плюс нижний порог
+                  THEN IF(Anemometr_Value_Reg.q[15] == VCC) THEN BLK_Status_UP_node[0]   = GND;   										-- знак минус у значения АЦП
+                                                                 BLK_Status_DOWN_node[0] = VCC; 
+                                                            ELSE BLK_Status_UP_node[0]   = ((Anemometr_Value_Reg.q[14..0]) >= (Alarm_Reg_UP[0].q[14..0])); -- знак плюс у значения АЦП
+															     BLK_Status_DOWN_node[0] = ((Anemometr_Value_Reg.q[14..0]) <= (Alarm_Reg_Down[0].q[14..0]));                         
+                  END IF;
+        END IF;  
+        
+        
+      FOR i in 1 to 15 GENERATE
+       -- условие для верхнего порога 
+        IF (Alarm_Reg_Up[i].q[15] == VCC) AND (Alarm_Reg_Down[i].q[15] == VCC)													    -- знак минус у порогов
+                  THEN IF(Data_Reg_MSW[i].q[15] == VCC) THEN BLK_Status_UP_node[i]   = ((Data_Reg_MSW[i].q[14..0]) >= (Alarm_Reg_Up[i].q[14..0]));   -- знак минус у значения АЦП
+                                                             BLK_Status_DOWN_node[i] = ((Data_Reg_MSW[i].q[14..0]) <= (Alarm_Reg_Down[i].q[14..0])); 
+                                                        ELSE BLK_Status_DOWN_node[i] = VCC;                       -- знак плюс у значения АЦП
+															 BLK_Status_UP_node[i]   = GND;                         
+                  END IF;
+        END IF;  
+        
+        IF (Alarm_Reg_Up[i].q[15] == VCC) AND (Alarm_Reg_Down[i].q[15] == GND)													    -- знак минус верхний, плюс нижний порог
+                  THEN BLK_Status_UP_node[i]   = VCC;
+                       BLK_Status_DOWN_node[i] = VCC;
+        END IF;  
+        
+        IF (Alarm_Reg_Up[i].q[15] == GND) AND (Alarm_Reg_Down[i].q[15] == VCC)													    -- знак плюс верхний, минус нижний порог
+                  THEN IF(Data_Reg_MSW[i].q[15] == VCC) THEN BLK_Status_UP_node[i]   = GND;   										-- знак минус у значения АЦП
+                                                             BLK_Status_DOWN_node[i] = ((Data_Reg_MSW[i].q[14..0]) >= (Alarm_Reg_Down[i].q[14..0])); 
+                                                        ELSE BLK_Status_DOWN_node[i] = GND; 										-- знак плюс у значения АЦП
+															 BLK_Status_UP_node[i]   = ((Data_Reg_MSW[i].q[14..0]) >= (Alarm_Reg_Up[i].q[14..0]));                        
+                  END IF;
+        END IF;  
+       
+        IF (Alarm_Reg_Up[i].q[15] == GND) AND (Alarm_Reg_Down[i].q[15] == GND)													    -- знак плюс верхний, плюс нижний порог
+                  THEN IF(Data_Reg_MSW[i].q[15] == VCC) THEN BLK_Status_UP_node[i]   = GND;   										-- знак минус у значения АЦП
+                                                             BLK_Status_DOWN_node[i] = VCC; 
+                                                        ELSE BLK_Status_UP_node[i]   = ((Data_Reg_MSW[i].q[14..0]) >= (Alarm_Reg_UP[i].q[14..0])); -- знак плюс у значения АЦП
+															 BLK_Status_DOWN_node[i] = ((Data_Reg_MSW[i].q[14..0]) <= (Alarm_Reg_Down[i].q[14..0]));                         
+                  END IF;
+        END IF;  
+     END GENERATE;  
+     %  
+       
+      
+      
+     Blocking_Status_Reg.(clock, enable, load) = (Clock, VCC, VCC);
+     Blocking_Status_UP_Reg.(clock, enable, load) = (Clock, VCC, VCC);
+     Blocking_Status_DOWN_Reg.(clock, enable, load) = (Clock, VCC, VCC);
+     BLK_Flag = Blocking_Status_OR[6];--Blocking_Status_OR[16];
+
+    
+
+     FOR i in 0 to 15 GENERATE       
+           IF (AddrBus_In[7..0] == i*2)  THEN DataBusOut[] = Data_Reg_LSW[i].q[];   Data_Reg_LSW_CS[i]   = VCC;
+           END IF;  
+           IF (AddrBus_In[7..0] == i*2+1)THEN DataBusOut[] = Data_Reg_MSW[i].q[];   Data_Reg_MSW_CS[i]   = VCC;
+           END IF;       
+           IF (AddrBus_In[7..0] == i+32) THEN DataBusOut[] = Alarm_Reg_Up[i].q[];   Alarm_Reg_Up_CS[i]   = VCC;
+           END IF;  
+           IF (AddrBus_In[7..0] == i+48) THEN DataBusOut[] = Alarm_Reg_Down[i].q[]; Alarm_Reg_Down_CS[i] = VCC;
+           END IF;
+     END GENERATE;  
+     IF (AddrBus_In[7..0] == 64) THEN DataBusOut[]      = Blocking_Status_Reg.q[];	
+     END IF;
+     IF (AddrBus_In[7..0] == 65) THEN BLK_Status_Reset  = Select AND DataBusStrobe;
+                                 ELSE BLK_Status_Reset  = GND;	
+     END IF;
+     IF (AddrBus_In[7..0] == 66) THEN DataBusOut[]      = Blocking_Status_UP_Reg.q[];	
+     END IF;
+     IF (AddrBus_In[7..0] == 67) THEN DataBusOut[]      = Blocking_Status_DOWN_Reg.q[];	
+     END IF;
+     IF (AddrBus_In[7..0] == 68) THEN DataBusOut[]      = Anemometr_Value_Reg.q[];	
+     END IF;
+
+
+END;

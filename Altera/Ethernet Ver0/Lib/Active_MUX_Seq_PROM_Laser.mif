@@ -1,0 +1,87 @@
+-- Copyright (C) 1991-2008 Altera Corporation
+-- Your use of Altera Corporation's design tools, logic functions 
+-- and other software and tools, and its AMPP partner logic 
+-- functions, and any output files from any of the foregoing 
+-- (including device programming or simulation files), and any 
+-- associated documentation or information are expressly subject 
+-- to the terms and conditions of the Altera Program License 
+-- Subscription Agreement, Altera MegaCore Function License 
+-- Agreement, or other applicable license agreement, including, 
+-- without limitation, that your use is for the sole purpose of 
+-- programming logic devices manufactured by Altera and sold by 
+-- Altera or its authorized distributors.  Please refer to the 
+-- applicable agreement for further details.
+
+-- Quartus II generated Memory Initialization File (.mif)
+
+WIDTH=16;
+DEPTH=256;
+
+ADDRESS_RADIX=UNS;
+DATA_RADIX=UNS;
+
+CONTENT BEGIN
+	0    :   12302;
+	1    :   12303;
+	2    :   37120;
+	3    :   37121;
+	4    :   37122;
+	5    :   37123;
+	6    :   37124;
+	7    :   37125;
+	8    :   37126;
+	9    :   37127;
+	10   :   37128;
+	11   :   37129;
+	12   :   37130;
+	13   :   37131;
+	14   :   37132;
+	15   :   37133;
+	16   :   37134;
+	17   :   37135;
+	18   :   37136;
+	19   :   37137;
+	20   :   37138;
+	21   :   37139;
+	22   :   37140;
+	23   :   37141;
+	24   :   12288;
+	25   :   12289;
+	26   :   12290;
+	27   :   12291;
+	28   :   12292;
+	29   :   12293;
+	30   :   12294;
+	31   :   12295;
+	32   :   12296;
+	33   :   12297;
+	34   :   12298;
+	35   :   12299;
+	36   :   12300;
+	37   :   12301;
+	38   :   65535;
+	[39..127]  :   0;
+	[128..129]  :   335;
+	[130..131]  :   334;
+	[132..133]  :   333;
+	[134..135]  :   332;
+	[136..137]  :   264;
+	[138..139]  :   260;
+	[140..141]  :   323;
+	[142..143]  :   207;
+	[144..145]  :   206;
+	[146..147]  :   205;
+	[148..149]  :   204;
+	[150..151]  :   19;
+	[152..153]  :   35;
+	[154..155]  :   18;
+	[156..157]  :   34;
+	[158..159]  :   17;
+	[160..161]  :   33;
+	[162..163]  :   20;
+	[164..165]  :   32;
+	166  :   65535;
+	[167..252]  :   0;
+	253  :   65535;
+	[254..255]  :   0;
+END;

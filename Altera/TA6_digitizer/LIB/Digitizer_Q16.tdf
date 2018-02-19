@@ -1,0 +1,233 @@
+TITLE "Digitizer_Q16";
+
+INCLUDE "RAMdigit_Q16.inc";
+INCLUDE "EdgeSensing.inc";
+INCLUDE "lpm_counter.inc";
+INCLUDE "lpm_shiftreg.inc";
+
+
+constant SettlingTime = 320;    --time from end of "Gate" to start of Digitizing, 3.2uS; must be > 256
+constant WarmUpTime   = SettlingTime-256;   --start 2 preliminary ADC cycles
+
+constant PresclrValue   = 6;
+Constant HalfPresclr    = FLOOR( PresclrValue DIV 2);
+constant ADCcycle       = 18;
+Constant WordNumber     = 16;
+
+Constant Order_BitCt    = Ceil( LOG2(ADCcycle));
+Constant Order_WordCt   = Ceil( LOG2(WordNumber));
+Constant Order_Presc    = Ceil( LOG2(PresclrValue));
+
+
+SUBDESIGN  DIGITIZER_Q16
+(
+--Module specific inputs outputs
+Clock               : input;    -- Clock (100MHz)
+--Sync                : input;    -- signal-"Tag" of Phase's rising edge (12.5Mhz)
+DigitInit           : input;    -- initiates Cycle: Digitizing and store the results in ADC_RAM
+
+-- Connections via real pins to external parts
+ADC_clock, ADC_cs   : output;   -- (Clock|ChipSelect) for ADC chip
+ADCdata             : input;    -- input of serial data from ADCs
+MUX_next            : output;   -- strobe for switching MUX to next position
+
+--Standart BUS input output
+    ADC_RAM_addr[ 5..0] : input;  --\  Signals for 
+    ADC_RAM_data[15..0] : input;  -- \ accessing the Loader's Memory
+    ADC_RAM_clk         : input;  --  > from outside
+    ADC_RAM_we          : input;  -- /  of the Loader Unit  
+    ADC_RAM_q[15..0]    : output; --/ 
+--Select              : input = GND; -- Digitizer's RAM is selected for data reading/writing
+--RdWr_in             : input = GND; -- RdWr=0 => data will be read from RAM / RdWr=1 => data will be written to RAM
+--DataStrobe          : input = GND; -- input data must be latched while DataStrobe=1 
+
+
+Reset               : input=GND;-- Main RESET
+Working             : output;   -- Flag: Digitizing_Cycle in progress
+Error               : output;   -- Flag: Error detected during Digitizing_Cycle
+
+--test[4..1]          : OUTPUT;   -- test outs
+--temporary outputs
+Shifter_Out[15..0]  :output;
+ADCdata_take        : output;
+ADCdata_shift       : output;
+WordCt_cnt          : output;
+)
+
+VARIABLE
+DigitInit1,
+DigitInit2          : node; 
+DigitStart          : node;   -- 2-clock _/^^\_ in the beginning of Cycle
+--Working             : node; -- Flag: Cycle in progress, declared as Output
+DigitEnd            : node; -- _/^^\_ at the end of Loading Cycle
+
+PRESCALER           : lpm_counter with (lpm_width=Order_Presc, lpm_direction="up" );
+Phase               : node;
+
+--********  Cycle proceeding units  ********
+RAM                 : RAMdigit_Q16;  -- RAM 32words * 16bits 2-Port,
+            -- Port A for accessing data from inside Digitizer unit, 
+            -- Port B for accessing data from outside Digitizer unit
+RAM_we              : node; -- Write_Enable for storing the ADC output data
+--RAM_extWe           : node; -- Write_Enable for WRITE from outside of the Digitizer unit
+
+-- Counter: contains number of Bin in an ADC_cycle
+BitCounter			:  lpm_counter with (lpm_width=Order_BitCt, lpm_direction="up" );
+-- Counter: contains Number of Word being digitized, ( = Addr to write the current ADC data to)
+WordCt              : LPM_COUNTER with ( lpm_width=%Order_WordCt%6, lpm_direction="up" );
+
+-- Register: get serial data from ADC1 & transforms it into parallel word
+--ADC_SHIFT_REG 		: LPM_SHIFTREG with (lpm_width=16,lpm_direction="left");
+Reg_ADCdata         : LPM_SHIFTREG with (lpm_width=16,
+                                lpm_direction="left");  --shift: q0 -> q[MSB]
+ADCdata_Cen         : node; --
+
+--******** Control signals  ********
+WordCt_count        : node; -- causes WordCt to increment WordNumber
+--WordCt_load         : node; -- causes AddrCt to load Addr
+--AddrCt_count,               -- causes AddrCt to increment Addr
+--AddrCt_load         : node; -- causes AddrCt to load Addr
+
+ADCclk              : node; -- non-registered
+ADCcs_en, ADCcs     : node; -- non-registered
+
+ADCd_shift		    : node; -- sets SHIFT mode of the Reg_ADCdata
+ADCdata_grab        : node; -- enables Reg_ADCdata to latch a new bit / shift contents
+MUX_nxt             : node; -- non-registered strobe for switching MUX to next position
+
+--###########################################################################
+BEGIN
+DEFAULTS
+ADCclk      = GND;  ADCcs       = GND; 
+ADCdata_Cen = GND;  --ADCdata_load= GND;
+ADCd_shift  = GND; 
+MUX_nxt     = GND;
+WordCt_count= GND;  --WordCt_load = GND;
+RAM_we      = GND;  --RAM_extWe   = GND;
+
+Error = GND; 
+
+END DEFAULTS;
+
+--============================================================================
+--************ Cycle proceeding units ****************************************
+-- Digitizing_Cycle Initializing Circuitry 
+DigitStart  = SRFF(.prn=!(DigitInit & !DigitInit2 & !Working),  --\ "DigitInit" 
+                   .s=GND, .clk=Clock, .r=DigitInit2,           -- > stretcher
+                   .clrn=!Reset);                               --/
+DigitInit1  = DFF (.D=DigitStart, .clk=Clock,.clrn=!Reset); -- 2-clock _/^^^\_
+DigitInit2  = DFF (.D=DigitInit1, .clk=Clock,.clrn=!Reset); -- 2-clock   _/^^^\_
+
+Working     = SRFF(.s=DigitInit2,.clk=Clock, .r=DigitEnd,
+                   .clrn=!Reset);
+
+--ADC_in_Terminate.(s,r,clk)=(Conv_Beg_es.q,Conv_End_es.q, Clock);
+
+-- Reg_ADCdata: get serial data from ADC & transforms it into parallel word
+Reg_ADCdata.shiftin             = ADCdata; 
+Reg_ADCdata.(clock, enable,load)= (Clock, ADCdata_Cen, GND);
+--Reg_ADCdata.(sclr, sset)        = (GND, GND);
+Reg_ADCdata.sclr                = ADCdata_grab AND WordCt_count;
+Reg_ADCdata.aclr                = Reset;
+ADCdata_Cen = ADCdata_grab AND (ADCd_shift OR WordCt_count);
+----шифтер для даты из АЦП
+-- Reg_ADCdata.shiftin                =   ADC_DATA;                -- Подаем дату на вход сдвигового регистра
+-- Reg_ADCdata.(clock, enable, sclr)  =  (CLK, 
+--                 ADCdata_grab AND (ADCd_shift OR WordCt_count),
+--                 ADCdata_grab AND WordCt_count); -- Клоки равны системным, загрузки данных не требуется, а разрешение на сдвиг выдается делителем частоты
+
+--============================================================================
+--************ Digitizing Sequence Generation ********************************
+-- 1 cycle of ADC operation uses 20"ADCclocks", and takes 128 clocks.    14  15  16  17     104 105 106 107 108 109 110 111 112 113 114 115 116 117 118 119 120
+--100MHz Clock  ^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_ | _/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_
+-- ADCclock_en  ___/^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\\\\\\\___
+--Prescaler.q[] ^^^^^0^\_1_/^2^\_3_/^4^\_5_/^0^\_1_/^2^\_3_/^4^\_5_/^0^\_1_/^2^\_3_/^4^ | ^\_4_/^3^\_2_/^1^\_0_/^5^\_4_/^3^\_2_/^1^\_0_/^5^\_4_/^3^\_2_/^1^\_0_
+--   ADC_clock  ^^^^^^^\___________/^^^^^^^^^^^\___________/^^^^^^^^^^^\___clk01___/^^^ | ^\___clk16___/^^^^^^^^^^^\___________/^^^^^^^^^^^\___________/^^^^^^^
+--   ADC_cs     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\_______________________ | _________________/^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+-- Dividing the main Clock frequency by PrescValue
+PRESCALER.clock    =  Clock;
+PRESCALER.sclr      =  Phase OR !Working;
+IF PRESCALER.q[] == PresclrValue-1
+  THEN  Phase   = VCC;
+  ELSE  Phase   = GND;
+END IF;
+--PRESCALER.sclr=(PRESCALER.q[]==PresclrValue-1)OR !Working;
+
+IF PRESCALER.q[]<=(HalfPresclr-1)  -- длительность тактов должна быть одинаковой и соответствовать поделенной частоте
+  THEN  ADCclk  = GND;
+  ELSE  ADCclk  = VCC;
+END IF;
+ADC_clock   = DFF(.d= ADCclk, .clk=Clock);
+
+BitCounter.clock    = Clock;
+BitCounter.cnt_en   = Phase;    -- Counts synchronously with End of ADC_clock pulse 
+IF BitCounter.q[] == ADCcycle
+   THEN BitCounter.sclr = Phase;
+   ELSE BitCounter.sclr = GND;
+END IF;
+BitCounter.sload    = !Working;
+BitCounter.data[]   = ADCcycle-1;  -- 2 ADC_clocks before 1st ADC_CS
+
+CASE BitCounter.q[] IS
+  WHEN  0   => ADCcs=VCC;   ADCd_shift=GND;   
+  WHEN  1   => ADCcs=VCC;   ADCd_shift=GND;     MUX_nxt = VCC;
+  WHEN  2   => ADCcs=VCC;   ADCd_shift=GND;
+  WHEN  3   => ADCcs=VCC;   ADCd_shift=VCC;
+  WHEN  4   => ADCcs=VCC;   ADCd_shift=VCC;
+  WHEN  5   => ADCcs=VCC;   ADCd_shift=VCC;
+  WHEN  6   => ADCcs=VCC;   ADCd_shift=VCC;
+  WHEN  7   => ADCcs=VCC;   ADCd_shift=VCC;
+  WHEN  8   => ADCcs=VCC;   ADCd_shift=VCC;
+  WHEN  9   => ADCcs=VCC;   ADCd_shift=VCC;
+  WHEN  10  => ADCcs=VCC;   ADCd_shift=VCC;
+  WHEN  11  => ADCcs=VCC;   ADCd_shift=VCC;
+  WHEN  12  => ADCcs=VCC;   ADCd_shift=VCC;
+  WHEN  13  => ADCcs=VCC;   ADCd_shift=VCC;
+  WHEN  14  => ADCcs=VCC;   ADCd_shift=VCC;
+  WHEN  15  => ADCcs=VCC;   ADCd_shift=GND;
+  WHEN  16  => ADCcs=GND;   ADCd_shift=GND;     WordCt_count=VCC;
+  WHEN  OTHERS   => ADCcs =GND; ADCd_shift=GND; WordCt_count=GND;
+END CASE;
+
+IF PRESCALER.q[]==4            -- synchronizing of ADC_cs
+  THEN ADCcs_en = VCC;
+  ELSE ADCcs_en = GND;
+END IF;
+
+IF PRESCALER.q[]==5            -- synchronizing of ADC data grabbing
+  THEN ADCdata_grab=VCC;
+  ELSE ADCdata_grab=GND;
+END IF;
+ADC_cs  = !DFFE(.D=ADCcs, .clk=Clock, .ena=ADCcs_en, .clrn=Working); -- inversion; 
+MUX_next= DFF(.D=(MUX_nxt AND ADCdata_grab), .clk=Clock); -- strobe for switching MUX 
+ 
+WordCt.clock    = Clock;
+WordCt.cnt_en   =(ADCdata_grab AND WordCt_count);
+IF WordCt.q[]==WordNumber
+  THEN DigitEnd=VCC;
+  ELSE DigitEnd=GND;
+END IF;
+
+--============================================================================
+--************ Digitizer Memory **********************************************
+RAM.clock_b   = ADC_RAM_Clk;                            --\  for access
+RAM.(address_b[5..0],   data_b[],       wren_b    ) =   -- \ from
+    (ADC_RAM_addr[5..0],ADC_RAM_data[], ADC_RAM_we);    -- / outside
+ADC_RAM_q[] = RAM.q_b[];                                --/ of "Digitizer" unit
+--RAM_extWe= Select AND RW AND DataBusStrobe;
+
+RAM.clock_a   = Clock;                                  --\  for access
+RAM.(address_a[5..0], data_a[], wren_a  )=              -- \ from
+    ( WordCt.q[5..0],                                   -- /   inside
+                            Reg_ADCdata.q[], RAM_we );  --/ of this unit
+RAM_we   = ADCdata_grab AND WordCt_count;
+
+--============================================================================
+--**************** Testing circuitry *****************************************
+Shifter_Out[15..0] = Reg_ADCdata.q[15..0];
+ADCdata_take =  ADCdata_grab;
+ADCdata_shift=  ADCd_shift;
+WordCt_cnt = WordCt_count;
+
+END;

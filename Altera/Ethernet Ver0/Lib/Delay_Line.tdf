@@ -1,0 +1,94 @@
+TITLE "Delay Line";
+-- Файл содержит фукцию формирователь задержки импульса и формирователь длительности импульса. 
+-- Формирователь имеет минимальную задержку 3 такт входной частоты и 1 такта минимальную длительность
+
+INCLUDE "Edge_Sensing.inc";
+INCLUDE "lpm_counter.inc" ;
+INCLUDE "lpm_shiftreg.inc" ;
+
+%PARAMETERS
+(
+  SHAPING_TIME = 32 -- максимальная задержка/длительность в тактах
+);%
+
+CONSTANT COUNTER_SIZE  = 16;--CEIL (LOG2(SHAPING_TIME)); -- определение размера счетчика
+ 
+Subdesign Delay_Line
+(
+    Clock                           : input;   -- Clock
+    Reset                           : input = GND;   
+    InputPulse                      : input;   
+    Sample_Enable                   : input;
+    
+    Busy                            : output;
+    DelayedPulse                    : output;  
+   
+    Bus_Clock					    : input;
+    DataBus_In[15..0]			    : input;  -- полученные с шины проекта данные
+    DataBusOut[15..0]     	  	    : output; -- отправляемые  на шину проекта данные
+    DataBusStrobe 			 	    : input;  -- строб приема/передачи данных наружу (высокий уровень, защелкиваем по заднему фронту)
+    Select					 	    : input;  -- Выбор Модуля для работы с памятью Командного Листа в режиме Slave (с КАМАК-ом)
+    DirectIn					  	: input;  -- направление передачи данных, Если =GND, то данный Модуль читается, если =VCC, то пишется.
+    AddrBus_In[3..0]			 	: input;  -- адрес при операциях доступа чтения/записи Командного Листа с КАМАК-а
+   
+)
+
+Variable
+
+    StartSensing   				 : Edge_Sensing;
+ 
+    WorkCycle         			 : SRFF;
+    End_of_Delay_Mark            : node;
+	Timer_CNT   				 : LPM_COUNTER with ( lpm_width=COUNTER_SIZE*2, lpm_direction="up" );   
+		
+	
+	TDelayLSW_Reg                : lpm_shiftreg with (LPM_WIDTH = COUNTER_SIZE, LPM_DIRECTION="unused"); -- ?aaeno? caaa??ee eiioeuna[15..0]
+    TDelayLSW_Reg_CS		     : node;
+    TDelayMSW_Reg                : lpm_shiftreg with (LPM_WIDTH = COUNTER_SIZE, LPM_DIRECTION="unused"); -- ?aaeno? caaa??ee eiioeuna[31..16]
+    TDelayMSW_Reg_CS			 : node;
+	LSW_Mark                     : node;
+	MSW_Mark                     : node;
+
+Begin
+
+  StartSensing.(d,clk,clr) = (InputPulse,Clock,GND);
+
+
+  WorkCycle.(S,clk,R) = (StartSensing.q, Clock, End_of_Delay_Mark OR Reset);
+
+
+  Timer_CNT.(clock,sclr,cnt_en)	= (Clock, End_of_Delay_Mark, WorkCycle.q AND Sample_Enable);
+
+  LSW_Mark	=	DFF(.d=(Timer_CNT.q[15..0]  >= TDelayLSW_Reg.q[15..0]) , .clk=Clock);
+  MSW_Mark	=	DFF(.d=(Timer_CNT.q[31..16] >= TDelayMSW_Reg.q[15..0]) , .clk=Clock);
+
+  IF (LSW_Mark AND MSW_Mark)	THEN End_of_Delay_Mark = VCC;
+								ELSE End_of_Delay_Mark = GND;
+  END IF;
+
+
+  DelayedPulse = DFF(.d = End_of_Delay_Mark, .clk = Clock);
+  Busy         = WorkCycle.q;
+
+  IF (TDelayLSW_Reg.q[] == 0 AND TDelayMSW_Reg.q[] == 0) THEN DelayedPulse = StartSensing.q;
+                                                         ELSE DelayedPulse = DFF(.d = End_of_Delay_Mark, .clk = Clock);
+  END IF;
+
+--********************************      Упраляющие регистры     *******************************
+TDelayLSW_Reg.(data[], clock, enable, load) = (DataBus_In[15..0], Bus_Clock, TDelayLSW_Reg_CS, VCC);
+TDelayMSW_Reg.(data[], clock, enable, load) = (DataBus_In[15..0], Bus_Clock, TDelayMSW_Reg_CS, VCC);
+
+-- адрес регистра задержки калибровочных сигналов 
+-- 0  LSW of Timer Control Register 
+IF(AddrBus_In[3..0] == 0 AND Select)  THEN TDelayLSW_Reg_CS     = DataBusStrobe and  DirectIn;
+                                           DataBusOut[15..0]    = TDelayLSW_Reg.q[]; 
+                                      ELSE TDelayLSW_Reg_CS     = GND; 
+END IF;
+-- 1 MSW of Timer Control Register 
+IF(AddrBus_In[3..0] == 1 AND Select)  THEN TDelayMSW_Reg_CS     = DataBusStrobe and  DirectIn;
+                                           DataBusOut[15..0]    = TDelayMSW_Reg.q[]; 
+                                      ELSE TDelayMSW_Reg_CS     = GND;
+END IF;
+
+
+end;

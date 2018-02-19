@@ -1,0 +1,145 @@
+Title "CMD3_FOR_Lines_Simulator";
+
+INCLUDE "lpm_shiftreg.inc" ;
+INCLUDE "lpm_counter.inc" ;
+INCLUDE "Dual_Port_RAM_256x16.inc";
+INCLUDE "Edge_Sensing.inc";
+
+Constant Start_Timer_to_Adding_Mode_Address		=	768;
+Constant Start_Timer_to_Replacing_Mode_Adress	=	769;
+Constant Reset_Address_Counter_Address			=	770;
+Constant Timer_Value_Reg_Address 				=	771;
+
+Subdesign CMD3_FOR_Lines_Simulator
+(
+-- Specific Module Signals
+     Fast_Link_Clock		: input; -- Global FPGA Clock, assumed 150MHz for Trigger-Related project
+     Next_Slice				: input; -- Enable to change data
+     Parallel_Start			: input;
+     
+     Started				: output;
+     Add_nReplace			: output;-- Mode
+     Pattern_Active			: output;-- Synchro Output for Test
+     q[15..0]				: output;-- Data output
+
+-- Standard Bus signaling for Master/Slave connection
+  -- General Signals
+	 Bus_Clock				: input; -- Global FPGA Clock, assumed 100MHz for T2Q project 
+	 Reset					: input ;  -- Common FPGA Reset
+	 DataBus_In[15..0]		: input;  -- отправляемые с Внутренней Шины в Линк данные
+	 DataBusOut[15..0]		: output; -- выдаваемые на Внутреннюю Шину из Линка данные
+	 DataBusStrobe			: input;  -- строб приема/передачи данных наружу (высокий уровень, используя его как Enable, "защелкиваем" по заднему фронту
+	 Error					: output; -- сигнал ошибки (неверная команда)
+  -- Slave Mode Signals	-- используется при работе данного Модуля в режиме Slave
+	 Select					: input;  -- Выбор Модуля для работы с памятью Командного Листа в режиме Slave (с КАМАК-ом)
+	 DirectIn				: input;  -- направление передачи данных, Если =GND, то данный Модуль читается, если =VCC, то пишется.
+	 AddrBus_In[9..0]		: input;  -- адрес при операциях доступа чтения/записи Командного Листа с КАМАК-а
+
+
+)
+
+VARIABLE
+  Timer					       : LPM_COUNTER with ( lpm_width=16);
+  Timer_Value_Reg			   : LPM_SHIFTREG with (lpm_width=16);
+  Timer_Value_Reg_WE_Addr	   : NODE;
+  Start_Timer				   : NODE;
+  Timer_Active	 		       : NODE;
+  Timer_Done				   : Edge_Sensing;
+  Start_Timer_DFF              : DFF;
+
+  RAM_Addr_Counter		       : LPM_COUNTER with ( lpm_width=8);
+  Pattern_is_Active		       : NODE;
+  Pattern_Done			       : NODE;
+
+  RAM_Block   		           : Dual_Port_RAM_256x16;--Dual_Port_RAM_256x16;
+  RAM_Block_WE_Addr	           : NODE;
+
+  Reset_Address_Counter        : node;
+  Reset_Address_DFF            : DFF;
+  
+  StartTimer_with_Adding_Mode  : node;
+  StartTimer_with_Replace_Mode : node;
+  Reset_Address_Counter_Addr   : node;
+  
+  Mode_Reg                     : LPM_SHIFTREG with (lpm_width=1);
+  
+  
+
+BEGIN 
+
+-- Timer Operation
+------------------------------------------------
+  Start_Timer_DFF.(d,clk) = (StartTimer, Fast_Link_Clock);
+  Start_Timer	          =	DFF(.clk=Fast_Link_Clock, .d= Start_Timer_DFF.q);
+------------------------------------------------
+  Started	=	Start_Timer;
+  Timer.(Clock, cnt_en, sclr)	=	(Fast_Link_Clock, Timer_Active, Reset_Address_Counter);
+  Timer_Active	=	SRFF(.clk=Fast_Link_Clock, .S=Start_Timer OR Parallel_Start, .R=(Timer.q[]==Timer_Value_Reg.q[]));
+  Timer_Done.(d,clk) = (Timer_Active,Fast_Link_Clock); -- вырабатываем одиночный Fast_Link_Clock импульс, 
+                                                       -- если счетчик задержки досчитал до заданного значения
+ 
+-- Timer REG (Регистр времени задержки старта)
+  Timer_Value_Reg.(Clock, data[], load)	=	(Fast_Link_Clock, DataBus_In[15..0], VCC);
+  Timer_Value_Reg.enable	=	DataBusStrobe and  DFF(.d=(DirectIn and Select AND Timer_Value_Reg_WE_Addr), .clk=Bus_Clock) ;
+
+
+-- Page and Slice counter control
+--------------------------------------------------
+  Reset_Address_Counter	       = DFF(.clk=Fast_Link_Clock, .d= Pattern_Done);
+--------------------------------------------------
+  RAM_Addr_Counter.(Clock, cnt_en, sclr)	=	(Fast_Link_Clock, Pattern_is_Active and Next_Slice, Reset_Address_Counter);
+  Pattern_is_Active	= SRFFE(.clk=Fast_Link_Clock, .S=Timer_Done.q, .R=Pattern_Done, .ena =VCC);
+  Pattern_Done	    = (!(RAM_Addr_Counter.q[7..0] == Pattern_Size_REG.q[])) and DFF(.clk=Fast_Link_Clock, .d=(RAM_Addr_Counter.q[7..0] == Pattern_Size_REG.q[])); -- вырабатываем одиночный Fast_Link_Clock импульс, если счетчик досчитал до 32
+  Pattern_Active	= Pattern_is_Active;
+
+--RAM Blocks connection---------------------
+  RAM_Block.(clock_a, clock_b)	= (Fast_Link_Clock, Bus_Clock);
+  RAM_Block.wren_b              = DataBusStrobe and  DFF(.d=(DirectIn and Select AND RAM_Block_WE_Addr), .clk=Bus_Clock) ;
+  RAM_Block.wren_a              = GND;
+  RAM_Block.address_b[7..0]	    = AddrBus_In[7..0];
+  RAM_Block.address_a[7..0] 	= RAM_Addr_Counter.q[7..0];
+  RAM_Block.data_b[]        	= DataBus_In[15..0]; 
+  RAM_Block.data_a[]	        = VCC;
+  
+  
+  q[15..0]	=	RAM_Block.q_a[15..0] and Pattern_is_Active;
+   
+  
+-- Read output selector
+-- Address Map
+  IF(AddrBus_In[9..0] >= 0+256   AND AddrBus_In[9..0] <= 255+256) THEN DataBusOut[15..0] = RAM_Block.q_b[];
+                                                                       RAM_Block_WE_Addr = VCC; 
+                                                                  ELSE RAM_Block_WE_Addr = GND;
+  END IF;  
+                                               
+  IF(AddrBus_In[9..0] == Timer_Value_Reg_Address) -- задержка, через сколько будет выдаваться паттерн после запуска
+           THEN DataBusOut[15..0] = Timer_Value_Reg.q[];
+                Timer_Value_Reg_WE_Addr = VCC;
+           ELSE Timer_Value_Reg_WE_Addr = GND;
+  END IF;                                                  
+  
+  IF(AddrBus_In[9..0] == Start_Timer_Address AND DirectIn and Select AND DataBusStrobe) -- разрешение на выдачу 1-го паттерна
+           THEN StartTimer = VCC;
+           ELSE StartTimer = GND;
+  END IF;   
+  IF(AddrBus_In[9..0] == Pattern_Size_Address AND DirectIn and Select AND DataBusStrobe) -- размер выдаваемого паттерна
+           THEN Pattern_Size_CS = VCC;
+           ELSE Pattern_Size_CS = GND;
+  END IF;  
+  IF(AddrBus_In[9..0] == Reset_Address_Counter_Address AND DirectIn and Select AND DataBusStrobe) 
+           THEN Reset_Address_Counter_Addr = VCC;
+           ELSE Reset_Address_Counter_Addr = GND;
+  END IF;  
+   
+
+
+
+IF(AddrBus_In[9..0] == Timer_Value_Reg_Address) -- caaa??ea, ?a?ac neieuei aoaao auaaaaouny iaooa?i iinea caionea
+           THEN DataBusOut[15..0] = Timer_Value_Reg.q[];
+                Timer_Value_Reg_WE_Addr = VCC;
+           ELSE Timer_Value_Reg_WE_Addr = GND;
+END IF;    
+
+  
+
+END; 

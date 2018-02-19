@@ -1,0 +1,768 @@
+TITLE  "Digitizer_AD48_4b" ;    -- Digitizer: performs a Cycle of digitizing 
+-- ver.2  :  minimal functionality implemented :  signal sampling and 
+--             amplitude calculation;  "emulation_memory" use enabling - 
+--             by re-compiling of the project.
+-- ver.4  :  "Emulation_memory" use - by "emulation mode" bit of CtrlStat reg.
+--           Emulation data defined in project. "Memory of History" implemented. 
+-- ver.4b :  "Emulation_memory" available for read/write; RAM unit selection 
+--             circuitry improved.
+-- ver.6  :  Amplitude Correction implemented.  Minor errors fixed.
+
+
+INCLUDE "RAMdata_AD48.inc" ;
+INCLUDE "RAMemul_AD48.inc" ;
+
+INCLUDE "lpm_counter.inc" ;
+INCLUDE "lpm_shiftreg.inc" ;
+INCLUDE "lpm_add_sub";
+INCLUDE "lpm_mux.inc" ;
+INCLUDE "lpm_ff.inc";
+
+--  Constant Statement (optional)
+--  Define Statement (optional)
+--  Parameters Statement (optional)
+--  Function Prototype Statement (optional)
+--  Options Statement (optional)
+--  Assert Statement (optional)
+
+CONSTANT SettlingTime = 320;    --time from end of "Gate" to start of Digitizing, 3.2uS; must be > 256
+CONSTANT SampleCycle= 32;       --number of ADC_clocks in 1 Sampling_Cycle (ADCchan 0, 1)
+CONSTANT Order_BitCt= Ceil( LOG2(SampleCycle));
+
+SUBDESIGN  Digitizer_AD48
+(
+Clock           : input;    -- Clock (100MHz)
+Sync            : input;    -- signal-"Tag" of Phase's rising edge (12.5Mhz)
+SampleEn        : input;    -- causes Digitizer to carry out Sampling
+DigitInit       : input;    -- initiates Cycle: Calculation of Amplitudes
+InclTime        : input;    -- include PeakTime into Channels' data
+EmulEn          : input;    -- =1/0 => Emulation data / real data
+GateDur[3..0]   : input;    -- number of Samples to be captured after DigitInit
+GateDel[3..0]   : output; --delay from DigitInit to End of current SamplingCycle
+
+    RAMdata_addr[11..0] : input;  --\  Signals for 
+    RAMdata_data[15..0] : input;  -- \ accessing the Digitizer's Memory
+    RAMdata_clk,                  --  > from outside
+    RAMdata_we          : input;  -- /  of the Digitizer Unit 
+    RAMdata_q[15..0]    : output; --/ 
+
+    CorrEn      : input;    --For TEST only! Enable Correction by external switch, 1=Enabled
+Reset           : input;    -- Main RESET
+Sampling        : output;   -- Flag: Sampling is in progress
+Working         : output;   -- Flag: Digitizing_Cycle in progress
+DigitStart      : output;   -- 1-clock _/^\_ in the beg-g of 1st Digitizing_Cycle
+Error           : output;   -- Flag: Error detected during Digitizing_Cycle
+test[8..1]      : OUTPUT;   -- test outs
+
+-- Connections via real pins to external parts
+ADC_clock, ADC_cs   : output;   -- (Clock|ChipSelect) for ADC chip
+ADC_sel             : output;   -- address for ADCs' analog Multiplexers 
+Brd1_data[8..1]     : input;    -- input of serial data from ADCs
+Brd2_data[8..1]     : input;    -- input of serial data from ADCs
+Brd3_data[8..1]     : input;    -- input of serial data from ADCs
+)
+
+--=======1=========2=========3=========4=========5=========6=========7=========8====
+-- VARIABLE Section __________________________________________________________
+VARIABLE
+	--  If Generate Statement (optional)
+-- Instance Decl.
+	--  State Machine Declaration (optional)
+	--  Machine Alias Declaration (optional)
+	--  Assert Statement (optional)
+
+--=======1=========2=========3=========4=========5=========6=========7=========8====
+--************  Selector of Data Memory unit  ********************************
+RAMdat_sel[4..1]: node; -- select the relevant RAMdata[4..1] unit 
+RAMemul_sel     : node; -- selects the RAMemul unit (Addr = #5120..5375)
+
+--=======1=========2=========3=========4=========5=========6=========7=========8====
+--********  Sampling_Cycle initiation circuitry  ********
+SampleEn1,
+SampleEn2       : node; -- enables proceeding with Sampling 
+SampleInit      : node; -- 2-clock _/^^\_ in the beginning of Sampling_Cycle
+--Sampling        : node; -- Flag: Sampling_Cycle in progress, declared as Output
+SampleEnd       : node; -- _/^^\_ at the end of Sampling_Cycle
+
+--=======1=========2=========3=========4=========5=========6=========7=========8====
+--************ Sampling_Cycle Sequence Generation ****************************
+PRESCALER       : lpm_counter with (lpm_width=2, lpm_direction="up" );
+PrescTrig       : node; -- flips by \_ of Clock, provides \_ of ADC_clock
+-- Counter: contains number of Bit in a Sampling_Cycle
+BitCt           :  lpm_counter with (lpm_width=Order_BitCt, lpm_direction="up" );
+
+ADCcs_on, 
+ADCcs_off       : node; -- turn the ADC_cs trigger to =1/=0
+ADCsel_en       : node; -- enables ADC_sel trigger to flip to  =1/=0
+
+WarmUp_set,             -- sets WarmUp_done trigger to =1
+WarmUp_done     : node; -- Flag: "WarmUp" of ADCs (2 sampling operations) is done
+
+Store_beg,
+Store_end       : node; -- handle the Store trigger
+Store           : node; -- handles "BrdNdata[]" mode (Shift or Load)
+DatRg_Cen,
+DataReg_Cen     : node; -- enables "BrdNdata[]" registers operations (Shift or Load)
+
+--************  Sampling_Cycle proceeding units  *****************************
+-- Registers: get serial data from ADCs & transform it into parallel word
+Brd1data[8..1]  : LPM_SHIFTREG with (lpm_width=12, lpm_direction="left"); --shift: q0 -> q[MSB]
+Brd2data[8..1]  : LPM_SHIFTREG with (lpm_width=12, lpm_direction="left"); --shift: q0 -> q[MSB]
+Brd3data[8..1]  : LPM_SHIFTREG with (lpm_width=12, lpm_direction="left"); --shift: q0 -> q[MSB]
+
+-- RAMs: to store 3 data flows, 3 RAMs are used, written simultaneously 
+RAMdata1        : RAMdata_AD48 with (Init_FileName = "RAMdata1.mif"); -- RAM 256words * 16bits 2-Port,
+RAMdata2        : RAMdata_AD48 with (Init_FileName = "RAMdata2.mif"); -- RAM 256words * 16bits 2-Port,
+RAMdata3        : RAMdata_AD48 with (Init_FileName = "RAMdata3.mif"); -- RAM 256words * 16bits 2-Port,
+RAMdata4        : RAMdata_AD48 with (Init_FileName = "RAMdata4.mif"); -- RAM 256words * 16bits 2-Port,
+            -- Port A for accessing data from inside of Digitizer unit, 
+            -- Port B for accessing data from outside of Digitizer unit
+RAM_we          : node; --common Write_Enable for WRITE into RAMdata[3..1] via PortA
+RAM4_we         : node; -- Write_Enable for WRITE into RAMdata4 via PortA
+RAM_q[15..0]    : node; -- selected outputs of RAMdata[i]-portA
+
+--RAMdata_we      : declared as input
+RAMdat_we[4..1] : node; -- Write_Enable for WRITE via PortB
+--RAMdata_q[15..0]: selected outputs of RAMdata[i]-portB, declared as outputs 
+
+--"Memory of History": RAMdata'addr = addr + (last_position_of_RingBuffer) + 1
+RingAdReg       : LPM_FF with (lpm_width = 4); -- latches last position of RingBuffer
+AddrAdd         : LPM_ADD_SUB with(lpm_width=4, lpm_representation="unsigned", 
+            lpm_direction="ADD", lpm_pipeline=1 );
+
+-- Counter: contains local address to write the current ADC data to 
+AddrCt          : LPM_COUNTER with ( lpm_width=10, lpm_direction="up" );
+AddrCt_sclr     : node; --sets AddrCt to =#00 in the beg-g of Sampling process and before each Sampling_Cycle
+RAMaddr[9..0]   : node; -- constitute a MUX of AddrCt's bits 
+
+--=======1=========2=========3=========4=========5=========6=========7=========8====
+--********  Digitizing_Cycle initiation circuitry  ********
+DigitIn[2..1],  -- for TEST
+DigitInit1,
+DigitInit2      : node; 
+DigitInit3      : node; -- 2-clock _/^^\_ in the beg-g of Digitizing procedure
+--DigitStart      : node; -- 1-clock _/^\_ in the beg-g of 1st Digitizing_Cycle, declared as Output
+--Working         : node; -- Flag: Cycle in progress, declared as Output
+DigChEnd        : node; -- _/^^\_ at the end of digitizing of each Channel
+DigitEnd        : node; -- _/^^\_ at the end of the entire Digitizing_Cycle
+
+--=======1=========2=========3=========4=========5=========6=========7=========8====
+--************ Digitizing_Cycle Sequence Generation **************************
+
+--**** GateDelay counter :
+GateDelCt       : LPM_COUNTER with ( lpm_width=4, lpm_direction="up" );
+--**** GateDuration circuit:
+GateDurCt       : LPM_COUNTER with ( lpm_width=4, lpm_direction="down" );
+GateDone        : node; --Flag: the defined number of samples captured after DigitInit
+
+-- Main Counter of Digitization: counts #_of_Step, defines all control signals' states
+DigitCt         : LPM_COUNTER with ( lpm_width=5, lpm_direction="up" );
+-- Counter: contains position of current sample in the "ring buffer"
+RingCt          : LPM_COUNTER with ( lpm_width=4, lpm_direction="up" );
+
+--**** Control signals  ********
+AddrCt_count%,   
+AddrCt_load %   : node; -- causes AddrCt to increment Addr
+RingCt_count    : node; -- causes RingCt to increment Addr
+AverReset       : node; -- reset the Pipeline and Adders to =#0
+PipeShift       : node; -- enables data shifting in the pipeline
+
+--************  Digitizing_Cycle proceeding units  ***************************
+--**** Registers which constitute the array of data for "running_average"
+PipeReg[4..2]   : LPM_FF with (lpm_width = 12);
+--**** Adders which calculate the "running_average"
+AverAdd1, AverAdd2  : LPM_ADD_SUB with(lpm_width=12, lpm_representation="unsigned", 
+                    lpm_direction="ADD", lpm_pipeline=1 );
+AverAdd4        : LPM_ADD_SUB with(lpm_width=14, lpm_representation="unsigned", 
+                    lpm_direction="ADD", lpm_pipeline=1 );
+--**** Register - contains "temporary MAXaverage"
+AverReg1        : LPM_FF with (lpm_width = 14); --intermediate Reg, "temporary MAX_Sum4"
+AverReg2        : LPM_FF with (lpm_width = 14); --intermediate Reg, "temporary MAX_Sum4"
+AvrMax          : node; -- Flag: new Sum4 is Max => load it into AverReg2
+AverMax[3..1]   : node; -- the same Flag, delayed
+
+SumL_Reg1       : LPM_FF with (lpm_width = 13); --\_"temporary SumL", 
+SumL_Reg2       : LPM_FF with (lpm_width = 13); --/   delayed by 2clocks 
+
+SumR_Reg        : LPM_FF with (lpm_width = 13); --"temporary SumR, delayed by 1clk 
+-- Adder: SumR + 1/128 Sum4
+SumR_Add        : LPM_ADD_SUB with(lpm_width=14, lpm_representation="unsigned", 
+                    lpm_direction="ADD", lpm_pipeline=1 );
+
+LR_Sub          : LPM_ADD_SUB with(lpm_width=14, lpm_representation="unsigned", 
+                    lpm_direction="SUB", lpm_pipeline=1 );
+Corr[5..0]      : node; -- Logic, represent  1/4 * | LR_Sub.result |
+
+-- Calculation of the corrected Amplitude :
+Ampl_Add        : LPM_ADD_SUB with(lpm_width=14, lpm_representation="unsigned", 
+                    lpm_direction="ADD", lpm_pipeline=1 );
+--Register for OutData: [00,(Ampl 14bit)]/[(Time_of_MAX 4bit)&(Ampl 12bit)]
+DataReg         : LPM_FF with (lpm_width = 16); 
+
+--******** Local Data bus  ********
+Data[15..0]         : node; -- local Data bus of Digitizer unit
+
+--=======1=========2=========3=========4=========5=========6=========7=========8====
+--************  Data_flow Imitator  ******************************************
+-- Addr Counter for Emulation Memory
+ImAddrCt        : LPM_COUNTER with ( lpm_width= 8, lpm_direction="up" );
+-- Emulation Memory :  RAM (ROM?) which contains special data for TEST 
+RAMemul         : RAMemul_AD48; -- RAM  256words * 16bits, 2-port
+--RAMdata_q[15..0]: selected outputs of [RAMdata[i],RAMemul]-portB, declared as outputs 
+RAMemul_we      : node; -- Write_Enable for WRITE into RAMemul via PortB
+
+%-- Registers, to convert 8 words of Emul.Data into serial form
+EmulData[8..1]  : LPM_SHIFTREG with (lpm_width=12, lpm_direction="left"); --shift: q0 -> q[MSB]
+%
+Emul_beg, 
+Emul_end        : node; -- handle the Emul trigger
+Emul            : node; -- enables RAMemul' address incrementing
+
+--=======1=========2=========3=========4=========5=========6=========7=========8====
+-- LOGIC Section _______________________________________________________
+BEGIN
+DEFAULTS
+ADCcs_on    = GND;  ADCcs_off = GND;    ADCsel_en = GND; 
+WarmUp_set  = GND;  
+SampleEnd   = GND;  DigChEnd    = GND;  DigitEnd    = GND;
+
+DataReg_Cen = GND;  Store       = GND;
+RAM_we      = GND;
+
+AddrCt_count= GND;  --AddrCt_load = GND;
+RingCt_count= GND;  --RingCt_load = GND;
+AverMax     = GND;
+
+Error = GND; 
+
+END DEFAULTS ;
+
+--=======1=========2=========3=========4=========5=========6=========7=========8====
+--************  Selector of Data Memory unit  ********************************
+RAMdat_sel1 = DFF(.D=(!RAMdata_addr11                   AND(!RAMdata_addr9 & !RAMdata_addr8)), .clk=Clock);
+RAMdat_sel2 = DFF(.D=(!RAMdata_addr11                   AND(!RAMdata_addr9 &  RAMdata_addr8)), .clk=Clock);
+RAMdat_sel3 = DFF(.D=(!RAMdata_addr11                   AND( RAMdata_addr9 & !RAMdata_addr8)), .clk=Clock);
+RAMdat_sel4 = DFF(.D=(!RAMdata_addr11                   AND( RAMdata_addr9 &  RAMdata_addr8)), .clk=Clock);
+RAMemul_sel = DFF(.D=((RAMdata_addr11 & !RAMdata_addr10)AND(!RAMdata_addr9 & !RAMdata_addr8)), .clk=Clock);
+
+--************  Data Memory - 4 units by 256words  ***************************
+-- 3 units contain total of 48blocks by 16samples, 4th unit contains the results
+FOR i in 1 to 4  GENERATE
+    RAMdata[i].clock_b   = RAMdata_clk;                         --\  for access
+    RAMdata[i].(address_b[7..4],   data_b[],       wren_b    )= -- \ from
+             (RAMdata_addr[7..4],RAMdata_data[], RAMdat_we[i]); -- / outside of
+    RAMdata[i].address_b[3..0]  =                               --/ "Digitizer" unit
+             (RAMdata_addr[3..0]   AND !RAMdata_addr10) --addr=(4096..5119)
+          OR (AddrAdd.result[3..0] AND  RAMdata_addr10);--addr=(5120..6147)"Mem.of.Hist"
+    RAMdat_we[i]= (RAMdata_we AND (!RAMdata_addr10 & RAMdat_sel[i])); --addr=(5120..6147) - ReadOnly
+END GENERATE;                                                   
+
+RAMdata_q[] = (RAMdata1.q_b[] AND RAMdat_sel1) 
+           OR (RAMdata2.q_b[] AND RAMdat_sel2) 
+           OR (RAMdata3.q_b[] AND RAMdat_sel3) 
+           OR (RAMdata4.q_b[] AND RAMdat_sel4)
+           OR (RAMemul.q_b[]  AND RAMemul_sel);
+
+--"Memory of History": RAMdata'addr = addr + (last_position_of_RingBuffer) + 1
+-- RingAdReg: latches the last position of RingBuffer
+RingAdReg.data[]            = AddrCt.q[7..4];       --last position of RingBuffer
+RingAdReg.(clock, enable)   = (Clock, DigitStart);  --loads initial position ..
+RingAdReg.(%sclr,sset,%sload)   = DigitStart;       --.. after the last SamplingCycle
+RingAdReg.(aclr%,aset,aload%)   = Reset;
+-- Adder which calculate the actual address for RAM :
+AddrAdd.(cin, dataa[3..0],        datab[3..0]  )=   --\_
+        (VCC, RAMdata_addr[3..0], RingAdReg.q[]);   --/ 1 + RAMdata_addr + RingAdReg 
+AddrAdd.(clock, clken, aclr)   = (Clock, VCC, Reset); 
+
+FOR i in 1 to 3  GENERATE
+    RAMdata[i].clock_a   = Clock;                   --\  for access from inside
+    RAMdata[i].(address_a[7..0],%data_a[],%wren_a )=-- \ of "Digitizer" unit -  
+               ( RAMaddr[7..0], %Data[],%  RAM_we );-- / - "write" is performed
+END GENERATE;                                       --/    simultaneously
+--RAMdata1.data_a[] =(B"0000", Brd1data[1].q[11..0]); --ADCs' data from Brd1 => RAMdata1
+IF (EmulEn == VCC ) Then  RAMdata1.data_a[] = RAMemul.q_a[];-- emulation data => RAMdata1
+    Else RAMdata1.data_a[] =(B"0000", Brd1data[1].q[11..0]);--ADCs' data from Brd1 => RAMdata1
+End IF;
+IF (EmulEn == VCC ) Then  RAMdata2.data_a[] = RAMemul.q_a[];-- emulation data => RAMdata2
+    Else RAMdata2.data_a[] =(B"0000", Brd2data[1].q[11..0]);--ADCs' data from Brd2 => RAMdata2
+End IF;
+RAMdata3.data_a[] =(B"0000", Brd3data[1].q[11..0]); --ADCs' data from Brd3 => RAMdata3
+
+RAMdata4.clock_a   = Clock;                         --\  for access from inside
+RAMdata4.(address_a[7..0],      data_a[], wren_a )= -- \ of "Digitizer" unit - 
+         ((B"00",RAMaddr[9..4]), Data[],  RAM4_we); -- / - store Amplitudes & Times
+
+RAM_q[]     = (RAMdata1.q_a[] AND(!RAMaddr9 & !RAMaddr8)) 
+           OR (RAMdata2.q_a[] AND(!RAMaddr9 &  RAMaddr8)) 
+           OR (RAMdata3.q_a[] AND( RAMaddr9 & !RAMaddr8)) 
+           OR (RAMdata4.q_a[] AND( RAMaddr9 &  RAMaddr8));
+
+--=======1=========2=========3=========4=========5=========6=========7=========8====
+--************ Cycle proceeding units ****************************************
+
+--************ Sampling_Cycle Initializing Circuitry *************************
+SampleEn1   = SRFF(.s=(SampleEn & !Working AND Sync), -- start when Sampling enabled and NOT Digitizing
+                   .r=((!SampleEn AND Sync)     -- stop when Sampling disabled
+                OR  (GateDurCt.eq0 AND Sync) ), -- paused when Digitizing has begun
+                   .clk=Clock, .clrn=!Reset);   -- level _/^^..^^\_
+SampleEn2   = SRFF(.s=SampleEn1, 
+                   .r=(!SampleEn1 & SampleEnd ),-- stops by the End_of_Sample
+                   .clk=Clock, .clrn=!Reset);   -- level _/^^..^^\_
+SampleInit  = DFF (.D=(SampleEn2 & !Sampling),  -- 2-clock _/^^^^\_ init of Sampling
+                   .clk=Clock,.clrn=!Reset);            
+
+Sampling    = SRFF(.s=SampleInit, .r=(!SampleEn1 & SampleEnd),
+                   .clk=Clock, .clrn=!Reset);
+
+--************ Digitizing_Cycle Initializing Circuitry ***********************
+DigitIn1    = DFF(.D=DigitInit, .clk=Clock);
+--DigitIn2    = SRFF(.S=(DigitIn1& !DigitInit2 & !Working), 
+DigitInit1  = SRFF(.s=(DigitIn1 & !DigitInit2 & !Working & Sampling),     --\ "DigitInit" 
+--DigitInit1  = SRFF(.s=DFF(.D=(DigitInit & !DigitInit2 & !Working), .clk=Clock),     --\ "DigitInit" 
+                   .R=DigitInit2, .clk=Clock,                   -- > stretcher
+                   .clrn=!Reset);                               --/
+DigitInit2  = SRFF(.s=(DigitInit1 AND Sync),                -- aligned to PHASE
+                   .clk=Clock, .r=DigitEnd,.clrn=!Reset);   -- level _/^^..^^\_
+DigitInit3  = DFF (.d=(DigitInit2 & !Working),  -- 2-clock _/^^^\_ init of Digitizing
+                   .clk=Clock,.clrn=!Reset); 
+
+Working     = SRFF(.s=DigitInit3, .clk=Clock, .r=DigitEnd,
+                   .clrn=!Reset);
+
+--=======1=========2=========3=========4=========5=========6=========7=========8====
+--************ Sampling_Cycle Sequence Generation ****************************
+-- 1 cycle of ADC operation uses 16"ADCclocks", and takes 48 clocks; 
+-- 1 full Sampling_Cycle (ADCchan#0 + ADCchan#1) = 2 ADC' cycles 
+--                  -2  -1   0   1   2   3   4   5   6   7   8   18  19        35  36  37  38  39  40  41  42  43  44  45  46  47  48
+--100MHz Clock  ^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_ | ^\_/^\_/^ | _/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_
+--Prescaler.q[] _____0_/^1^\_2_\_0_/^1^\_2_\_0_/^1^\_2_\_0_/^1^ | _2_\_0_/^ | _/^1^\_2_\_0_/^1^\_2_\_0_/^1^\_2_\_0_/^1^\_2_\_0_/^1^\_2_\_0_/^1^\_2_
+--   BitCt.q[]  _____________________0_____/^^^^^1^^^^^\_____2_ | ^^^\____6 | ^^^11^^^^\_____12____/^^^^^13^^^^\_____14____/^^^^^15^^^^\______0____
+--   ADC_clock  _______________/^^^1^\_____/^^^2^\_____/^^^3^\_ | ___/^^^7^ | ^^^\_____/^13^^\_____/^14^^\_____/^15^^\_____/^16^^\_____/^1^^^\_____
+--   ADC_cs     ^^^^^^^^^^^\___Sample01________________________ | _________ | _____________________________/^^^^^^^^^^^^^^^^^^^^^^^\___Sample02____
+--   ADC_sel    _______________________________________________ | ___/^^^^^ | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+--  DataReg_Cen ___________________/^^^\_______/^^^\_______/^^^ | _______/^ | _/^^^\____________/^14^^\_____/^15^^\_____/^16^^\_____/^1^^^\_____
+
+--******** Deriving the clock for ADCs from the main Clock (dividing by 3) **
+PRESCALER.(clock, clk_en)   = (Clock, VCC);
+PRESCALER.cnt_en    = SampleEn2;
+PRESCALER.sclr      =!SampleEn2 OR PRESCALER.eq2 ;
+PRESCALER.(aclr%, aset, aload%) = Reset;
+
+PrescTrig   = DFF (.D=PRESCALER.eq1, .clk=!Clock);  --flips to =1 by \_ of clk #-1, #2, #5, ...
+ADC_clock   = SRFF(.S=PRESCALER.eq2,                --flips to =1 by _/ of clk #1, #4, ...
+                   .R=!SampleEn2,                   --
+                   .clrn=!PrescTrig, .clk=Clock);   --flips to =0 after \_ of clk #2, #5, ...   
+
+--************ Main Counter of Sampling_Cycle: *******************************
+--   counts #_of_Bit, defines all control signals' states
+BitCt.(clock, clk_en)   = (Clock, VCC);
+BitCt.cnt_en= PRESCALER.eq2;    -- Counts synchronously with End of ADC_clock period 
+--IF ( BitCt.q[] == SampleCycle-1 )
+--   Then BitCt.sclr = VCC;
+--   Else BitCt.sclr = GND;
+--End IF;
+BitCt.(aset, sset) = (!Sampling, SampleInit);   --released after 1st occurance of PRESCALER=#2 
+
+--During any cycle of ADC operation ("warm-up" and useful cycles):
+IF ((BitCt.q[3..0] == 15) AND PRESCALER.eq1 ) 
+    Then  ADCcs_on  = VCC;      -- Prepare for Step00: ADCcs to be turned ON
+End IF;
+IF ((BitCt.q[3..0] == 13) AND PRESCALER.eq1 ) 
+    Then  ADCcs_off = VCC;      -- Prepare for Step40: ADCcs to be turned OFF
+End IF;
+IF ((BitCt.q[3..0] ==  5) AND PRESCALER.eq2 ) 
+    Then  ADCsel_en = VCC;      -- Prepare for Step19: ADCsel to be flipped
+End IF;
+
+ADC_cs  = !SRFF(.S=ADCcs_on, .R=ADCcs_off, .clk=Clock, .clrn=!Reset);
+
+ADC_sel = DFFE(.D=!BitCt.q4, .clk=Clock, .ena=ADCsel_en, .clrn=!Reset);
+
+--**** Perform 2 cycles of ADC operation, to "warm up" the ADC; ADCchan = 0, 1
+--Now:  AddrCt=#00,  MUX_Ct=#00 
+--      WarmUp_done=Low
+--      ADC_clock=Low, ADC_cs=High, ADC_sel=Low 
+IF ( (BitCt.q[] == 31) AND PRESCALER.eq2 )  --@ end of 1st Sampling_Cycle.. 
+    Then  WarmUp_set= VCC;                              --
+End IF;
+WarmUp_done = SRFF(.S=WarmUp_set, .R=!Sampling, .clk=Clock);
+
+--=======1=========2=========3=========4=========5=========6=========7=========8====
+--                  46  47  48   1   2   3   4   5   6   7   8        34  35  36  37  38  39  40  41  42
+--100MHz Clock  ^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_ | ^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_/^\_
+--Prescaler.q[] _2_\_0_/^1^\_2_\_0_/^1^\_2_\_0_/^1^\_2_\_0_/^1^ | _2_\_0_/^1^\_2_\_0_/^1^\_2_\_0_/^1^\_2_\_0_/^1^\_2_\_0_/^1^\_2_\_0_/^1^\_2_
+--   BitCt.q[]  ___/^^^^^15^^^^\_____0_____/^^^^^1^^^^^\_____2_ | ___/^^^^^11^^^^\_____12____/^^^^^13^^^^\_____14____/^^^^^15^^^^\______0____
+--   ADC_clock  ___/^16^^\_____/^^^1^\_____/^^^2^\_____/^^^3^\_ | ___/^12^^\_____/^13^^\_____/^14^^\_____/^15^^\_____/^16^^\_____/^1^^^\_____
+--  DataReg_Cen ___________________/^^^\_______/^^^\_______/^^^ | _______/^^^\_______/^^^^^^^^^^^^^^^^^^^^^^^^^^^\______________
+--       Store  _________________________________________________________________/^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\______________
+-- AddrCt_count _____________________________________________________________________/^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\______________
+-- AddrCt.q[]   _______________________________(initial Addr. for SampleCycle#0)_______0_/^1^\_2_/^3^\_4_/^5^\_6_/^7^\_8________<-initial Addr. for SampleCycle#1
+--RAMdata' addrReg_____________________________(initial Addr. for SampleCycle#0)___________0_/^32\_64/^96\128/160\192/224\_16___<-initial Addr. for SampleCycle#1
+--      RAM_we  _____________________________________________________________________/^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\__________
+
+--During a useful cycle of ADC operation :
+IF (%WarmUp_done AND%
+    (BitCt.q[3..0] >= 0) & (BitCt.q[3..0] <= 11) AND PRESCALER.eq0 ) 
+    Then  DatRg_Cen = VCC;      -- prepare for Steps[02,05,08,..,35]
+End IF;
+IF ( WarmUp_done AND (BitCt.q[3..0] == 11) AND PRESCALER.eq2 ) 
+--IF ( WarmUp_done AND BitCt.eq11 AND PRESCALER.eq2 ) 
+    Then  Store_beg = VCC;      -- Initialize for storing 8 words of data
+End IF;
+IF ( WarmUp_done AND (BitCt.q[3..0] == 14) AND PRESCALER.eq1 ) 
+--IF ( WarmUp_done AND BitCt.eq14 AND PRESCALER.eq1 ) 
+    Then  Store_end = VCC;      -- Stop storing 8 words of data
+End IF;
+
+IF ( (BitCt.q[] == 31) AND PRESCALER.eq2 ) 
+    Then  SampleEnd = VCC;      -- End of Sampling_Cycle (ADCchan0 and ADCchan1)
+End IF;
+
+
+DataReg_Cen = DFF (.D=(DatRg_Cen # Store),      --\  handle "shift" of 12-bit words ..
+                   .clk=Clock, .clrn=Sampling); -- \ in the matrix 
+Store       = SRFF(.S=Store_beg, .R=Store_end,  -- / of  8 input registers  
+                   .clk=Clock, .clrn=Sampling); --/ BrdXdata8.q[i] -> BrdXdata1.q[i] 
+RAM_we      = DFF (.D=Store, .clk=Clock);
+
+--************ A matrix of 24 * 12bit-Registers : ***************************
+--  get serial data from 8 ADCs of Brd1, 8 ADCs of Brd2, 8 ADCs of Brd3, ..
+--  .. & transform them into 8+8+8 parallel words
+FOR i in 1 to 7  GENERATE
+Brd1data[i].(data[], shiftin)   = (Brd1data[i+1].q[], Brd1_data[i]); 
+Brd1data[i].(clock, enable,load)= (Clock, DataReg_Cen, Store);
+--Brd1data[i].(sclr, sset)        = (GND, GND);
+Brd1data[i].(aclr, aset)        = (Reset, GND );
+End GENERATE;
+Brd1data[8].(data[], shiftin)   = (Brd2data[1].q[],   Brd1_data[8]); 
+Brd1data[8].(clock, enable,load)= (Clock, DataReg_Cen, Store);
+--Brd1data[8].(sclr, sset)        = (GND, GND);
+Brd1data[8].(aclr, aset)        = (Reset, GND );
+
+FOR i in 1 to 7  GENERATE
+Brd2data[i].(data[], shiftin)   = (Brd2data[i+1].q[], Brd2_data[i]); 
+Brd2data[i].(clock, enable,load)= (Clock, DataReg_Cen, Store);
+--Brd2data[i].(sclr, sset)        = (GND, GND);
+Brd2data[i].(aclr, aset)        = (Reset, GND );
+End GENERATE;
+Brd2data[8].(data[], shiftin)   = (Brd3data[1].q[],   Brd2_data[8]); 
+Brd2data[8].(clock, enable,load)= (Clock, DataReg_Cen, Store);
+--Brd2data[8].(sclr, sset)        = (GND, GND);
+Brd2data[8].(aclr, aset)        = (Reset, GND );
+
+FOR i in 1 to 7  GENERATE
+Brd3data[i].(data[], shiftin)   = (Brd3data[i+1].q[], Brd3_data[i]); 
+Brd3data[i].(clock, enable,load)= (Clock, DataReg_Cen, Store);
+--Brd3data[i].(sclr, sset)        = (GND, GND);
+Brd3data[i].(aclr, aset)        = (Reset, GND );
+End GENERATE;
+Brd3data[8].(data[], shiftin)   = (Data[11..0],       Brd3_data[8]); 
+Brd3data[8].(clock, enable,load)= (Clock, DataReg_Cen, Store);
+--Brd3data[8].(sclr, sset)        = (GND, GND);
+Brd3data[8].(aclr, aset)        = (Reset, GND );
+
+--=======1=========2=========3=========4=========5=========6=========7=========8====
+--******** Making Address for storing/reading data to/from RAMdata ************
+-- On each Board there are 16 signals being sampled, but in 2 steps: 
+-- 1) 8 Chan-s with odd  numbers (Ch#01,Ch#03, .., Ch#15) are sampled simultaneously; 
+-- 2) 8 Chan-s with even numbers (Ch#02,Ch#04, .., Ch#16) are sampled simultaneously.
+--    Serial data received by 8 inputs (8 words from even Chan-s, then 8 words 
+--  from odd Chan-s) are converted into parallel words, and are to be stored in 
+--  such a way that the data from each Channel be stored in a separate ring buffer of 16 words. 
+--  So, the data are stored in 1 RAM in 16 blocks by 16 words.  At 1st cycle of 
+--  operation the following data are stored :
+--   1st_word of Ch#01 -> addr#00, 
+--                            1st_word of Ch#02 -> addr#16
+--   1st_word of Ch#03 -> addr#32, 
+--                            1st_word of Ch#04 -> addr#48
+--     . . . . . . . . . . . . . . . . . . . . . . . . 
+--   1st_word of Ch#15 -> addr#224 
+--                            1st_word of Ch#16 -> addr#240
+--  At 2nd FULLcycle of operation the following data are stored :
+--   2nd_word of Ch#01 -> addr#01, 
+--                            2nd_word of Ch#02 -> addr#17
+--   2nd_word of Ch#03 -> addr#33, 
+--                            2nd_word of Ch#04 -> addr#49
+--     . . . . . . . . . . . . . . . . . . . . . . . . 
+--   2nd_word of Ch#15 -> addr#225 
+--                            2nd_word of Ch#16 -> addr#241
+-- When data are stored, AddrCt.q[2..0],AddrCt.q[3]) are used as address[7..4], 
+-- to select the Blocks of RAMcells in the same order as the data are supplied.
+
+-- AddressCounter: contains local Addr of current AmplitudeValue to be written 
+AddrCt.(clock, clk_en)  = (Clock, (Sampling # Working) );
+AddrCt.data[ 9..0]      = B"0000000000";    -- begin from Brd1-Ch#01
+--AddrCt.data[ 9..0]      = B"0100000000";  --For TEST :  
+    --To begin Digitizing from SPECIAL data,AddrCt.data[9..5] must point 
+    --  to that RAMdata[i] which is currently connected to RAMemul.q[]
+AddrCt.cnt_en           = DFF(.D=(Store # AddrCt_count), .clk=Clock);  --increments on relevant Steps
+AddrCt.(sclr,sset,sload)= (SampleInit, GND, --sets to #00 in the beg-g of SamplingCycle
+            DFF(.D=DigitStart, .clk=Clock));--loads initial addr in the beg-g of 1st Digit.Cycle:
+                            -- init.addr = (Ch#00 + initial_position_in_"ring buffer") 
+AddrCt.(aclr,aset,aload)= (Reset, GND, GND);
+
+-- ******** MUX - for different use of AddrCt's bits when storing/reading data
+--          when  Sampling=1 => data storing is in progress => AddrCt.q[] mean:
+RAMaddr[9]  =  AddrCt.q[9];                                       --\ AddrCt.q[9..8]
+RAMaddr[8]  =  AddrCt.q[8];                                       --/ select Board
+RAMaddr[7]  = (Sampling & AddrCt.q[2]) OR (GateDone & AddrCt.q[7]);--\ AddrCt.q[2..0]
+RAMaddr[6]  = (Sampling & AddrCt.q[1]) OR (GateDone & AddrCt.q[6]);-- \ + AddrCt.q[3]
+RAMaddr[5]  = (Sampling & AddrCt.q[0]) OR (GateDone & AddrCt.q[5]);-- / select 
+RAMaddr[4]  = (Sampling & AddrCt.q[3]) OR (GateDone & AddrCt.q[4]);--/      Block
+    -- actually, when a Sample from ADCchan#0(Ch#02,Ch#04,...) is being taken, 
+    -- the data being read are related to ADCchan#1(Ch#01,Ch03,...) => 
+    -- => these data must be written into Addr[00..15], Addr[32..47], ... Addr[224..239];
+    -- and when a Sample from ADCchan#1(Ch#01,Ch#03,...) is being taken, 
+    -- the data must be written into Addr[16..31], Addr[48..63], ... Addr[240..255];
+RAMaddr[3]  = (Sampling & AddrCt.q[7]) OR (GateDone & RingCt.q[3]);--\ AddrCt.q[7..4]
+RAMaddr[2]  = (Sampling & AddrCt.q[6]) OR (GateDone & RingCt.q[2]);-- \ select 
+RAMaddr[1]  = (Sampling & AddrCt.q[5]) OR (GateDone & RingCt.q[1]);-- / # of sample 
+RAMaddr[0]  = (Sampling & AddrCt.q[4]) OR (GateDone & RingCt.q[0]);--/  in Block
+
+--=======1=========2=========3=========4=========5=========6=========7=========8====
+--********  Initialization of Digitizing_Cycle :  ****************************
+-- Counting the delay from DigitInit to End of the current Sampling_Cycle 
+GateDelCt.(clock, clk_en)   = (Clock, VCC);
+--GateDelCt.data[ 3..0]       = GateDel[ 3..0]; 
+GateDelCt.cnt_en    = DFF(.clk=Clock,             --counts "Sync" pulses ..
+            .D=(DigitInit2 & SampleEn2 AND Sync));--..till End of SamplingCycle
+GateDelCt.(sclr,sset,sload) =
+            (DigitInit3, GND, GND); -- sets to #0 in the initialization stage
+GateDelCt.(aclr%,aset,aload%)=(Reset%,GND,GND%);--initial state = #0
+GateDel[]   = GateDelCt.q[];
+
+--Making the "Gate": (number of Samples to be captured after DigitInit)=#GateDur 
+GateDurCt.(clock, clk_en)   = (Clock, Working);
+GateDurCt.data[ 3..0]       = GateDur[ 3..0];   --\ counts-down SamplingCycles, 
+GateDurCt.cnt_en    = DigitInit2 & SampleEnd;   --/thus making Gate_duration
+GateDurCt.(sclr,sset,sload) =                   -- sets to #GateDuration ..
+            (GND, GND, DigitInit3);             --.. in the initialization stage
+GateDurCt.(%aclr,aset,%aload)=(%GND,GND,%Reset);--initial state = #GateDuration
+
+GateDone    = SRFF(.s=(GateDurCt.eq0 & SampleEnd), .clk=Clock, .r=DigitEnd, .clrn=!Reset);
+DigitStart  = GateDone & !DFF(.D=GateDone, .clk=Clock); -- 1-clock _/^^\_
+
+--Gate    = Trg_GateDur;                                  -- _/^^^^\___________
+
+--=======1=========2=========3=========4=========5=========6=========7=========8====
+--************ Digitizing_Cycle Sequence Generation **************************
+--                 0     1     2     3     4     5     6     7     8     9     10           16    17    18    19    20    21    22    23    24  45  46  47  48
+--100MHz Clock  _/^^\__/^^\__/^^\__/^^\__/^^\__/^^\__/^^\__/^^\__/^^\__/^^\__/^^\__/^^ | _/^^\__/^^\__/^^\__/^^\__/^^\__/^^\__/^^\__/^^\__/^^\__/^^\__/^^\__/^^\__/^^\__/^
+--  DigitCt.q[] ______0_/^^1^^\__2__/^^3^^\__4__/^^5^^\__6__/^^7^^\__8__/^^9^^\_10__/^ | ^^\_16__/^17^^\_18__/^19^^\_20__/^21^^\_22__/^23^^\_24__/^25^^\_26__/^^0^^\__1__
+--   RingCt.q[] __#lastSample_X_#s1_X_#s2_X_#s3_X_#s4_X_#s5_X_#s6_X_#s7_X_#s8_X_#s9_X_ | __X#s15_X__#s16______________________________________________________
+--   RAM_q[]    ___________---------------X__s1_X__s2_X__s3_X__s4_X__s5_X__s6_X__s7_X_ | __X_s13_X_s14_X_s15_X_s16____________________________________________
+--   PipeShift  __________________________/^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ | ^^^^^^^^^^^^^^^^^^^^\________________________________________________
+-- AverAdd4.q[] ____________________________#0________X_#A__X_#B__X_#C__X_#D__X_#E__X_ | __X_#K__X_#L__X_#M__X_#N__X_#P__X_#Q_________________________________
+--                                                A=(s1+0+0+0)  C=(s1+s2+s3+0)  E=(s2+s3+s4+s5)         N=(s11+s12+s13+s14)  Q=(s13+s14+s15+s16)
+--                                                        B=(s1+s2+0+0)  D=(s1+s2+s3+s4)                      P=(s12+s13+s14+s15)
+-- AverReg2.q[] --------------------\_____________________________X_#A__X_#B__X_#C__X_ | __X_#I__X_#J__X_#K__X_#L__X_#M__X_#N__X_#P__X_#Q_____________________
+--                                                                             ^-^-^-^...-^-^-^-^- changes until AverMAX flips to =0  ^^^^the LAST value 
+-- Ampl_Add.result______________________________________________________X_____X_____X_ | __X_____X_____X_____X_____X_____X_____X_____XampP_XampQ______________
+--  DataReg.q[] ___________________________________________________________________________X_____X_____X_____X_____X_____X_____X_____X_____XampP_XampQ________
+--                                                                                                                                 the LAST value ^^^^
+
+--************ Main Counter of Digitizing_Cycle: *****************************
+--   counts #_of_Step, defines all control signals' states
+DigitCt.(clock, clk_en) = (Clock, DigitInit2);
+DigitCt.cnt_en          = GateDone; --increments on relevant Steps
+DigitCt.(sclr, sset, sload) =
+            ((!Working # DigChEnd), GND, GND);  -- sets to #00 in the beg-g of DigitizingCycle
+DigitCt.(aclr, aset, aload) = (Reset, GND, GND);
+
+AverReset   = DFF(.D=DigitCt.eq1, .clk=Clock);  -- reset PipeReg-s and AverAdders
+
+IF ( (DigitCt.q[] >= 1) AND (DigitCt.q[] <=16) )    -- Prepare for Step[02..17] :
+    Then  RingCt_count  = VCC;  --@ beg_of_Step02: skip to the Beg-g of RingBuffer, ..
+End IF;                         -- .. and pick data from the entire ring 
+IF ( (DigitCt.q[] >= 4) AND (DigitCt.q[] >=19) )    -- Prepare for Step[05..20]
+    Then  PipeShift = VCC;  -- enable data shifting in the pipeline
+End IF;
+IF ( (DigitCt.q[] >=10) AND (DigitCt.q[] <=25) )    -- Prepare for Step[11..26] :
+    Then  AddrCt_count  = VCC;  -- increment AddrCt by 16 => move to next Block of data
+End IF; 
+
+IF ( DigitCt.q[] == 25)         -- Prepare for Step26:
+    Then  RAM4_we   = VCC;      --@ beg_of_Step26: write Ampl & Time => RAMdata4 
+End IF;         -- ATTENTION!  Writing must be done before AddrCt[9..4] change! 
+
+IF ( DigitCt.q[] == 26)         -- Prepare for Step27/0
+    Then  DigChEnd  = VCC;      --@ beg_of_Step27/0: DigitCt -> #00 
+End IF;
+IF ( (DigitCt.q[] == 26)AND(AddrCt.q[9..4] == 47))  -- IF this was the Ch#48 ..
+    Then  DigitEnd  = VCC;          --.. then the entire Digit.Cycle is over 
+End IF;
+
+--=======1=========2=========3=========4=========5=========6=========7=========8====
+--************** Digitizing_Cycle proceeding units ***************************
+
+-- Counter: contains position of current sample in a "ring buffer"
+RingCt.(clock, clk_en)  = (Clock, DigitInit2);
+--RingCt.data[]           = AddrCt.q[7..4];   
+RingCt.data[]   =%(GND & EmulEn) OR%        --"Emul": =#00 to take simul.data from their beg-g
+                (AddrCt.q[7..4] & !EmulEn); -- real: initial position in a RingBuffer    
+RingCt.cnt_en           = RingCt_count; --increments on relevant Steps
+RingCt.(sclr,sset,sload)= (GND, GND,    -- loads initial position ..
+                        DigitStart);    --.. after the last SamplingCycle
+RingCt.(aclr, aset, aload)  = (Reset, GND, GND);
+
+-- Registers which constitute the array of data for "running_average"
+For i in 2 to 4  GENERATE 
+    PipeReg[i].(clock, enable)  = (Clock, GateDone);
+    PipeReg[i].(sclr%,sset%,sload)  = (AverReset, PipeShift);
+    PipeReg[i].(aclr%,aset,aload%)  = Reset;
+End GENERATE;                   --\ 4-stage pipeline: RAM_q[11..0]=Sample(n+3),
+PipeReg2.data[] = RAM_q[11..0]; -- \            PipeReg2.q[] = Sample(n+2),
+PipeReg3.data[] = PipeReg2.q[]; -- /            PipeReg3.q[] = Sample(n+1),
+PipeReg4.data[] = PipeReg3.q[]; --/             PipeReg4.q[] = Sample(n),
+
+-- Adders which calculate the "running_average" :
+AverAdd1.(cin, dataa[11..0], datab[11..0])  =   --\_SumR =
+         (GND, RAM_q[11..0], PipeReg2.q[] );    --/ Sample(n+3) + Sample(n+2) 
+AverAdd1.(clock, clken, aclr)   = (Clock, GateDone, AverReset); 
+AverAdd2.(cin, dataa[11..0], datab[11..0])  =   --\_SumL =
+         (GND, PipeReg3.q[], PipeReg4.q[] );    --/ Sample(n+1) + Sample(n) 
+AverAdd2.(clock, clken, aclr)   = (Clock, GateDone, AverReset); 
+AverAdd4.(cin, dataa[13..0], datab[13..0])  = 
+         (GND, (GND, AverAdd1.cout, AverAdd1.result[]),     --\_Sum4 =
+               (GND, AverAdd2.cout, AverAdd2.result[]) );   --/ Sum of 4 samples
+AverAdd4.(clock, clken, aclr)   = (Clock, GateDone, AverReset); 
+
+IF ( AverAdd4.result[] > AverReg1.q[] ) --\ search for the MAX value ..
+    Then  AvrMax = VCC;                 -- >.. of running_average, 
+End IF;                                 --/ and save it into AverReg
+AverMax1= DFF(.D=AvrMax,   .clk=Clock);
+AverMax2= DFF(.D=AverMax1, .clk=Clock);
+AverMax3= DFF(.D=AverMax2, .clk=Clock);
+
+AverReg1.data[] = AverAdd4.result[]; 
+AverReg1.(clock, enable)    = (Clock, GateDone); 
+--AverReg1.(sclr%,sset%,sload)= (AverReset%,GND%, VCC);
+AverReg1.(sclr%,sset%,sload)= (AverReset%,GND%, AvrMax);
+--AverReg1.(aclr%,aset,aload%)= Reset;
+
+AverReg2.data[] = AverReg1.q[];             -- when MAX value passed, ..
+AverReg2.(clock, enable)     = (Clock,(AverReset # AverMax1));  --.. is stopped!
+AverReg2.(sclr%,sset%,sload) = (AverReset,%GND,% AverMax1);
+
+--************ Circuit which calculates the Correction : ***********************
+--  Ampl = Sum4 + 1/4 * | SumL - (SumR + 1/128 Sum4) |  
+
+--SumL_Reg[2..1](13bit): delay SumL by 2clk, while Sum4 and (SumR + 1/128 Sum4) are calculated 
+SumL_Reg1.data[]= (AverAdd2.cout, AverAdd2.result[]); 
+SumL_Reg1.(clock, enable)   = (Clock,%GateDone%VCC); 
+SumL_Reg1.(sclr%,sset%,sload)= (AverReset%,GND%, VCC);
+SumL_Reg2.data[]= SumL_Reg1.q[]; 
+SumL_Reg2.(clock, enable)   = (Clock,%GateDone%VCC); 
+SumL_Reg2.(sclr%,sset%,sload)= (AverReset%,GND%, VCC);
+
+-- SumR_Reg(13bit): holds SumR for 1clk, while Sum4 is calculated
+SumR_Reg.data[] = (AverAdd1.cout, AverAdd1.result[]); 
+SumR_Reg.(clock, enable)    = (Clock,%GateDone%VCC); 
+SumR_Reg.(sclr%,sset%,sload)= (AverReset%,GND%, VCC);
+-- Adder: SumR + 1/128 Sum4
+SumR_Add.(cin, dataa[13..0], datab[13..0])   = 
+        ( GND, (GND, SumR_Reg.q[12..0]),                --\_SumR + 1/128 Sum4
+              (B"0000000", AverAdd4.result[13..7]) );   --/ 
+SumR_Add.(clock, clken, aclr)   = (Clock, GateDone, AverReset); 
+
+-- Calculation of  SumL - SumR_Add.result
+LR_Sub.( cin, dataa[13..0], datab[13..0])   = 
+       ( VCC, (GND, SumL_Reg2.q[12..0]),                --\_SumL
+              SumR_Add.result[]         );              --/ SumR + 1/128 Sum4
+LR_Sub.( clock, clken, aclr)= (Clock, GateDone, AverReset); 
+
+-- Calculation of  1/4 * | LR_Sub.result |
+Corr[5..0]  = ( ( LR_Sub.result[7..2] & !LR_Sub.cout AND CorrEn)   --when LR_Sub.result > 0
+             OR (!LR_Sub.result[7..2] &  LR_Sub.cout AND CorrEn) );--when LR_Sub.result < 0
+
+-- Calculation of the corrected Amplitude :
+Ampl_Add.(cin, dataa[13..0], datab[13..0])  = 
+        ( GND, AverReg2.q[13..0],                       --\_Sum4
+              (B"00000000", Corr[5..0]) );              --/(Corr, if enabled)/ 0
+Ampl_Add.(clock, clken, aclr)   = (Clock, GateDone, AverReset); 
+
+--DataReg.data[]  = (AddrCt.q[3..0],AverReg1.q[13..2]); --(Time_of_MAX)&(MAX of running_average) 
+DataReg.data[]  =( ((GND               & !InclTime) OR (AddrCt.q3         & InclTime)),
+                   ((GND               & !InclTime) OR (AddrCt.q2         & InclTime)),
+                   ((Ampl_Add.result13 & !InclTime) OR (AddrCt.q1         & InclTime)),
+                   ((Ampl_Add.result12 & !InclTime) OR (AddrCt.q0         & InclTime)),
+                   ((Ampl_Add.result11 & !InclTime) OR (Ampl_Add.result13 & InclTime)),
+                   ((Ampl_Add.result10 & !InclTime) OR (Ampl_Add.result12 & InclTime)),
+                   ((Ampl_Add.result9  & !InclTime) OR (Ampl_Add.result11 & InclTime)),
+                   ((Ampl_Add.result8  & !InclTime) OR (Ampl_Add.result10 & InclTime)),
+                   ((Ampl_Add.result7  & !InclTime) OR (Ampl_Add.result9  & InclTime)),
+                   ((Ampl_Add.result6  & !InclTime) OR (Ampl_Add.result8  & InclTime)),
+                   ((Ampl_Add.result5  & !InclTime) OR (Ampl_Add.result7  & InclTime)),
+                   ((Ampl_Add.result4  & !InclTime) OR (Ampl_Add.result6  & InclTime)),
+                   ((Ampl_Add.result3  & !InclTime) OR (Ampl_Add.result5  & InclTime)),
+                   ((Ampl_Add.result2  & !InclTime) OR (Ampl_Add.result4  & InclTime)),
+                   ((Ampl_Add.result1  & !InclTime) OR (Ampl_Add.result3  & InclTime)),
+                   ((Ampl_Add.result0  & !InclTime) OR (Ampl_Add.result2  & InclTime)) );
+DataReg.(clock, enable)     = (Clock, (AverReset # AverMax3)); 
+DataReg.(sclr%,sset%,sload) = (AverReset,%GND,% AverMax3);
+
+--============================================================================
+--************  Data Bus  ****************************************************
+Data[15..0] = DataReg.q[];  --(Time_of_MAX)&(MAX of running_average) => RAM
+
+--=======1=========2=========3=========4=========5=========6=========7=========8====
+--************  Data_flow Imitator  ******************************************
+-- A (next) portion of Emul.Data (8 words) to be supplied into Brd[i]data[8..1] 
+-- reg-s during the next SamplingCycle is readout RAMemul -> EmulData along with 
+-- the current portion of data (8 words) is stored  Brd[i]data[8..1] -> RAMdata[i] .
+
+IF ( WarmUp_done AND (BitCt.q[3..0] == 11) AND PRESCALER.eq1 ) 
+    Then  Emul_beg = VCC;       -- Initialize for extracting 8 words of Emul.Data
+End IF;
+IF ( WarmUp_done AND (BitCt.q[3..0] == 14) AND PRESCALER.eq0 ) 
+    Then  Emul_end = VCC;       -- Stop extracting 8 words of Emul.Data
+End IF;
+Emul    = SRFF(.S=Emul_beg, .R=Emul_end,    -- enables increment ..  
+               .clk=Clock, .clrn=Sampling); --.. of RAMemul' address  
+
+--**** AddressCounter for Emulation :
+ImAddrCt.(clock, clk_en)= (Clock, Sampling);
+--ImAddrCt.data[ 7..0]    = (B"0000", ImAddrCt.q[7..4]); 
+ImAddrCt.cnt_en         = Emul; -- counts along with data is stored 
+ImAddrCt.(sclr%,sset,sload%)=(SampleInit%,GND,GND%);  --sets to #00 in the beg-g of SamplingCycle
+ImAddrCt.(aclr%,aset,aload%)=(Reset%, GND, GND%);
+
+--******** "Emulation Memory" :  
+RAMemul.clock_b = RAMdata_clk;                              --\  for access
+RAMemul.(address_b[7..0],   data_b[],       wren_b    )=    -- \ from
+        (RAMdata_addr[7..0],RAMdata_data[], RAMemul_we);    -- / outside of
+RAMemul_we  = RAMdata_we AND RAMemul_sel ;                  --/ "Digitizer" unit
+--RAMdata_q[] = RAMemul.q_b[]... ;    -- connected in "RAMdata" section
+
+RAMemul.clock_a = Clock;                                    --\  for access
+RAMemul.(data_a, wren_a)  = (0, GND);                       -- \ from
+RAMemul.address_a[7..0] =                                   -- / inside of
+        (ImAddrCt.q[2..0],ImAddrCt.q[3],ImAddrCt.q[7..4]);  --/ "Digitizer" unit
+  -- "Anti-Putanica" of address ^^^^^^^^^^^^^^^^^^^^^^^^
+--RAMdata[i].data[] = RAMemul.q_a[];    -- connected in "RAMdata" section
+
+%--**** Matrix of Registers:
+FOR i in 2 to 8  GENERATE
+EmulData[i].(data[], shiftin)   = (Brd1data[i-1].q[], GND); 
+Emuldata[i].(clock, enable,load)= (Clock, DataReg_Cen, Store);
+--Emuldata[i].(sclr, sset)        = (GND, GND);
+Emuldata[i].(aclr, aset)        = (Reset, GND );
+End GENERATE;
+Emuldata[1].(data[], shiftin)   = (RAMemul.q[11..0], GND); 
+Emuldata[1].(clock, enable,load)= (Clock, DataReg_Cen, Store);
+--Emuldata[1].(sclr, sset)        = (GND, GND);
+Emuldata[1].(aclr, aset)        = (Reset, GND );
+%
+
+--============================================================================
+--**************** Testing circuitry *****************************************
+test1   = SampleEnd & AddrCt.eq0;       --SampleEnd & AddrCt.eq0;
+test2   = DataReg_Cen;          --BitCt.q0;                   DigitStart
+test3   = DigitInit1;           --ADCcs_on;                   DigitCt.q0
+test4   = DigitInit2;           --ADCsel_en;                  RAM4_we
+test5   = DigitInit3;           --DataReg_Cen;                RAM_q[10]
+test6   = AverMax3;             --RAM_we;                     AverAdd4.result10
+test7   = RAM4_we;              --Brd1data[1].q0;             DFF(.D=AverMax, .clk=Clock)
+test8   = DigitEnd;             --AddrCt.q0;                  Data[10]
+
+END;
