@@ -5,7 +5,7 @@ INCLUDE "lpm_compare.inc" ;
 INCLUDE "lpm_ff.inc";
 INCLUDE "lpm_shiftreg.inc" ;
 INCLUDE "lpm_counter.inc" ;
-INCLUDE	"lpm_add_sub.inc";
+INCLUDE "lpm_add_sub.inc";
 INCLUDE "lpm_divide.inc";
 INCLUDE "pdo.inc";
 INCLUDE "seio.inc";
@@ -132,6 +132,9 @@ COL				: input;        -- Collision_Detect not used
 -- 3. Digitizers  
 ADC_In_Data[NUM_CH-1..0][1..0]	: input;    -- input of data from ADC Pin197..219, Pin110..123,...
 ADC_FrameClk[2..0]				: input;
+SEN[2..0]						: output;
+SDATA[2..0]						: output;
+SDOUT[2..0]						: input;
 
 ExtReset			: input = GND;  -- external Reset (tied to GND --VCC)   <- Pin
 
