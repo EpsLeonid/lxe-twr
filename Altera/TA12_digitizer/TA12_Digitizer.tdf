@@ -136,6 +136,16 @@ SEN[2..0]						: output;
 SDATA[2..0]						: output;
 SDOUT[2..0]						: input;
 
+-- 4. Ext RAM  
+
+ExtRAM_Addr[15..0]		: output;
+ExtRAM_Data[15..0]		: bidir;
+ExtRAM_OutEn			: output;
+ExtRAM_InEn				: output;
+ExtRAM_WriteEn			: output;
+ExtRAM_LowerByteControl	: output;
+ExtRAM_UpByteControl	: output;
+
 ExtReset			: input = GND;  -- external Reset (tied to GND --VCC)   <- Pin
 
 Test_in				: input;
