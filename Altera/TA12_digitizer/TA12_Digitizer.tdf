@@ -85,6 +85,7 @@ FQuartz			: input;	-- 25MHz clock from Quartz oscillator       <- Pin46
 Sw_Quartz		: output;	-- connects Quartz to PLL ref.Input         -> Pin45
 Sw_LinkClk		: output;	-- connects Link's Clock to PLL ref.Input   -> Pin49
 
+PLL_res			: output;	-- Ref.clock for PLL (dedicated)            <- Pin31
 PLL_in			: input;	-- Ref.clock for PLL (dedicated)            <- Pin31
 PLL_ExtOut		: output;	-- Output of PLL.e0 to outside              -> Pin69
 
@@ -132,9 +133,11 @@ COL				: input;        -- Collision_Detect not used
 -- 3. Digitizers  
 ADC_In_Data[NUM_CH-1..0][1..0]	: input;    -- input of data from ADC Pin197..219, Pin110..123,...
 ADC_FrameClk[2..0]				: input;
-SEN[2..0]						: output;
-SDATA[2..0]						: output;
-SDOUT[2..0]						: input;
+ADC_DataClk[2..0]				: input;
+ADC_SEN[2..0]					: output;
+ADC_SDATA[2..0]					: output;
+ADC_SDOUT[2..0]					: input;
+ADC_SCLK						: output;
 
 -- 4. Ext RAM  
 
@@ -284,7 +287,16 @@ Reg_OpCode		: LPM_SHIFTREG with (lpm_width=(CommandSize+Pause), -- contains Comm
 									 lpm_direction="unused"); -- not important
 
 --============================================================================
---******** 6. Aoiaiua aaiiua n AOI ******************************************************
+--******** 6. Input data from ADC ******************************************************
+ADCtest_bit_count	: lpm_counter with (lpm_width=6, lpm_direction="up" );
+ADCtest_Bit_write	: node;
+ADCtest_CSB_trig	: DFFE;
+ADCtest_SDIO_trig	: DFFE;
+ADCtest_reg			: lpm_shiftreg with (lpm_width=50,
+						lpm_svalue = b"00000000000011010000110000000000001111111100000001",lpm_DIRECTION="left"); -- 
+--									  "set	addr	 	data   set	addr		  data "
+--									   3bit 13bit	 	8bit   3bit	13bit		  8bit
+
 TA6Channel[NUM_CH-1..0]				: Digitizer_TA6;
 DDR_InLVDS[NUM_CH-1..0][1..0]		: DDR_In;
 DDR_Reg_pos[NUM_CH-1..0][1..0]		: lpm_shiftreg with (lpm_width=3,lpm_DIRECTION="left");
@@ -367,6 +379,18 @@ PLLinst_S0	= VCC;
 PLLinst_S1	= GND;
 PLLinst_EN	= GND;
 
+ADC_SEN[2..0]	= VCC;
+ADC_SDATA[2..0]	= GND;
+ADC_SCLK		= GND;
+
+ExtRAM_Addr[15..0]		= GND;
+ExtRAM_Data[15..0]		= GND;
+ExtRAM_OutEn			= GND;
+ExtRAM_InEn				= GND;
+ExtRAM_WriteEn			= GND;
+ExtRAM_LowerByteControl	= GND;
+ExtRAM_UpByteControl	= GND;
+
 REN		= GND; -- aee??eou/auee??eou auoiau Deserializer  
 DEN		= VCC; -- aee??eou/auee??eou auoiau Serializer
 RPWDN	= GND; -- aee??eou/auee??eou Deserializer  
@@ -416,6 +440,10 @@ PhaseSw.Reset	= GND  ;
 --    Phase25     = PhaseSw.Phase25 ; -- selected clock output to real pin
 Sw_LinkClk		= !PhaseSw.LinkClk_selected; -- connects Link's Clock to PLL ref.Input
 Sw_Quartz		= PhaseSw.LinkClk_selected; -- connects Quartz to PLL ref.Input
+
+IF (PhaseSw.LinkClk_selected == VCC) Then PLL_res = FQuartz;
+									 Else PLL_res = LinkClk;
+END IF;
 
 --**************** PLL section ***********************************************
 PLL.inclk0	= PLL_in;           -- ~25MHz from Link -> Input of PLL
