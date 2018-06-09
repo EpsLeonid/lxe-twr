@@ -1,0 +1,133 @@
+Title "Test LED";
+
+INCLUDE "lpm_shiftreg.inc" ;
+INCLUDE "lpm_counter.inc" ;
+
+INCLUDE "EdgeSensing.inc";
+INCLUDE "LevelSensing.inc" ;
+INCLUDE "LightPulser.inc";
+INCLUDE "DelayLine.inc" ;
+INCLUDE "PulseShaper.inc" ;
+INCLUDE "PhaseSwitch.inc";
+INCLUDE "PLL_Trigger.inc";
+
+SUBDESIGN TestLED
+(
+FQuartz			: input;	-- 25MHz clock from Quartz oscillator       <- Pin46
+-- In TA6 module Link's Clock is checked inside Altera but switched outside 
+
+PLL_in			: input;	-- Ref.clock for PLL (dedicated)            <- Pin31
+
+-- Outputs for Indicators on LED's
+--LedR			: output;   -- drives the Red LED                       -> Pin63
+LedG			: output;   -- drives the Green LED                     -> Pin64
+--LedB			: output;   -- drives the Blue(Yellow) LED              -> Pin65
+
+ExtReset		: input = GND;  -- external Reset (tied to GND --VCC)	<- Pin
+
+--Test[9..0]			: OUTPUT;
+)
+VARIABLE
+
+--============================================================================
+--******** 1. Reference clock's & Frequency Control **************************
+PLL				: PLL_Trigger; 
+Clk40			: node; -- This is Global Node
+Clk80			: node; -- This is Global Node
+
+-- Automatic Clock Switch: if External_Clock frequency (kHz) is in specified 
+--   range, PhaseSwitch transfers the External_Clock to PLL1's reference input, 
+--   thus all PLL's output clocks are locked to the External_Clock. 
+PhaseSw			: PhaseSwitch with (FmaxThresh=42000, FminThresh=38000, RefClock=40000);
+
+Clk40del1,
+Clk40del2		: node;
+PhaseSet,				-- _/^^\_ pulse aligned to _/ front of StartBit
+Phase20,
+Synchro20,				-- 1-clock _/^\_ pulse aligned to _/ front of PHASE
+Synchro40		: node; -- 1-clock _/^\_ pulse aligned to PHASE and half-PHASE
+
+--******** Power-up self-Reset and self-Set pulses ***************************
+PowerUp0,					--\   Circuit 
+PowerUp1, PowerUp2,			-- \  which generates 
+PowerUp3, PowerUp4,			--  \ a pulse 
+PowerUp5, PowerUp6,			--  / for power-up Reset  \  many milliseconds apart 
+PwrUpReset,					-- /  and then few pulses  > from each other
+PwrUpSet1,PwrUpSet2: node;	--/ for power-up Set    /  
+
+--============================================================================
+--******** 2. Timers for Indicators on LED's (Duration in ms, RefClock in kHz)
+B_Flash			: LightPulser with (Duration = 20, RefClock = 100000); -- Blue
+R_Flash			: LightPulser with (Duration = 20, RefClock = 100000); -- Red
+
+Error			: node;
+--============================================================================
+--******** 3. Test circuitry
+TestCt		: lpm_counter WITH (lpm_width=26,           --\ Test Counter,
+								lpm_direction="up");    --/   Blinking counter
+TestTrigCt	: lpm_counter WITH (lpm_width=36, lpm_direction="up");
+TestCt_rst1 : node; --\ Cirquit for generating a _/^^\_ ,
+TestCt_rst2 : node; --/   duration >=(1/2)Tquartz
+
+BEGIN
+
+--============================================================================
+--******** 1. Reference Clock & Frequency Control ****************************
+
+        --============================================================================
+--******** 1a. POWER_UP self-Reset pulse *************************************
+--PowerUp0= DFF (.d=!(VME_s1 & VME_s2) AND PLL1.locked, .clk=Clk40);
+        --               ^^^^^^^^ substituted by (VME_IFace.Reset & VME_IFace.Aout[4])..
+        --  .. to provide a possibility to emulate PowerUp situation
+PowerUp0= DFF (.d=!ExtReset AND PLL.locked, .clk=Clk40);
+
+PowerUp1= SRFF(.s=(PowerUp0 AND (TestCt.q25 & TestCt.q0)),--sets 1.0s after PLL1 has locked
+				.r=ExtReset, .clk=Clk40);  -- .r never =1
+PowerUp2= SRFF(.s=(PowerUp1 AND TestCt.q2),             -- _/^^^^\_ 3clocks
+				.r=ExtReset, .clk=Clk40);  -- .r never =1
+PwrUpReset = PowerUp1 AND !PowerUp2;   -- ONE pulse ~1sec after powering up
+
+--******** 1b. POWER_UP self-Set pulse ***************************************
+PowerUp3= SRFF(.s=(PowerUp2 AND (!TestCt.q20 & !TestCt.q19 &  TestCt.q18)), --sets 0.015s after PwrUpReset
+				.r=ExtReset, .clk=Clk40);      -- .r never =1
+PowerUp4= SRFF(.s=(PowerUp3 AND TestCt.q2),             -- _/^^^^\_ 3clocks
+				.r=ExtReset, .clk=Clk40);      -- .r never =1
+PwrUpSet1 = PowerUp3 AND !PowerUp4;       -- ONE pulse ~0.06sec after PwrUpReset
+
+--******** 1c. POWER_UP self-Set pulse ***************************************
+PowerUp5= SRFF(.s=(PowerUp4 AND 
+				( TestCt.q20 & !TestCt.q19 & !TestCt.q18)), --sets 0.060s after PwrUpReset
+				.r=ExtReset, .clk=Clk40);      -- .r never =1
+PowerUp6= SRFF(.s=(PowerUp5 AND TestCt.q2),             -- _/^^^^\_ 3clocks
+				.r=ExtReset, .clk=Clk40);      -- .r never =1
+PwrUpSet2 = PowerUp3 AND !PowerUp4;       -- ONE pulse ~0.06sec after PwrUpReset
+
+--**************** PLL section ***********************************************
+PLL.inclk0	= PLL_In;
+--PLL1.pfdena = VCC;--!Reset;
+--PLLlocked	= PLL.locked;      -- output to pad P2 for monitoring
+--PLLExtOut	= PLL.e0;
+Clk40		= Global(PLL.c0); --  40MHz clock
+Clk80		= Global(PLL.c4); --
+
+--============================================================================
+-- ******** 3. Indicators section ********************************************
+
+LedG = OPNDRN ( !(PLL.locked AND TestCt.q[25])); --blinks slowly => PLL locked to Quartz
+
+--LedB = OPNDRN(!( B_Flash.DirOut OR Trigger.Trigger));
+--LedB = OPNDRN(!(B_Flash.DirOut OR Trig)); --!TrigOUT;
+--LedB = OPNDRN( !TestCt.q[21] ) ;    -- for TEST Only! - quick blink
+--B_Flash.(clock, event) =(Clk80,Trig); -- Busy is defined in Control Unit section
+
+--LedR = R_Flash.LightOut;
+--LedR = OPNDRN( TC.q[21] ) ;         -- for TEST Only! - quick blink
+--R_Flash.(clock, event) =(Clk80,Error);-- Error is defined in Control Unit section
+
+--============================================================================
+-- ******** 4. Testing circuitry *********************************************
+TestCt.(clock, clk_en)	= (FQuartz, VCC); -- Test Counter, can be used to drive LED blinking
+TestCt.cnt_en			=  PowerUp0;
+TestCt.aclr				= !PowerUp0;    -- even if NO clock - Reset does occur
+
+END;
