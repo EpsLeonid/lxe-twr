@@ -61,8 +61,13 @@ SUBDESIGN Digitizer_TA6
 		Flink_clock				: input; -- частота передачи слов по линку в ИПТ-LXe
 		ReadWFhist				: input; -- сигнал на чтение форм сигналов
 		WriteWFhist				: input; -- сигнал, что запись формы разрешена
-		DAQAddrBus_In[7..0]		: input; -- адрес данных для передачи по быстрому линку, когда пришла команда чтения
+		DAQAddrBus_In[8..0]		: input; -- адрес данных для передачи по быстрому линку, когда пришла команда чтения
 		DAQDataBusOut[11..0]	: output; -- данные для передачи по быстрому линку, когда пришла команда чтения
+
+		ReadWFhist_Eth			: input; -- neaiae ia ?oaiea oi?i neaiaeia
+		WriteWFhist_Eth			: input; -- neaiae, ?oi caienu oi?iu ?ac?aoaia
+		DAQAddrBus_Eth_In[8..0]		: input; -- адрес данных для передачи по быстрому линку, когда пришла команда чтения
+		DAQDataBusOut_Eth[11..0]	: output; -- данные для передачи по быстрому линку, когда пришла команда чтения
 
 	Sample[13..0]				: output;
 	Summ[13..0]					: output;
@@ -108,12 +113,20 @@ VARIABLE
 --	SaveRam				:	node;
 
 	WFhist				:	WFhist_ram;
-	WFhist_ADCCt		:	LPM_COUNTER with (lpm_width = 8, lpm_direction="up" ); -- счетчик 
+	WFhist_ADCCt		:	LPM_COUNTER with (lpm_width = 9, lpm_direction="up" ); -- счетчик 
 	DelayReadWFhist,
 	EndTxWF				:	DFFE;
-	WFSampleCt			:	lpm_counter with (LPM_WIDTH = 8, LPM_DIRECTION="up"); -- счетчик с момент пересечения порога до прихода команды чтения.
-	WFhist_RAMAddrBus	:	lpm_shiftreg with (LPM_WIDTH = 8, LPM_DIRECTION="unused");
+	WFSampleCt			:	lpm_counter with (LPM_WIDTH = 9, LPM_DIRECTION="up"); -- счетчик с момент пересечения порога до прихода команды чтения.
+	WFhist_RAMAddrBus	:	lpm_shiftreg with (LPM_WIDTH = 9, LPM_DIRECTION="unused");
 	WFhist_RAMAddr[9..0]:	node;
+
+	WFhist_Eth				:	WFhist_ram;
+	WFhist_ADCCt_Eth		:	LPM_COUNTER with (lpm_width = 9, lpm_direction="up" ); -- n?ao?ee 
+	DelayReadWFhist_Eth,
+	EndTxWF_Eth				:	DFFE;
+	WFSampleCt_Eth			:	lpm_counter with (LPM_WIDTH = 9, LPM_DIRECTION="up"); -- n?ao?ee n iiiaio ia?ana?aiey ii?iaa ai i?eoiaa eiiaiau ?oaiey.
+	WFhist_RAMAddrBus_Eth	:	lpm_shiftreg with (LPM_WIDTH = 9, LPM_DIRECTION="unused");
+	WFhist_RAMAddr_Eth[9..0]:	node;
 
 %
 	Test_ADC			:	test_ram;
@@ -574,9 +587,9 @@ END IF;
 -----------------------------------------------------------
 
 	WFhist.data[11..0] = RegSum[0].q[11..0];--ADCdata[9..0];--TestLinkCt.q[11..0];--
-	WFhist.(wraddress[], wrclock, wren) = (WFhist_ADCCt.q[7..0], ADC_clock, WriteWFhist);--AND SaveRam));
+	WFhist.(wraddress[], wrclock, wren) = (WFhist_ADCCt.q[8..0], ADC_clock, WriteWFhist);--AND SaveRam));
 --	WFhist.(rdaddress[], rdclock, rden) = (DAQAddrBus_In[7..0], Flink_clock, ReadWFhist);--AND SaveRam));
-	WFhist.(rdaddress[], rdclock, rden) = (WFhist_RAMAddr[7..0], Flink_clock, ReadWFhist);--AND SaveRam));
+	WFhist.(rdaddress[], rdclock, rden) = (WFhist_RAMAddr[8..0], Flink_clock, ReadWFhist);--AND SaveRam));
 
 --	StopWriteWFhist.(s,r,clk) = (EdgeSensing(.D= LinkMessage, .clk=ADC_clock, .reset=RESET), !WriteRAM, ADC_Clock);
 
@@ -590,11 +603,36 @@ END IF;
 	WFSampleCt.(clock, clk_en, cnt_en, sclr) = (ADC_Clock, Thr_Trig.q AND !LinkMessage, VCC, EndTxWF.q);
 	
 	WFhist_RAMAddrBus.(data[], clock, load, enable) = (WFhist_ADCCt.q[], ADC_Clock, VCC, ReadWFhist AND !DelayReadWFhist.q);
-	WFhist_RAMAddr[7..0] = WFhist_RAMAddrBus.q[7..0] + 1 + DAQAddrBus_In[7..0]; -- выставление адреса в момент, когда начался сигнал с запасом в несколько тактов
+	WFhist_RAMAddr[8..0] = WFhist_RAMAddrBus.q[8..0] + 1 + DAQAddrBus_In[8..0]; -- выставление адреса в момент, когда начался сигнал с запасом в несколько тактов
 						-- значение счетчика при 			 счетчик перебора 
 						-- 		общем стопе					 адресов для посылки
 
 	DAQDataBusOut[] = WFhist.q[];--TestLinkCt.q[9..0];--
+
+-----------------------------------------------------------
+
+	WFhist_Eth.data[11..0] = RegSum[0].q[11..0];--ADCdata[9..0];--TestLinkCt.q[11..0];--
+	WFhist_Eth.(wraddress[], wrclock, wren) = (WFhist_ADCCt_Eth.q[8..0], ADC_clock, WriteWFhist_Eth);--AND SaveRam));
+--	WFhist.(rdaddress[], rdclock, rden) = (DAQAddrBus_In[7..0], Flink_clock, ReadWFhist);--AND SaveRam));
+	WFhist_Eth.(rdaddress[], rdclock, rden) = (WFhist_RAMAddr_Eth[8..0], Bus_clock, ReadWFhist_Eth);--AND SaveRam));
+
+--	StopWriteWFhist.(s,r,clk) = (EdgeSensing(.D= LinkMessage, .clk=ADC_clock, .reset=RESET), !WriteRAM, ADC_Clock);
+
+	WFhist_ADCCt_Eth.clock = ADC_Clock;
+	WFhist_ADCCt_Eth.sclr = (EdgeSensing(.D= ReadWFhist_Eth, .clk=ADC_clock, .reset=RESET) );
+	WFhist_ADCCt_Eth.clk_en = VCC;
+	WFhist_ADCCt_Eth.cnt_en = WriteWFhist_Eth;
+	
+	DelayReadWFhist_Eth.(d, clk, clrn) = (ReadWFhist_Eth, ADC_Clock, Reset);
+	EndTxWF_Eth.(d, clk, clrn) = (!ReadWFhist_Eth AND DelayReadWFhist_Eth.q, ADC_Clock, Reset);
+	WFSampleCt_Eth.(clock, clk_en, cnt_en, sclr) = (ADC_Clock, Thr_Trig.q AND !LinkMessage, VCC, EndTxWF_Eth.q);
+	
+	WFhist_RAMAddrBus_Eth.(data[], clock, load, enable) = (WFhist_ADCCt_Eth.q[], ADC_Clock, VCC, ReadWFhist_Eth AND !DelayReadWFhist_Eth.q);
+	WFhist_RAMAddr_Eth[8..0] = WFhist_RAMAddrBus_Eth.q[8..0] + 1 + DAQAddrBus_Eth_In[8..0]; -- выставление адреса в момент, когда начался сигнал с запасом в несколько тактов
+						-- значение счетчика при 			 счетчик перебора 
+						-- 		общем стопе					 адресов для посылки
+
+	DAQDataBusOut_Eth[] = WFhist_Eth.q[];--TestLinkCt.q[9..0];--
 
 -----------------------------------------------------------
 -- Тестовая память для проверки данных --

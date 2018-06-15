@@ -16,10 +16,10 @@
 FUNCTION WFhist_ram 
 (
 	data[11..0],
-	rdaddress[7..0],
+	rdaddress[8..0],
 	rdclock,
 	rden,
-	wraddress[7..0],
+	wraddress[8..0],
 	wrclock,
 	wren
 )

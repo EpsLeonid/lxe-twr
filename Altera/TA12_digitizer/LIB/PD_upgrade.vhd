@@ -1,0 +1,327 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_unsigned.all;
+use ieee.numeric_std.all;
+
+------------------------------------------------------------------------------
+--									Entity									--
+------------------------------------------------------------------------------
+entity PD_upgrade is
+
+	port(
+		--Inputs
+			--Begin
+		trigger   :in std_logic;
+			--Clock
+		CLOCK_100 :in std_logic;
+			--Data
+		data_in0  :in std_logic_vector(11 downto 0);
+		data_in1  :in std_logic_vector(11 downto 0);
+		data_in2  :in std_logic_vector(11 downto 0);
+		data_in3  :in std_logic_vector(11 downto 0);
+		data_in4  :in std_logic_vector(11 downto 0);
+		data_in5  :in std_logic_vector(11 downto 0);
+		data_in6  :in std_logic_vector(11 downto 0);
+		data_in7  :in std_logic_vector(11 downto 0);
+		data_in8  :in std_logic_vector(11 downto 0);
+		data_in9  :in std_logic_vector(11 downto 0);
+		data_in10 :in std_logic_vector(11 downto 0);
+		data_in11 :in std_logic_vector(11 downto 0);
+
+		--Outputs
+			--Address send to ROM
+		add_ROM  :out std_logic_vector(7 downto 0);
+			--Enable to read ROM
+		en_ROM0   : out std_logic_vector(11 downto 0);
+			--Communication with RAM
+		ram_DATA  : out std_logic_vector(15 downto 0) := (others => 'X');   -- Data
+		ram_ADDR  : out std_logic_vector(15 downto 0);                      -- Address
+		ram_LB_N  : out std_logic;                                          -- LB_N
+		ram_UB_N  : out std_logic;                                          -- UB_N
+		ram_CE_N  : out std_logic;                                          -- CE_N
+		ram_OE_N  : out std_logic;                                          -- OE_N
+		ram_WE_N  : out std_logic;                                          -- WE_N
+		
+		--Inout
+			--threshold
+		cs        : in std_logic;		--control signal which indicate if we can access to Threshold
+		Read_Write: in std_logic;    	--0=>read & 1=>write
+		thr_in    : in std_logic_vector(7 downto 0);
+		thr_out   : out std_logic_vector(7 downto 0)
+	);
+
+end PD_upgrade;
+
+
+
+----------------------------------------------------------------------------------
+--								  Architecture									--
+----------------------------------------------------------------------------------
+architecture particle_detector of PD_upgrade is
+	
+	
+    --------------------------
+	--		 Signals		--
+    --------------------------
+    signal start            : std_logic                     :='0';				--Tell if the state machine is working.
+	signal WR_th_en         : std_logic						:='0';				--Enable read and write for the threshold value.
+	signal control_mux      : std_logic_vector(3  downto 0) :=(OTHERS => '0');	--Select input of mux which will be send in the output.
+	signal data_MuxOut      : std_logic_vector(11 downto 0)	:=(OTHERS => '0');	--Data from the exit of the mux.
+	signal threshold_12bits : std_logic_vector(11 downto 0) :=(OTHERS => '0');	--Threshold value used to be compared with data running average.
+	signal Run_Aver         : std_logic_vector(15 downto 0)	:=(OTHERS => '0');	--Running average data.
+	signal save_first_addr  : std_logic_vector(15 downto 0) :=(OTHERS => '0');	--Save the address where the first data comming from a ROM is written.
+	signal count_addr    	: std_logic_vector(15 downto 0) :=(OTHERS => '0');  --Counter use as an address to save data in RAM at the output.
+	signal count_ROM        : std_logic_vector(7 downto 0)  :=(OTHERS => '0');	--Counter use as an address to select data from the ROM.
+	signal count_etat    	: unsigned(8 downto 0)  		:=(OTHERS => '0');	--Counter use as a way to evolve in state machine and help in arithmetics to calculate Run_Aver value.
+	
+	type tab_type2 is array (0 to 255) of std_logic_vector(11 downto 0);
+	signal tab_data         : tab_type2;										--Data storage for the arithmetics.
+	
+	type typeautom1 is (S0,S1,S2,S3,S4,S5);
+	signal autom     : typeautom1;												--Definition of the state machine
+	
+	
+    --------------------------
+	--		Components		--
+    --------------------------
+	component Multiplexer is
+	port(
+		clk      	: in std_logic;
+		start_work  : in std_logic;
+		data0x	 	: in std_logic_vector(11 downto 0);
+		data1x	    : in std_logic_vector(11 downto 0);
+		data2x		: in std_logic_vector(11 downto 0);
+		data3x		: in std_logic_vector(11 downto 0);
+		data4x		: in std_logic_vector(11 downto 0);
+		data5x	 	: in std_logic_vector(11 downto 0);
+		data6x	 	: in std_logic_vector(11 downto 0);
+		data7x	 	: in std_logic_vector(11 downto 0);
+		data8x	 	: in std_logic_vector(11 downto 0);
+		data9x	 	: in std_logic_vector(11 downto 0);
+		data10x	 	: in std_logic_vector(11 downto 0);
+		data11x	 	: in std_logic_vector(11 downto 0);
+		sel 	 	: in std_logic_vector(3 downto 0);
+		result	 	: out std_logic_vector(11 downto 0)
+		);
+	end component;
+
+	component Control_ROM is
+	port(
+		clk      	: in std_logic;
+		start_work  : in std_logic;
+		enable_0    : out std_logic;
+		enable_1    : out std_logic;
+		enable_2    : out std_logic;
+		enable_3    : out std_logic;
+		enable_4    : out std_logic;
+		enable_5    : out std_logic;
+		enable_6    : out std_logic;
+		enable_7    : out std_logic;
+		enable_8    : out std_logic;
+		enable_9    : out std_logic;
+		enable_10   : out std_logic;
+		enable_11   : out std_logic;
+		address_in  : in  std_logic_vector(7 downto 0);
+		address_out : out std_logic_vector(7 downto 0);
+		sel 	    : in std_logic_vector(3 downto 0)
+	);
+	end component;
+	
+	--------------------------
+	--		  Begin 		--
+    --------------------------
+	begin
+	
+	
+		--------------------------
+		--		Ports Map		--
+		--------------------------
+		Mux : Multiplexer port map (clk      => CLOCK_100,
+									start_work   => start,
+									data0x	 => data_in0,
+									data1x   => data_in1,
+									data2x	 => data_in2,
+									data3x	 => data_in3,
+									data4x	 => data_in4,
+									data5x	 => data_in5,
+									data6x	 => data_in6,
+									data7x	 => data_in7,
+									data8x	 => data_in8,
+									data9x	 => data_in9,
+									data10x	 => data_in10,
+									data11x	 => data_in11,
+									sel 	 => control_mux,
+									result	 => data_MuxOut);
+
+									
+		Mux_ROM : Control_ROM port map (clk      	 => CLOCK_100,
+										start_work   => start,
+										enable_0     => en_ROM0,
+										enable_1     => en_ROM1,
+										enable_2     => en_ROM2,
+										enable_3     => en_ROM3,
+										enable_4     => en_ROM4,
+										enable_5     => en_ROM5,
+										enable_6     => en_ROM6,
+										enable_7     => en_ROM7,
+										enable_8     => en_ROM8,
+										enable_9     => en_ROM9,
+										enable_10    => en_ROM10,
+										enable_11    => en_ROM11,
+										address_in   => count_ROM,
+										address_out  => add_ROM,
+										sel 	     => control_mux);
+
+									
+		--------------------------------------------------------------
+		-- Process which permit to read the threshold / write in it --
+		--------------------------------------------------------------
+		-- One inout --
+		threshold_proc : process(CLOCK_100,WR_th_en,cs,Read_Write)
+		begin
+			if(rising_edge(CLOCK_100)) then
+				if ((WR_th_en = '1') and (cs = '1') and (Read_Write='0')) then
+					thr_out <= threshold_12bits(7 downto 0);
+				elsif ((WR_th_en = '1') and (cs = '1') and (Read_Write='1')) then
+					threshold_12bits <= "0000"&thr_in;
+				end if;
+			end if;
+		end process;
+		
+		---------------------------------------
+		-- Process which select usefull data --
+		---------------------------------------
+		main_proc : process(CLOCK_100,start)
+		begin
+			if(rising_edge(CLOCK_100)) then
+
+				if(trigger='1') then						-- start the state machine
+					start <= '1';
+				end if;
+
+
+				----		State machine	   ----
+				case autom is
+				
+					-- Initiate all parameters --
+					when S0 =>
+						ram_CE_N <= '1';
+						ram_OE_N <= '1';
+						ram_WE_N <= '1';
+						ram_UB_N <= '1';
+						ram_LB_N <= '1';
+						WR_th_en <= '1';
+						if(start='1') then
+							count_ROM   <= (OTHERS => '0');
+							control_mux <= (OTHERS => '0');	
+							autom <= S1;
+						end if;
+
+					-- First step to write data in the external ram --		
+					when S1 =>
+						count_ROM <= count_ROM+1;
+						if (count_ROM = 2) then
+							ram_CE_N <= '0';
+							ram_OE_N <= '0';
+							ram_WE_N <= '0';
+							ram_UB_N <= '0';
+							ram_LB_N <= '0';
+							ram_ADDR <= count_addr;
+							save_first_addr <= count_addr;
+							count_etat <= (OTHERS => '0');
+							Run_Aver   <= (OTHERS => '0');
+							autom <= S2;
+						end if;
+						
+					-- Write data in ram and prepare the first runnig average value --
+					when S2 =>
+						ram_ADDR <= count_addr;
+						ram_DATA <= "0000"&data_MuxOut;
+						tab_data(to_integer(count_etat)) <= data_MuxOut;
+						Run_Aver <= Run_Aver + data_MuxOut;
+						count_ROM  <= count_ROM+1;
+						count_etat <= count_etat+1;
+						count_addr <= count_addr+1;
+						if (count_etat=15) then
+							WR_th_en <= '0';
+							autom <= S3;
+						end if;
+							
+					-- Write data in ram, compare the threshold with RA value --
+					--        and prepare the next runnig average value       --
+					when S3 =>
+						if (count_etat<256) then
+							ram_ADDR <= count_addr;
+							ram_DATA <= "0000"&data_MuxOut;
+							tab_data(to_integer(count_etat)) <= data_MuxOut;
+							count_ROM  <= count_ROM+1;
+							count_etat <= count_etat+1;
+							count_addr <= count_addr+1;
+							if (Run_Aver(15 downto 4)>=threshold_12bits) then
+								WR_th_en <= '1';
+								autom <= S4;
+							else
+								Run_Aver <= Run_Aver+data_MuxOut-tab_data(to_integer(count_etat)-16);			
+							end if;
+						else
+							if (Run_Aver(15 downto 4)<threshold_12bits) then
+									count_addr <= save_first_addr;
+							end if;
+							ram_CE_N <= '1';
+							ram_OE_N <= '1';							
+							ram_WE_N <= '1';
+							ram_UB_N <= '1';
+							ram_LB_N <= '1';
+							WR_th_en <= '1';
+							control_mux <= control_mux+'1';
+							autom <= S5; 
+						end if;
+								
+					--     Saving last data in ram if (Run_Aver >= threshold) in S3      --
+					-- and stop to write in the external ram when all data as been saved -- 
+					when S4 =>
+						if(count_etat<256) then
+							ram_ADDR <= count_addr;
+							ram_DATA <= "0000"&data_MuxOut;
+							count_ROM  <= count_ROM+1;
+							count_etat <= count_etat+1;
+							count_addr <= count_addr+1;
+						else
+							ram_CE_N <= '1';
+							ram_OE_N <= '1';
+							ram_WE_N <= '1';
+							ram_UB_N <= '1';
+							ram_LB_N <= '1';
+							control_mux <= control_mux+'1';
+							autom <= S5;
+						end if;
+					
+					--     Prepare to take data from next channel      --
+					-- or end the process and wait next trigger signal -- 	
+					when S5 =>
+						count_ROM <= (OTHERS => '0');
+						if(unsigned(control_mux)>11)then
+							start <= '0';
+							autom <= S0;
+						else
+							autom <= S1;
+						end if;
+							
+					when others =>
+						autom <= S0;
+						
+				end case;
+				
+			end if;
+		end process main_proc;
+		
+end particle_detector;
+
+
+
+-- Documents
+-- consulte le 07/06/2018
+-- https://www.altera.com/en_US/pdfs/literature/wp/wp-tmqst.pdf
+-- https://www.altera.com/content/dam/altera-www/global/en_US/pdfs/literature/an/an481.pdf
+-- http://www.alterawiki.com/uploads/d/d2/Testbenches_public.pdf
+-- https://moodle.epfl.ch/pluginfile.php/1833321/mod_resource/content/1/vhdl_testbench_tutorial.pdf     //citation
