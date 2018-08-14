@@ -11,21 +11,40 @@ INCLUDE "PulseShaper.inc" ;
 INCLUDE "PhaseSwitch.inc";
 INCLUDE "PLL_Trigger.inc";
 
+INCLUDE "ImRam.inc";
+INCLUDE "ReadRam.inc";
+INCLUDE "AddrRam.inc";
+INCLUDE "DataSelect_v2.inc";
+
 SUBDESIGN TestLED
 (
 FQuartz			: input;	-- 25MHz clock from Quartz oscillator       <- Pin46
 -- In TA6 module Link's Clock is checked inside Altera but switched outside 
+FCTClk40		: input;	-- 40MHz clock from FCT board				<- Pin T14/T15
 
-PLL_in			: input;	-- Ref.clock for PLL (dedicated)            <- Pin31
+Sw_Quartz		: output;	-- connects Quartz to PLL ref.Input			-> Pin B3
+Sw_FCTClk		: output;	-- connects Link's Clock to PLL ref.Input	-> Pin A4
+
+PLL_res			: output;
+PLL_in			: input;	-- Ref.clock for PLL (dedicated)			<- Pin31
 
 -- Outputs for Indicators on LED's
---LedR			: output;   -- drives the Red LED                       -> Pin63
-LedG			: output;   -- drives the Green LED                     -> Pin64
---LedB			: output;   -- drives the Blue(Yellow) LED              -> Pin65
+--LedR			: output;	-- drives the Red LED						-> Pin63
+LedG			: output;	-- drives the Green LED						-> PinN2
+LedB			: output;	-- drives the Blue LED						-> PinN1
+
+ExtRAM_Addr[15..0]		: output;
+ExtRAM_Data[15..0]		: bidir; -- must be change to bidir!!!
+ExtRAM_OutEn			: output;
+ExtRAM_CEn				: output;
+ExtRAM_WriteEn			: output;
+ExtRAM_LowerByteControl	: output;
+ExtRAM_UpByteControl	: output;
 
 ExtReset		: input = GND;  -- external Reset (tied to GND --VCC)	<- Pin
 
---Test[9..0]			: OUTPUT;
+Test_in			: input;
+Test[9..1]		: output;
 )
 VARIABLE
 
@@ -61,8 +80,30 @@ B_Flash			: LightPulser with (Duration = 20, RefClock = 100000); -- Blue
 R_Flash			: LightPulser with (Duration = 20, RefClock = 100000); -- Red
 
 Error			: node;
+
 --============================================================================
---******** 3. Test circuitry
+--******** 3. ImmRam circuitry
+
+-- RAM which imitates the ADC
+Im_Ram[11..0]		: ImRam;
+Im_RamCt[11..0]		: lpm_counter with (lpm_width = 8, lpm_direction="up" ); -- 
+
+Read_Ram			: ReadRam;
+Read_ExtRamCt		: lpm_counter with (lpm_width = 16, lpm_direction="up" ); -- 
+Addr_Ram			: AddrRam;
+DelayWorkTime[1..0]	: DFF;
+WrAddrCnt			: lpm_counter with (lpm_width = 6, lpm_direction="up" ); -- 
+ReadAddrCnt			: lpm_counter with (lpm_width = 6, lpm_direction="up" ); -- 
+
+ReadExtMem			: node;
+StopCnt				: node;
+
+Write_IntRamCt		: lpm_counter with (lpm_width = 12, lpm_direction="up" ); -- 
+
+Compres				: DataSelect_V2;
+
+--============================================================================
+--******** 4. Test circuitry
 TestCt		: lpm_counter WITH (lpm_width=26,           --\ Test Counter,
 								lpm_direction="up");    --/   Blinking counter
 TestTrigCt	: lpm_counter WITH (lpm_width=36, lpm_direction="up");
@@ -71,6 +112,42 @@ TestCt_rst2 : node; --/   duration >=(1/2)Tquartz
 
 BEGIN
 
+DEFAULTS
+
+Sw_Quartz = GND;
+Sw_FCTClk = VCC;
+
+Im_RamCt[0].cnt_en = GND;
+Im_RamCt[0].sclr = VCC;
+Im_RamCt[1].cnt_en = GND;
+Im_RamCt[1].sclr = VCC;
+Im_RamCt[2].cnt_en = GND;
+Im_RamCt[2].sclr = VCC;
+Im_RamCt[3].cnt_en = GND;
+Im_RamCt[3].sclr = VCC;
+Im_RamCt[4].cnt_en = GND;
+Im_RamCt[4].sclr = VCC;
+Im_RamCt[5].cnt_en = GND;
+Im_RamCt[5].sclr = VCC;
+Im_RamCt[6].cnt_en = GND;
+Im_RamCt[6].sclr = VCC;
+Im_RamCt[7].cnt_en = GND;
+Im_RamCt[7].sclr = VCC;
+Im_RamCt[8].cnt_en = GND;
+Im_RamCt[8].sclr = VCC;
+Im_RamCt[9].cnt_en = GND;
+Im_RamCt[9].sclr = VCC;
+Im_RamCt[10].cnt_en = GND;
+Im_RamCt[10].sclr = VCC;
+Im_RamCt[11].cnt_en = GND;
+Im_RamCt[11].sclr = VCC;
+
+Compres.buffer_DATA[11..0] = GND;
+Compres.reset_n = VCC;
+
+ReadExtMem = GND;
+
+END DEFAULTS;
 --============================================================================
 --******** 1. Reference Clock & Frequency Control ****************************
 
@@ -102,32 +179,184 @@ PowerUp6= SRFF(.s=(PowerUp5 AND TestCt.q2),             -- _/^^^^\_ 3clocks
 				.r=ExtReset, .clk=Clk40);      -- .r never =1
 PwrUpSet2 = PowerUp3 AND !PowerUp4;       -- ONE pulse ~0.06sec after PwrUpReset
 
+--**************** Automatic Clock Switch for PLL reference ******************
+PhaseSw.clock	= FQuartz;				-- 40MHz from Quartz
+PhaseSw.SysClk 	= FCTClk40;				-- 40MHz from FCT
+PhaseSw.Reset	= GND  ;
+--    Phase25     = PhaseSw.Phase25 ; -- selected clock output to real pin
+Sw_FCTClk		= !PhaseSw.SysClk_Selected; -- connects FCT's Clock to PLL ref.Input
+Sw_Quartz		= PhaseSw.SysClk_Selected; -- connects Quartz to PLL ref.Input
+
+IF (PhaseSw.SysClk_Selected == VCC) Then PLL_res = FCTClk40;
+									 Else PLL_res = FQuartz;
+END IF;
+
 --**************** PLL section ***********************************************
 PLL.inclk0	= PLL_In;
 --PLL1.pfdena = VCC;--!Reset;
 --PLLlocked	= PLL.locked;      -- output to pad P2 for monitoring
 --PLLExtOut	= PLL.e0;
 Clk40		= Global(PLL.c0); --  40MHz clock
-Clk80		= Global(PLL.c4); --
+Clk80		= Global(PLL.c1); --
 
 --============================================================================
 -- ******** 3. Indicators section ********************************************
 
-LedG = OPNDRN ( !(PLL.locked AND TestCt.q[25])); --blinks slowly => PLL locked to Quartz
+--LedG = OPNDRN ( !(PLL.locked AND TestCt.q[25])); --blinks slowly => PLL locked to Quartz
+LedG = OPNDRN ( !TestCt.q[25]); --blinks slowly => PLL locked to Quartz
 
---LedB = OPNDRN(!( B_Flash.DirOut OR Trigger.Trigger));
---LedB = OPNDRN(!(B_Flash.DirOut OR Trig)); --!TrigOUT;
+--LedB = OPNDRN(!( B_Flash.DirOut OR Test_in));
+LedB = OPNDRN(!Test_in); --!TrigOUT;
 --LedB = OPNDRN( !TestCt.q[21] ) ;    -- for TEST Only! - quick blink
---B_Flash.(clock, event) =(Clk80,Trig); -- Busy is defined in Control Unit section
+B_Flash.(clock, event) =(Clk80, Test_in); -- Busy is defined in Control Unit section
 
 --LedR = R_Flash.LightOut;
 --LedR = OPNDRN( TC.q[21] ) ;         -- for TEST Only! - quick blink
 --R_Flash.(clock, event) =(Clk80,Error);-- Error is defined in Control Unit section
 
 --============================================================================
--- ******** 4. Testing circuitry *********************************************
+-- ******** 4. Immitation circuitry *********************************************
+
+For i in 0 to 11 generate
+	Im_Ram[i].data[] = GND;
+	Im_Ram[i].(clock) = (clk80);
+
+	Im_RamCt[i].clock = clk80;
+	Im_RamCt[i].clk_en  = VCC;
+End generate;
+
+Compres.(trigger, CLOCK_100) = (Test_in, clk80);
+
+CASE Compres.buffer_EN[] IS
+	When b"0000" => Im_Ram[0].address[] = Compres.buffer_ADDR[7..0];
+					Compres.buffer_DATA[11..0] = Im_Ram[0].q[11..0];
+					Im_RamCt[0].cnt_en = VCC;
+					Im_RamCt[0].sclr = GND;
+	When b"0001" => Im_Ram[1].address[] = Compres.buffer_ADDR[7..0];
+					Compres.buffer_DATA[11..0] = Im_Ram[1].q[11..0];
+					Im_RamCt[1].cnt_en = VCC;
+					Im_RamCt[1].sclr = GND;
+	When b"0010" => Im_Ram[2].address[] = Compres.buffer_ADDR[7..0];
+					Compres.buffer_DATA[11..0] = Im_Ram[2].q[11..0];
+					Im_RamCt[2].cnt_en = VCC;
+					Im_RamCt[2].sclr = GND;
+	When b"0011" => Im_Ram[3].address[] = Compres.buffer_ADDR[7..0];
+					Compres.buffer_DATA[11..0] = Im_Ram[3].q[11..0];
+					Im_RamCt[3].cnt_en = VCC;
+					Im_RamCt[3].sclr = GND;
+	When b"0100" => Im_Ram[4].address[] = Compres.buffer_ADDR[7..0];
+					Compres.buffer_DATA[11..0] = Im_Ram[4].q[11..0];
+					Im_RamCt[4].cnt_en = VCC;
+					Im_RamCt[4].sclr = GND;
+	When b"0101" => Im_Ram[5].address[] = Compres.buffer_ADDR[7..0];
+					Compres.buffer_DATA[11..0] = Im_Ram[5].q[11..0];
+					Im_RamCt[5].cnt_en = VCC;
+					Im_RamCt[5].sclr = GND;
+	When b"0110" => Im_Ram[6].address[] = Compres.buffer_ADDR[7..0];
+					Compres.buffer_DATA[11..0] = Im_Ram[6].q[11..0];
+					Im_RamCt[6].cnt_en = VCC;
+					Im_RamCt[6].sclr = GND;
+	When b"0111" => Im_Ram[7].address[] = Compres.buffer_ADDR[7..0];
+					Compres.buffer_DATA[11..0] = Im_Ram[7].q[11..0];
+					Im_RamCt[7].cnt_en = VCC;
+					Im_RamCt[7].sclr = GND;
+	When b"1000" => Im_Ram[8].address[] = Compres.buffer_ADDR[7..0];
+					Compres.buffer_DATA[11..0] = Im_Ram[8].q[11..0];
+					Im_RamCt[8].cnt_en = VCC;
+					Im_RamCt[8].sclr = GND;
+	When b"1001" => Im_Ram[9].address[] = Compres.buffer_ADDR[7..0];
+					Compres.buffer_DATA[11..0] = Im_Ram[9].q[11..0];
+					Im_RamCt[9].cnt_en = VCC;
+					Im_RamCt[9].sclr = GND;
+	When b"1010" => Im_Ram[10].address[] = Compres.buffer_ADDR[7..0];
+					Compres.buffer_DATA[11..0] = Im_Ram[10].q[11..0];
+					Im_RamCt[10].cnt_en = VCC;
+					Im_RamCt[10].sclr = GND;
+	When b"1011" => Im_Ram[11].address[] = Compres.buffer_ADDR[7..0];
+					Compres.buffer_DATA[11..0] = Im_Ram[11].q[11..0];
+					Im_RamCt[11].cnt_en = VCC;
+					Im_RamCt[11].sclr = GND;
+	When others => 	Im_RamCt[0].cnt_en = GND;
+					Im_RamCt[0].sclr = VCC;
+					Im_RamCt[1].cnt_en = GND;
+					Im_RamCt[1].sclr = VCC;
+					Im_RamCt[2].cnt_en = GND;
+					Im_RamCt[2].sclr = VCC;
+					Im_RamCt[3].cnt_en = GND;
+					Im_RamCt[3].sclr = VCC;
+					Im_RamCt[4].cnt_en = GND;
+					Im_RamCt[4].sclr = VCC;
+					Im_RamCt[5].cnt_en = GND;
+					Im_RamCt[5].sclr = VCC;
+					Im_RamCt[6].cnt_en = GND;
+					Im_RamCt[6].sclr = VCC;
+					Im_RamCt[7].cnt_en = GND;
+					Im_RamCt[7].sclr = VCC;
+					Im_RamCt[8].cnt_en = GND;
+					Im_RamCt[8].sclr = VCC;
+					Im_RamCt[9].cnt_en = GND;
+					Im_RamCt[9].sclr = VCC;
+					Im_RamCt[10].cnt_en = GND;
+					Im_RamCt[10].sclr = VCC;
+					Im_RamCt[11].cnt_en = GND;
+					Im_RamCt[11].sclr = VCC;
+					Compres.buffer_DATA[11..0] = GND;
+END Case;
+
+Addr_Ram.clock = clk80;
+Addr_Ram.(wren, wraddress[], data[15..0]) = ((DelayWorkTime0.q AND Compres.work_time), WrAddrCnt.q[], Compres.ram_ADDR[15..0]);
+Addr_Ram.(rden, rdaddress[]) = ((DelayWorkTime1.q AND !DelayWorkTime0.q AND !ReadExtMem), ReadAddrCnt.q[]);
+
+WrAddrCnt.(clock, clk_en, cnt_en) = (clk80, VCC, (DelayWorkTime0.q AND !Compres.work_time));
+ReadAddrCnt.(clock, clk_en, cnt_en) = (clk80, VCC, (DelayWorkTime1.q AND !DelayWorkTime0.q AND !ReadExtMem));
+
+DelayWorkTime[1..0].(clk) = clk80;
+DelayWorkTime0.d = Compres.work_time;
+DelayWorkTime1.d = DelayWorkTime0.q;
+
+If Compres.work_time == VCC Then 
+	ExtRAM_Addr[15..0]		= Compres.ram_ADDR[15..0];
+	ExtRAM_Data[15..0]		= Compres.ram_DATA[15..0];
+	ExtRAM_OutEn			= Compres.ram_OE_N;
+	ExtRAM_CEn				= Compres.ram_CE_N;
+	ExtRAM_WriteEn			= Compres.ram_WE_N;
+	ExtRAM_LowerByteControl	= Compres.ram_LB_N;
+	ExtRAM_UpByteControl	= Compres.ram_UB_N;
+							Else
+	ExtRAM_Addr[15..0]		= Read_ExtRamCt.q[];
+	Read_Ram.data[15..0]	= ExtRAM_Data[15..0];
+	ExtRAM_OutEn			= GND;
+	ExtRAM_CEn				= GND;
+	ExtRAM_WriteEn			= VCC;
+	ExtRAM_LowerByteControl	= GND;
+	ExtRAM_UpByteControl	= GND;
+End IF;
+
+Read_ExtRamCt.clock = clk80;
+Read_ExtRamCt.clk_en  = VCC;
+Read_ExtRamCt.cnt_en = StopCnt;
+--Read_ExtRamCt.sclr = Compres.work_time;
+
+IF (Read_ExtRamCt.q[] == Addr_Ram.q[]) Then StopCnt = VCC;
+									   Else StopCnt = GND;
+END IF;
+
+Read_Ram.(address[], wren, clock) = (Write_IntRamCt.q[], !(DelayWorkTime1.q AND DelayWorkTime0.q) AND !ReadExtMem, clk80);
+
+Write_IntRamCt.clock = clk80;
+Write_IntRamCt.clk_en  = VCC;
+Write_IntRamCt.cnt_en = !(Compres.work_time AND Read_ExtRamCt.cout);
+Write_IntRamCt.sclr = Compres.work_time;
+
+--============================================================================
+-- ******** 5. Testing circuitry *********************************************
 TestCt.(clock, clk_en)	= (FQuartz, VCC); -- Test Counter, can be used to drive LED blinking
-TestCt.cnt_en			=  PowerUp0;
-TestCt.aclr				= !PowerUp0;    -- even if NO clock - Reset does occur
+TestCt.cnt_en			=  VCC;--PowerUp0;
+--TestCt.aclr				= !PowerUp0;    -- even if NO clock - Reset does occur
+
+Test[6..1] = (TestCt.q[25],GND,VCC,GND,VCC,GND);
+Test[7] = Compres.work_time;
+Test[8] = !Test_in;
+Test[9] = clk80;
 
 END;
