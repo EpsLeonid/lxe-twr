@@ -23,7 +23,7 @@ INCLUDE "PLL_TA6.inc";
 INCLUDE "DDR_in.inc";
 INCLUDE "Digitizer_TA6.inc";
 INCLUDE "WFTA_HistRAM.inc";
-INCLUDE "PD_upgrade.inc";
+INCLUDE "DataSelect_v2.inc";
 INCLUDE "UpLink.inc";
 INCLUDE "Fast_Link.inc";
 INCLUDE "Ethernet.inc";
@@ -147,7 +147,7 @@ ADC_SCLK						: output;
 -- 4. Ext RAM  
 
 ExtRAM_Addr[15..0]		: output;
-ExtRAM_Data[15..0]		: bidir;
+ExtRAM_Data[15..0]		: bidir; -- must be change to bidir!!!
 ExtRAM_OutEn			: output;
 ExtRAM_InEn				: output;
 ExtRAM_WriteEn			: output;
@@ -385,7 +385,7 @@ TAWF_HistRAM				: WFTA_HistRAM;
 TAWF_RAM_cs					: node;
 TAWF_HistRAM_Cnt			: lpm_counter with (lpm_width = 11, lpm_direction="up");
 
-Compres						: PD_upgrade;
+Compres						: DataSelect_V2;
 
 --============================================================================
 --******** 7. Internal Bus of Project; "Bus Handler";
@@ -517,13 +517,14 @@ PhaseSw.clock	= FQuartz ;         -- 25MHz from Quartz
 PhaseSw.LinkClk	= LinkClk ;         -- 25MHz from Link
 PhaseSw.Reset	= GND  ;
 --    Phase25     = PhaseSw.Phase25 ; -- selected clock output to real pin
-Sw_LinkClk		= !PhaseSw.LinkClk_selected; -- connects Link's Clock to PLL ref.Input
-Sw_Quartz		= PhaseSw.LinkClk_selected; -- connects Quartz to PLL ref.Input
+Sw_LinkClk		= PhaseSw.LinkClk_selected; -- connects Link's Clock to PLL ref.Input
+Sw_Quartz		= !PhaseSw.LinkClk_selected; -- connects Quartz to PLL ref.Input
 
-IF (PhaseSw.LinkClk_selected == VCC) Then PLL_res = FQuartz;
-									 Else PLL_res = LinkClk;
+IF (PhaseSw.LinkClk_selected == VCC) Then PLL_res = LinkClk;
+									 Else PLL_res = FQuartz;
 END IF;
 
+--PLL_res = FQuartz;
 --**************** PLL section ***********************************************
 PLL.inclk0	= PLL_in;           -- ~25MHz from Link -> Input of PLL
 Clk25		= PLL.c0;           --  25MHz = (Fin x 1)    from PLL.c0
@@ -1274,44 +1275,82 @@ CASE ChannelCount_Eth.q[] IS
 END Case;
 
 Compres.(trigger, CLOCK_100) = (Link_IFace.LinkMessage, clk100);
-Compres.(cs, Read_Write, thr_in[7..0]) = (DevSel[11].q, RW, DataBus[7..0]);
 
-CASE Compres.en_ROM[] IS
-	When b"0000" => TA12Channel[0].DAQAddrBus_Eth_In[7..0] = Compres.add_ROM[7..0];
-					Compres.data_in0[11..0] = TA12Channel[0].DAQDataBusOut_Eth[11..0];
-	When b"0001" => TA12Channel[1].DAQAddrBus_Eth_In[7..0] = Compres.add_ROM[7..0];
-					Compres.data_in1[11..0] = TA12Channel[1].DAQDataBusOut_Eth[11..0];
-	When b"0010" => TA12Channel[2].DAQAddrBus_Eth_In[7..0] = Compres.add_ROM[7..0];
-					Compres.data_in2[11..0] = TA12Channel[2].DAQDataBusOut_Eth[11..0];
-	When b"0011" => TA12Channel[3].DAQAddrBus_Eth_In[7..0] = Compres.add_ROM[7..0];
-					Compres.data_in3[11..0] = TA12Channel[3].DAQDataBusOut_Eth[11..0];
-	When b"0100" => TA12Channel[4].DAQAddrBus_Eth_In[7..0] = Compres.add_ROM[7..0];
-					Compres.data_in4[11..0] = TA12Channel[4].DAQDataBusOut_Eth[11..0];
-	When b"0101" => TA12Channel[5].DAQAddrBus_Eth_In[7..0] = Compres.add_ROM[7..0];
-					Compres.data_in5[11..0] = TA12Channel[5].DAQDataBusOut_Eth[11..0];
-	When b"0110" => TA12Channel[6].DAQAddrBus_Eth_In[7..0] = Compres.add_ROM[7..0];
-					Compres.data_in6[11..0] = TA12Channel[6].DAQDataBusOut_Eth[11..0];
-	When b"0111" => TA12Channel[7].DAQAddrBus_Eth_In[7..0] = Compres.add_ROM[7..0];
-					Compres.data_in7[11..0] = TA12Channel[7].DAQDataBusOut_Eth[11..0];
-	When b"1000" => TA12Channel[8].DAQAddrBus_Eth_In[7..0] = Compres.add_ROM[7..0];
-					Compres.data_in8[11..0] = TA12Channel[8].DAQDataBusOut_Eth[11..0];
-	When b"1001" => TA12Channel[9].DAQAddrBus_Eth_In[7..0] = Compres.add_ROM[7..0];
-					Compres.data_in9[11..0] = TA12Channel[9].DAQDataBusOut_Eth[11..0];
-	When b"1010" => TA12Channel[10].DAQAddrBus_Eth_In[7..0] = Compres.add_ROM[7..0];
-					Compres.data_in10[11..0] = TA12Channel[10].DAQDataBusOut_Eth[11..0];
-	When b"1011" => TA12Channel[11].DAQAddrBus_Eth_In[7..0] = Compres.add_ROM[7..0];
-					Compres.data_in11[11..0] = TA12Channel[11].DAQDataBusOut_Eth[11..0];
+CASE Compres.buffer_EN[] IS
+	When b"0000" => TA12Channel[0].DAQAddrBus_Eth_In[7..0] = Compres.buffer_ADDR[7..0];
+					Compres.buffer_DATA[11..0] = TA12Channel[0].DAQDataBusOut_Eth[11..0];
+	When b"0001" => TA12Channel[1].DAQAddrBus_Eth_In[7..0] = Compres.buffer_ADDR[7..0];
+					Compres.buffer_DATA[11..0] = TA12Channel[1].DAQDataBusOut_Eth[11..0];
+	When b"0010" => TA12Channel[2].DAQAddrBus_Eth_In[7..0] = Compres.buffer_ADDR[7..0];
+					Compres.buffer_DATA[11..0] = TA12Channel[2].DAQDataBusOut_Eth[11..0];
+	When b"0011" => TA12Channel[3].DAQAddrBus_Eth_In[7..0] = Compres.buffer_ADDR[7..0];
+					Compres.buffer_DATA[11..0] = TA12Channel[3].DAQDataBusOut_Eth[11..0];
+	When b"0100" => TA12Channel[4].DAQAddrBus_Eth_In[7..0] = Compres.buffer_ADDR[7..0];
+					Compres.buffer_DATA[11..0] = TA12Channel[4].DAQDataBusOut_Eth[11..0];
+	When b"0101" => TA12Channel[5].DAQAddrBus_Eth_In[7..0] = Compres.buffer_ADDR[7..0];
+					Compres.buffer_DATA[11..0] = TA12Channel[5].DAQDataBusOut_Eth[11..0];
+	When b"0110" => TA12Channel[6].DAQAddrBus_Eth_In[7..0] = Compres.buffer_ADDR[7..0];
+					Compres.buffer_DATA[11..0] = TA12Channel[6].DAQDataBusOut_Eth[11..0];
+	When b"0111" => TA12Channel[7].DAQAddrBus_Eth_In[7..0] = Compres.buffer_ADDR[7..0];
+					Compres.buffer_DATA[11..0] = TA12Channel[7].DAQDataBusOut_Eth[11..0];
+	When b"1000" => TA12Channel[8].DAQAddrBus_Eth_In[7..0] = Compres.buffer_ADDR[7..0];
+					Compres.buffer_DATA[11..0] = TA12Channel[8].DAQDataBusOut_Eth[11..0];
+	When b"1001" => TA12Channel[9].DAQAddrBus_Eth_In[7..0] = Compres.buffer_ADDR[7..0];
+					Compres.buffer_DATA[11..0] = TA12Channel[9].DAQDataBusOut_Eth[11..0];
+	When b"1010" => TA12Channel[10].DAQAddrBus_Eth_In[7..0] = Compres.buffer_ADDR[7..0];
+					Compres.buffer_DATA[11..0] = TA12Channel[10].DAQDataBusOut_Eth[11..0];
+	When b"1011" => TA12Channel[11].DAQAddrBus_Eth_In[7..0] = Compres.buffer_ADDR[7..0];
+					Compres.buffer_DATA[11..0] = TA12Channel[11].DAQDataBusOut_Eth[11..0];
 	When others => TA12Channel[0].DAQAddrBus_Eth_In[7..0] = GND;
-					Compres.data_in0[11..0] = GND;
+					TA12Channel[1].DAQAddrBus_Eth_In[7..0] = GND;
+					TA12Channel[2].DAQAddrBus_Eth_In[7..0] = GND;
+					TA12Channel[3].DAQAddrBus_Eth_In[7..0] = GND;
+					TA12Channel[4].DAQAddrBus_Eth_In[7..0] = GND;
+					TA12Channel[5].DAQAddrBus_Eth_In[7..0] = GND;
+					TA12Channel[6].DAQAddrBus_Eth_In[7..0] = GND;
+					TA12Channel[7].DAQAddrBus_Eth_In[7..0] = GND;
+					TA12Channel[8].DAQAddrBus_Eth_In[7..0] = GND;
+					TA12Channel[9].DAQAddrBus_Eth_In[7..0] = GND;
+					TA12Channel[10].DAQAddrBus_Eth_In[7..0] = GND;
+					TA12Channel[11].DAQAddrBus_Eth_In[7..0] = GND;
+					Compres.buffer_DATA[11..0] = GND;
 END Case;
 
-ExtRAM_Addr[15..0]		= Compres.ram_ADDR[15..0];
-ExtRAM_Data[15..0]		= Compres.ram_DATA[15..0];
-ExtRAM_OutEn			= Compres.ram_OE_N;
-ExtRAM_InEn				= Compres.ram_CE_N;
-ExtRAM_WriteEn			= Compres.ram_WE_N;
-ExtRAM_LowerByteControl	= Compres.ram_LB_N;
-ExtRAM_UpByteControl	= Compres.ram_UB_N;
+If Compres.work_time == VCC Then 
+	ExtRAM_Addr[15..0]		= Compres.ram_ADDR[15..0];
+	ExtRAM_Data[15..0]		= Compres.ram_DATA[15..0];
+	ExtRAM_OutEn			= Compres.ram_OE_N;
+	ExtRAM_CEn				= Compres.ram_CE_N;
+	ExtRAM_WriteEn			= Compres.ram_WE_N;
+	ExtRAM_LowerByteControl	= Compres.ram_LB_N;
+	ExtRAM_UpByteControl	= Compres.ram_UB_N;
+							Else
+	ExtRAM_Addr[15..0]		= Read_ExtRamCt.q[];
+	Read_Ram.data[15..0]	= ExtRAM_Data[15..0];
+	ExtRAM_OutEn			= GND;
+	ExtRAM_CEn				= GND;
+	ExtRAM_WriteEn			= VCC;
+	ExtRAM_LowerByteControl	= GND;
+	ExtRAM_UpByteControl	= GND;
+End IF;
+
+Read_ExtRamCt.clock = clk80;
+Read_ExtRamCt.clk_en  = VCC;
+Read_ExtRamCt.cnt_en = StopCnt;
+--Read_ExtRamCt.sclr = Compres.work_time;
+
+IF (Read_ExtRamCt.q[] == Addr_Ram.q[]) Then StopCnt = VCC;
+									   Else StopCnt = GND;
+END IF;
+
+Read_Ram.(address[], wren, clock) = (Write_IntRamCt.q[], !(DelayWorkTime1.q AND DelayWorkTime0.q) AND !ReadExtMem, clk80);
+
+Write_IntRamCt.clock = clk80;
+Write_IntRamCt.clk_en  = VCC;
+Write_IntRamCt.cnt_en = !(Compres.work_time AND Read_ExtRamCt.cout);
+Write_IntRamCt.sclr = Compres.work_time;
+
+-- Compres.work_time -- work the compressing module
 
 --============================================================================
 --******** 7. Fust LINK's Interface *******************************************
@@ -1670,7 +1709,7 @@ Else					-- Master will read from
 		WHEN  b"00000000010000000" => DataBus[]			= TA12Channel[3].DataBusOut[] ;
 		WHEN  b"00000000100000000" => DataBus[]			= TA12Channel[4].DataBusOut[] ;
 		WHEN  b"00000001000000000" => DataBus[]			= TA12Channel[5].DataBusOut[] ;
-		WHEN  b"00000010000000000" => DataBus[7..0] = Compres.thr_out[7..0];
+		WHEN  b"00000010000000000" => DataBus[7..0] = GND;
 		WHEN  b"00000100000000000" => DataBus[]			= SelCommdList_Reg.q[];--GateDur_reg.q[9..0];
 		WHEN  b"00001000000000000" => DataBus[7..0]		= Reg_OpCode.q[7..0];
 		WHEN  b"00010000000000000" => DataBus[7..0]		= Reg_BaseAddr.q[7..0];
@@ -1710,9 +1749,9 @@ TestRAM.(address[7..0], data[],    clock,    wren                     ) =
         (AddrBus[7..0], DataBus[], Clk100,(DataStrobe & DevSel[15] & RW)); 
 
 Test1	= PLL_res;--Link_IFace.LinkMessage;--PhaseSw.LinkClk_selected; 													-- pin 231
-Test2	= TAWF_DataStrobe;--LinkMsg_beg;																		-- pin 232
-Test3	= TxWFhist.q;--SerDataOut[9];--PLL.locked;																-- pin 233
-Test4	= DataCount.cout;--SelCommdList_Trig.q;																	-- pin 234
+Test2	= FQuartz;--TAWF_DataStrobe;--LinkMsg_beg;																		-- pin 232
+Test3	= !PhaseSw.LinkClk_selected;--TxWFhist.q;--SerDataOut[9];--PLL.locked;																-- pin 233
+Test4	= PhaseSw.LinkClk_selected;--DataCount.cout;--SelCommdList_Trig.q;																	-- pin 234
 Test5	= StopCount;--SelCommdList_Trig3.q;																		-- pin 235
 Test6	= SerDataOut[7];--TA12Channel[3].test5;																	-- pin 236
 Test7	= SerDataOut[8];--AddrSettled;																			-- pin 237
