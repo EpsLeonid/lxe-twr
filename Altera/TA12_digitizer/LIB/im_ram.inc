@@ -1,4 +1,4 @@
---Copyright (C) 1991-2008 Altera Corporation
+--Copyright (C) 1991-2010 Altera Corporation
 --Your use of Altera Corporation's design tools, logic functions 
 --and other software and tools, and its AMPP partner logic 
 --functions, and any output files from any of the foregoing 
@@ -17,15 +17,14 @@ FUNCTION im_ram
 (
 	address_a[7..0],
 	address_b[7..0],
-	clock_a,
-	clock_b,
-	data_a[15..0],
-	data_b[15..0],
+	clock,
+	data_a[11..0],
+	data_b[11..0],
 	wren_a,
 	wren_b
 )
 
 RETURNS (
-	q_a[15..0],
-	q_b[15..0]
+	q_a[11..0],
+	q_b[11..0]
 );
