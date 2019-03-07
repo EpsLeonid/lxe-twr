@@ -20,10 +20,10 @@ SUBDESIGN TestLED
 (
 FQuartz			: input;	-- 25MHz clock from Quartz oscillator       <- Pin46
 -- In TA6 module Link's Clock is checked inside Altera but switched outside 
-FCTClk40		: input;	-- 40MHz clock from FCT board				<- Pin T14/T15
+LinkClk			: input;	-- 40MHz clock from FCT board				<- Pin T14/T15
 
 Sw_Quartz		: output;	-- connects Quartz to PLL ref.Input			-> Pin B3
-Sw_FCTClk		: output;	-- connects Link's Clock to PLL ref.Input	-> Pin A4
+Sw_LinkClk		: output;	-- connects Link's Clock to PLL ref.Input	-> Pin A4
 
 PLL_res			: output;
 PLL_in			: input;	-- Ref.clock for PLL (dedicated)			<- Pin31
@@ -51,16 +51,17 @@ VARIABLE
 --============================================================================
 --******** 1. Reference clock's & Frequency Control **************************
 PLL				: PLL_Trigger; 
-Clk40			: node; -- This is Global Node
-Clk80			: node; -- This is Global Node
+Clk25			: node; -- This is Global Node
+Clk50			: node; -- This is Global Node
+Clk100			: node; -- This is Global Node
 
 -- Automatic Clock Switch: if External_Clock frequency (kHz) is in specified 
 --   range, PhaseSwitch transfers the External_Clock to PLL1's reference input, 
 --   thus all PLL's output clocks are locked to the External_Clock. 
 PhaseSw			: PhaseSwitch with (FmaxThresh=42000, FminThresh=38000, RefClock=40000);
 
-Clk40del1,
-Clk40del2		: node;
+Clk25del1,
+Clk25del2		: node;
 PhaseSet,				-- _/^^\_ pulse aligned to _/ front of StartBit
 Phase20,
 Synchro20,				-- 1-clock _/^\_ pulse aligned to _/ front of PHASE
@@ -88,6 +89,9 @@ Error			: node;
 Im_Ram[11..0]		: ImRam;
 Im_RamCt[11..0]		: lpm_counter with (lpm_width = 8, lpm_direction="up" ); -- 
 
+Read_time			: SRFF;
+DelayReadTime[1..0]	: DFF;
+Read_TimeCt			: lpm_counter with (lpm_width = 12, lpm_direction="up" ); -- 
 Read_Ram			: ReadRam;
 Read_ExtRamCt		: lpm_counter with (lpm_width = 16, lpm_direction="up" ); -- 
 Addr_Ram			: AddrRam;
@@ -115,7 +119,7 @@ BEGIN
 DEFAULTS
 
 Sw_Quartz = GND;
-Sw_FCTClk = VCC;
+Sw_LinkClk = VCC;
 
 Im_RamCt[0].cnt_en = GND;
 Im_RamCt[0].sclr = VCC;
@@ -153,41 +157,41 @@ END DEFAULTS;
 
         --============================================================================
 --******** 1a. POWER_UP self-Reset pulse *************************************
---PowerUp0= DFF (.d=!(VME_s1 & VME_s2) AND PLL1.locked, .clk=Clk40);
+--PowerUp0= DFF (.d=!(VME_s1 & VME_s2) AND PLL1.locked, .clk=Clk25);
         --               ^^^^^^^^ substituted by (VME_IFace.Reset & VME_IFace.Aout[4])..
         --  .. to provide a possibility to emulate PowerUp situation
-PowerUp0= DFF (.d=!ExtReset AND PLL.locked, .clk=Clk40);
+PowerUp0= DFF (.d=!ExtReset AND PLL.locked, .clk=Clk25);
 
 PowerUp1= SRFF(.s=(PowerUp0 AND (TestCt.q25 & TestCt.q0)),--sets 1.0s after PLL1 has locked
-				.r=ExtReset, .clk=Clk40);  -- .r never =1
+				.r=ExtReset, .clk=Clk25);  -- .r never =1
 PowerUp2= SRFF(.s=(PowerUp1 AND TestCt.q2),             -- _/^^^^\_ 3clocks
-				.r=ExtReset, .clk=Clk40);  -- .r never =1
+				.r=ExtReset, .clk=Clk25);  -- .r never =1
 PwrUpReset = PowerUp1 AND !PowerUp2;   -- ONE pulse ~1sec after powering up
 
 --******** 1b. POWER_UP self-Set pulse ***************************************
 PowerUp3= SRFF(.s=(PowerUp2 AND (!TestCt.q20 & !TestCt.q19 &  TestCt.q18)), --sets 0.015s after PwrUpReset
-				.r=ExtReset, .clk=Clk40);      -- .r never =1
+				.r=ExtReset, .clk=Clk25);      -- .r never =1
 PowerUp4= SRFF(.s=(PowerUp3 AND TestCt.q2),             -- _/^^^^\_ 3clocks
-				.r=ExtReset, .clk=Clk40);      -- .r never =1
+				.r=ExtReset, .clk=Clk25);      -- .r never =1
 PwrUpSet1 = PowerUp3 AND !PowerUp4;       -- ONE pulse ~0.06sec after PwrUpReset
 
 --******** 1c. POWER_UP self-Set pulse ***************************************
 PowerUp5= SRFF(.s=(PowerUp4 AND 
 				( TestCt.q20 & !TestCt.q19 & !TestCt.q18)), --sets 0.060s after PwrUpReset
-				.r=ExtReset, .clk=Clk40);      -- .r never =1
+				.r=ExtReset, .clk=Clk25);      -- .r never =1
 PowerUp6= SRFF(.s=(PowerUp5 AND TestCt.q2),             -- _/^^^^\_ 3clocks
-				.r=ExtReset, .clk=Clk40);      -- .r never =1
+				.r=ExtReset, .clk=Clk25);      -- .r never =1
 PwrUpSet2 = PowerUp3 AND !PowerUp4;       -- ONE pulse ~0.06sec after PwrUpReset
 
 --**************** Automatic Clock Switch for PLL reference ******************
 PhaseSw.clock	= FQuartz;				-- 40MHz from Quartz
-PhaseSw.SysClk 	= FCTClk40;				-- 40MHz from FCT
+PhaseSw.LinkClk 	= LinkClk;				-- 40MHz from FCT
 PhaseSw.Reset	= GND  ;
 --    Phase25     = PhaseSw.Phase25 ; -- selected clock output to real pin
-Sw_FCTClk		= !PhaseSw.SysClk_Selected; -- connects FCT's Clock to PLL ref.Input
-Sw_Quartz		= PhaseSw.SysClk_Selected; -- connects Quartz to PLL ref.Input
+Sw_LinkClk		= !PhaseSw.LinkClk_Selected; -- connects LinkClk's Clock to PLL ref.Input
+Sw_Quartz		= PhaseSw.LinkClk_Selected; -- connects Quartz to PLL ref.Input
 
-IF (PhaseSw.SysClk_Selected == VCC) Then PLL_res = FCTClk40;
+IF (PhaseSw.LinkClk_Selected == VCC) Then PLL_res = LinkClk;
 									 Else PLL_res = FQuartz;
 END IF;
 
@@ -196,8 +200,9 @@ PLL.inclk0	= PLL_In;
 --PLL1.pfdena = VCC;--!Reset;
 --PLLlocked	= PLL.locked;      -- output to pad P2 for monitoring
 --PLLExtOut	= PLL.e0;
-Clk40		= Global(PLL.c0); --  40MHz clock
-Clk80		= Global(PLL.c1); --
+Clk25		= Global(PLL.c0); --  25MHz clock
+Clk100		= Global(PLL.c1); --
+Clk50		= Global(PLL.c4); --
 
 --============================================================================
 -- ******** 3. Indicators section ********************************************
@@ -206,26 +211,26 @@ Clk80		= Global(PLL.c1); --
 LedG = OPNDRN ( !TestCt.q[25]); --blinks slowly => PLL locked to Quartz
 
 --LedB = OPNDRN(!( B_Flash.DirOut OR Test_in));
-LedB = OPNDRN(!Test_in); --!TrigOUT;
+LedB = OPNDRN(!B_Flash.DirOut); --!TrigOUT;
 --LedB = OPNDRN( !TestCt.q[21] ) ;    -- for TEST Only! - quick blink
-B_Flash.(clock, event) =(Clk80, Test_in); -- Busy is defined in Control Unit section
+B_Flash.(clock, event) =(Clk100, Test_in); -- Busy is defined in Control Unit section
 
 --LedR = R_Flash.LightOut;
 --LedR = OPNDRN( TC.q[21] ) ;         -- for TEST Only! - quick blink
---R_Flash.(clock, event) =(Clk80,Error);-- Error is defined in Control Unit section
+--R_Flash.(clock, event) =(Clk100,Error);-- Error is defined in Control Unit section
 
 --============================================================================
 -- ******** 4. Immitation circuitry *********************************************
 
 For i in 0 to 11 generate
 	Im_Ram[i].data[] = GND;
-	Im_Ram[i].(clock) = (clk80);
+	Im_Ram[i].(clock) = (Clk100);
 
-	Im_RamCt[i].clock = clk80;
+	Im_RamCt[i].clock = Clk100;
 	Im_RamCt[i].clk_en  = VCC;
 End generate;
 
-Compres.(trigger, CLOCK_100) = (Test_in, clk80);
+Compres.(trigger, CLOCK_100) = (Test_in, Clk100); -- ѕосмотреть клок внешней пам€ти по документу!!!
 
 CASE Compres.buffer_EN[] IS
 	When b"0000" => Im_Ram[0].address[] = Compres.buffer_ADDR[7..0];
@@ -303,47 +308,64 @@ CASE Compres.buffer_EN[] IS
 					Compres.buffer_DATA[11..0] = GND;
 END Case;
 
-Addr_Ram.clock = clk80;
+Addr_Ram.clock = Clk100;
 Addr_Ram.(wren, wraddress[], data[15..0]) = ((DelayWorkTime0.q AND Compres.work_time), WrAddrCnt.q[], Compres.ram_ADDR[15..0]);
 Addr_Ram.(rden, rdaddress[]) = ((DelayWorkTime1.q AND !DelayWorkTime0.q AND !ReadExtMem), ReadAddrCnt.q[]);
 
-WrAddrCnt.(clock, clk_en, cnt_en) = (clk80, VCC, (DelayWorkTime0.q AND !Compres.work_time));
-ReadAddrCnt.(clock, clk_en, cnt_en) = (clk80, VCC, (DelayWorkTime1.q AND !DelayWorkTime0.q AND !ReadExtMem));
+WrAddrCnt.(clock, clk_en, cnt_en) = (Clk100, VCC, (DelayWorkTime0.q AND !Compres.work_time));
+ReadAddrCnt.(clock, clk_en, cnt_en) = (Clk100, VCC, (DelayWorkTime1.q AND !DelayWorkTime0.q AND !ReadExtMem));
 
-DelayWorkTime[1..0].(clk) = clk80;
+DelayWorkTime[1..0].(clk) = Clk100;
 DelayWorkTime0.d = Compres.work_time;
 DelayWorkTime1.d = DelayWorkTime0.q;
 
-If Compres.work_time == VCC Then 
+DelayReadTime[1..0].(clk) = Clk100;
+DelayReadTime0.d = !Compres.work_time;
+DelayReadTime1.d = DelayWorkTime0.q;
+
+Read_time.(S, clk, R) = ((!DelayWorkTime0.q AND DelayWorkTime1.q), Clk100, StopCnt);
+
+If	Compres.work_time == VCC Then 
 	ExtRAM_Addr[15..0]		= Compres.ram_ADDR[15..0];
-	ExtRAM_Data[15..0]		= Compres.ram_DATA[15..0];
 	ExtRAM_OutEn			= Compres.ram_OE_N;
 	ExtRAM_CEn				= Compres.ram_CE_N;
 	ExtRAM_WriteEn			= Compres.ram_WE_N;
-	ExtRAM_LowerByteControl	= Compres.ram_LB_N;
-	ExtRAM_UpByteControl	= Compres.ram_UB_N;
-							Else
+	ExtRAM_LowerByteControl	= Compres.ram_LB_N;--Clk50;--
+	ExtRAM_UpByteControl	= Compres.ram_UB_N;--Clk50;--
+Elsif Read_time.q == VCC Then 
 	ExtRAM_Addr[15..0]		= Read_ExtRamCt.q[];
-	Read_Ram.data[15..0]	= ExtRAM_Data[15..0];
 	ExtRAM_OutEn			= GND;
 	ExtRAM_CEn				= GND;
 	ExtRAM_WriteEn			= VCC;
-	ExtRAM_LowerByteControl	= GND;
-	ExtRAM_UpByteControl	= GND;
+	ExtRAM_LowerByteControl	= GND;--Clk50;--
+	ExtRAM_UpByteControl	= GND;--Clk50;--
+							Else
+	ExtRAM_OutEn			= VCC;
+	ExtRAM_CEn				= VCC;
+	ExtRAM_WriteEn			= VCC;
+	ExtRAM_LowerByteControl	= VCC;
+	ExtRAM_UpByteControl	= VCC;
 End IF;
 
-Read_ExtRamCt.clock = clk80;
-Read_ExtRamCt.clk_en  = VCC;
-Read_ExtRamCt.cnt_en = StopCnt;
---Read_ExtRamCt.sclr = Compres.work_time;
+For i in 0 to 15 generate
+	ExtRAM_Data[i] = TRI (Compres.ram_DATA[i],Compres.work_time);
+End generate;
 
-IF (Read_ExtRamCt.q[] == Addr_Ram.q[]) Then StopCnt = VCC;
-									   Else StopCnt = GND;
+Read_Ram.data[15..0]	= ExtRAM_Data[15..0];
+
+Read_ExtRamCt.clock = Clk100;
+--Read_ExtRamCt.sload = (Compres.ram_ADDR[15..0] - 936);
+Read_ExtRamCt.clk_en  = VCC;
+Read_ExtRamCt.cnt_en = Read_time.q;
+--Read_ExtRamCt.sclr = StopCnt;
+
+IF (Read_ExtRamCt.q[] == Addr_Ram.q[15..0]) Then StopCnt = VCC;
+							   Else StopCnt = GND;
 END IF;
 
-Read_Ram.(address[], wren, clock) = (Write_IntRamCt.q[], !(DelayWorkTime1.q AND DelayWorkTime0.q) AND !ReadExtMem, clk80);
+Read_Ram.(address[], wren, clock) = (Write_IntRamCt.q[], Read_time.q, Clk100);
 
-Write_IntRamCt.clock = clk80;
+Write_IntRamCt.clock = Clk100;
 Write_IntRamCt.clk_en  = VCC;
 Write_IntRamCt.cnt_en = !(Compres.work_time AND Read_ExtRamCt.cout);
 Write_IntRamCt.sclr = Compres.work_time;
@@ -354,9 +376,14 @@ TestCt.(clock, clk_en)	= (FQuartz, VCC); -- Test Counter, can be used to drive L
 TestCt.cnt_en			=  VCC;--PowerUp0;
 --TestCt.aclr				= !PowerUp0;    -- even if NO clock - Reset does occur
 
-Test[6..1] = (TestCt.q[25],GND,VCC,GND,VCC,GND);
-Test[7] = Compres.work_time;
-Test[8] = !Test_in;
-Test[9] = clk80;
+Test[1] = ExtRAM_OutEn;
+Test[2] = ExtRAM_CEn;
+Test[3] = ExtRAM_WriteEn;
+Test[4] = ExtRAM_LowerByteControl;
+Test[5] = ExtRAM_Addr[1];
+Test[6] = Compres.work_time;
+Test[7] = DelayWorkTime0.q;
+Test[8] = DelayWorkTime1.q;
+Test[9] = Read_time.q;
 
 END;
