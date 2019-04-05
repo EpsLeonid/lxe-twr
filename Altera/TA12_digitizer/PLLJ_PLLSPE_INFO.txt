@@ -1,4 +1,4 @@
-PLL_Name	PLL_TA6:PLL|altpll:altpll_component|altpll_5b43:auto_generated|pll1
+PLL_Name	PLL_TA6:PLL|altpll:altpll_component|altpll_6b43:auto_generated|pll1
 PLLJITTER	32
 PLLSPEmax	84
 PLLSPEmin	-53

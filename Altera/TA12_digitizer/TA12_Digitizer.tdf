@@ -149,6 +149,7 @@ ADC_SEN[2..0]					: output;
 ADC_SDATA[2..0]					: output;
 ADC_SDOUT[2..0]					: input;
 ADC_SCLK						: output;
+ADC_Reset						: output;
 
 -- 4. Ext RAM  
 
@@ -163,19 +164,19 @@ ExtRAM_UpByteControl	: output;
 ExtReset			: input = GND;  -- external Reset (tied to GND --VCC)   <- Pin
 
 Test_in				: input;
-Test[10..1]			: output;
+Test[10..2]			: output;
 )
 
 VARIABLE
 --============================================================================
 --******** 1. Reference clock's & Frequency Control **************************
 PLL				: Pll_TA6;  -- PLL:  Fin=25MHz, PLL.c0=(25MHz shift=0), PLL.c1=(100MHz shift=0)
+Clk12_5			: node; -- This is Global Node
 Clk25			: node; -- This is Global Node 
 Clk37_5			: node; -- This is Global Node 
 Clk75			: node; -- This is Global Node
 Clk100			: node; -- This is Global Node
 Clk300_adc		: node; -- This is Global Node
-Clk50			: node; -- This is Global Node
 
 -- Automatic Clock Switch: if External_Clock frequency (kHz) is in specified 
 --   range, PhaseSwitch transfers the External_Clock to PLL1's reference input, 
@@ -375,9 +376,9 @@ ADCtest_Bit_write	: node;
 ADCtest_CSB_trig	: DFFE;
 ADCtest_SDIO_trig	: DFFE;
 ADCtest_reg			: lpm_shiftreg with (lpm_width=50,
-						lpm_svalue = b"00000000000011010000110000000000001111111100000001",lpm_DIRECTION="left"); -- 
---									  "set	addr	 	data   set	addr		  data "
---									   3bit 13bit	 	8bit   3bit	13bit		  8bit
+					  lpm_svalue = b"01000000000011101010001100010000000000111100110000",lpm_DIRECTION="left"); -- 
+--									"set	addr		data	set		addr	 data "
+--									 2bit	14bit		8bit	2bit	14bit	 8bit
 
 TA12Channel[NUM_CH-1..0]			: Digitizer_TA6;
 DDR_InLVDS[NUM_CH-1..0][1..0]		: DDR_In;
@@ -391,10 +392,20 @@ TAWF_HistRAM				: WFTA_HistRAM;
 TAWF_RAM_cs					: node;
 TAWF_HistRAM_Cnt			: lpm_counter with (lpm_width = 11, lpm_direction="up");
 
-Compres						: DataSelect_V2;
+--Compres						: DataSelect_V2;
 
 -- External memory
 
+DataCnt				: lpm_counter with (lpm_width = 8, lpm_direction="up" ); -- 
+ChannelCnt			: lpm_counter with (lpm_width = 2, lpm_direction="up" ); -- 
+WriteEn				: SRFF;
+WriteDATA			: lpm_shiftreg with (lpm_width = 12, lpm_direction="unused");
+Write_ExtRamCt		: lpm_counter with (lpm_width = 16, lpm_direction="up" ); -- 
+StopWrite			: node;
+
+Read_time			: SRFF;
+DelayReadTime[1..0]	: DFF;
+Read_TimeCt			: lpm_counter with (lpm_width = 12, lpm_direction="up" ); -- 
 Read_Ram			: ReadRam;
 Read_ExtRamCt		: lpm_counter with (lpm_width = 16, lpm_direction="up" ); -- 
 Addr_Ram			: AddrRam;
@@ -406,6 +417,8 @@ ReadExtMem			: node;
 StopCnt				: node;
 
 Write_IntRamCt		: lpm_counter with (lpm_width = 12, lpm_direction="up" ); -- 
+
+Compres				: DataSelect_V2;
 
 --============================================================================
 --******** 7. Internal Bus of Project; "Bus Handler";
@@ -555,7 +568,7 @@ END IF;
 PLL.inclk0	= PLL_in;           -- ~25MHz from Link -> Input of PLL
 Clk25		= PLL.c0;           --  25MHz = (Fin x 1)    from PLL.c0
 Clk100		= GLOBAL(PLL.c1);   -- 100MHz = (Fin x 4)    from PLL.c1
-Clk50		= GLOBAL(PLL.c2);   -- 150MHz = (Fin x 2)    from PLL.c1
+Clk12_5		= GLOBAL(PLL.c2);   -- 150MHz = (Fin x 2)    from PLL.c1
 --Clk75		= GLOBAL(PLL.c4);   -- 75MHz = (Fin x 3)    from PLL.c1
 Clk300_adc	= GLOBAL(PLL.c4);
 PLL_ExtOut	= PLL.c3;           --  25MHz -> outside of Altera
@@ -1157,6 +1170,39 @@ Reg_BaseAddr.(load, aclr)   = (VCC, RESET);
 --	Im_ADCCt.cnt_en = GN;
 --	Im_RAMAddrBus[7..0] = AddrBus_In[7..0] + Im_ADCCt.q[7..0]; -- aunoaaeaiea aa?ana a 0 aey oaeouaai iaai?a FOR-ia
 %
+--ADC setup
+--============================================================================
+	-- Test mode
+	
+	ADC_Reset		= PwrUpReset;
+	
+	ADCtest_bit_count.sclr = PwrUpReset;
+	ADCtest_bit_count.(clock, cnt_en, clk_en) = (Clk12_5, ADCtest_Bit_write, VCC);
+	
+	IF ADCtest_bit_count.q[] < b"110100" Then ADCtest_Bit_write = VCC;
+										 Else ADCtest_Bit_write = GND;
+	END IF;
+	
+	ADCtest_reg.(clock,enable) = (Clk12_5, VCC);
+	--ADCreset_reg.(clock,enable) = (Clk12_5, VCC);
+	IF ((ADCtest_bit_count.q[] >= b"000001") AND (ADCtest_bit_count.q[] < b"110100")) Then ADCtest_reg.sset = GND;
+																						   ADC_SDATA[0] = ADCtest_SDIO_trig.q;
+																					  Else ADCtest_reg.sset = VCC;
+																						   ADC_SDATA[0] = GND;
+	END IF;
+	IF (((ADCtest_bit_count.q[] >= b"000001") AND (ADCtest_bit_count.q[] < b"011001")) OR ((ADCtest_bit_count.q[] >= b"011011") AND (ADCtest_bit_count.q[] < b"110011")))Then 
+		ADCtest_CSB_trig.d = GND;
+	ELSE 
+		ADCtest_CSB_trig.d = VCC;
+	END IF;
+	ADCtest_CSB_trig.clk = Clk12_5;
+	ADCtest_SDIO_trig.clk = Clk12_5;
+	ADCtest_SDIO_trig.d = ADCtest_reg.shiftout;
+	--ADCtest_SDIO_trig.d = ADCreset_reg.shiftout;
+
+	ADC_SEN[2..0] = ADCtest_CSB_trig.q;
+	ADC_SCLK = Clk12_5;
+
 --============================================================================
 
 FOR i IN 0 TO (NUM_CH-1) GENERATE
@@ -1305,99 +1351,47 @@ CASE ChannelCount_Eth.q[] IS
 
 END Case;
 
-Compres.(trigger, CLOCK_100) = (Test_in, clk100);
---Compres.(trigger, CLOCK_100) = (Link_IFace.LinkMessage, clk100);
-
 For i in 0 to 11 generate
 	Im_Ram[i].data[] = GND;
-	Im_Ram[i].(clock) = (clk100);
+	Im_Ram[i].(clock) = (Clk100);
 
-	Im_RamCt[i].clock = clk100;
+	Im_RamCt[i].clock = Clk100;
 	Im_RamCt[i].clk_en  = VCC;
 End generate;
 
---CASE Compres.buffer_EN[] IS
---	When b"0000" => TA12Channel[0].DAQAddrBus_Eth_In[7..0] = Compres.buffer_ADDR[7..0];
---					Compres.buffer_DATA[11..0] = TA12Channel[0].DAQDataBusOut_Eth[11..0];
---	When b"0001" => TA12Channel[1].DAQAddrBus_Eth_In[7..0] = Compres.buffer_ADDR[7..0];
---					Compres.buffer_DATA[11..0] = TA12Channel[1].DAQDataBusOut_Eth[11..0];
---	When b"0010" => TA12Channel[2].DAQAddrBus_Eth_In[7..0] = Compres.buffer_ADDR[7..0];
---					Compres.buffer_DATA[11..0] = TA12Channel[2].DAQDataBusOut_Eth[11..0];
---	When b"0011" => TA12Channel[3].DAQAddrBus_Eth_In[7..0] = Compres.buffer_ADDR[7..0];
---					Compres.buffer_DATA[11..0] = TA12Channel[3].DAQDataBusOut_Eth[11..0];
---	When b"0100" => TA12Channel[4].DAQAddrBus_Eth_In[7..0] = Compres.buffer_ADDR[7..0];
---					Compres.buffer_DATA[11..0] = TA12Channel[4].DAQDataBusOut_Eth[11..0];
---	When b"0101" => TA12Channel[5].DAQAddrBus_Eth_In[7..0] = Compres.buffer_ADDR[7..0];
---					Compres.buffer_DATA[11..0] = TA12Channel[5].DAQDataBusOut_Eth[11..0];
---	When b"0110" => TA12Channel[6].DAQAddrBus_Eth_In[7..0] = Compres.buffer_ADDR[7..0];
---					Compres.buffer_DATA[11..0] = TA12Channel[6].DAQDataBusOut_Eth[11..0];
---	When b"0111" => TA12Channel[7].DAQAddrBus_Eth_In[7..0] = Compres.buffer_ADDR[7..0];
---					Compres.buffer_DATA[11..0] = TA12Channel[7].DAQDataBusOut_Eth[11..0];
---	When b"1000" => TA12Channel[8].DAQAddrBus_Eth_In[7..0] = Compres.buffer_ADDR[7..0];
---					Compres.buffer_DATA[11..0] = TA12Channel[8].DAQDataBusOut_Eth[11..0];
---	When b"1001" => TA12Channel[9].DAQAddrBus_Eth_In[7..0] = Compres.buffer_ADDR[7..0];
---					Compres.buffer_DATA[11..0] = TA12Channel[9].DAQDataBusOut_Eth[11..0];
---	When b"1010" => TA12Channel[10].DAQAddrBus_Eth_In[7..0] = Compres.buffer_ADDR[7..0];
---					Compres.buffer_DATA[11..0] = TA12Channel[10].DAQDataBusOut_Eth[11..0];
---	When b"1011" => TA12Channel[11].DAQAddrBus_Eth_In[7..0] = Compres.buffer_ADDR[7..0];
---					Compres.buffer_DATA[11..0] = TA12Channel[11].DAQDataBusOut_Eth[11..0];
---	When others => 
---					FOR i IN 0 TO (NUM_CH-1) GENERATE 
---						TA12Channel[i].DAQAddrBus_Eth_In[7..0] = GND; 
---					end generate;
---					Compres.buffer_DATA[11..0] = GND;
---END Case;
+WriteEn.(S, clk, R) = (Test_in, Clk100, StopWrite);
+DataCnt.(clock, clk_en, cnt_en) = (Clk100, VCC, WriteEn.q);
 
-CASE Compres.buffer_EN[] IS
-	When b"0000" => Im_Ram[0].address[] = Compres.buffer_ADDR[7..0];
-					Compres.buffer_DATA[11..0] = Im_Ram[0].q[11..0];
+ChannelCnt.(clock, clk_en, cnt_en) = (Clk100, VCC, DataCnt.cout);
+
+If ((DataCnt.cout == VCC) and (ChannelCnt.q[] == b"11")) then StopWrite = VCC;
+														   else StopWrite = GND;
+End if;
+
+WriteDATA.(clock, enable, load) = (Clk100, VCC, VCC);
+
+Write_ExtRamCt.(clock, clk_en, cnt_en) = (Clk100, VCC, WriteEn.q);
+
+--Compres.(trigger, CLOCK_100) = (Test_in, Clk100); -- Iiniio?aou eeie aiaoiae iaiyoe ii aieoiaioo!!!
+
+CASE ChannelCnt.q[] IS
+	When b"00" =>	Im_Ram[0].address[] = DataCnt.q[];--Compres.buffer_ADDR[7..0];
+					WriteDATA.data[11..0] = Im_Ram[0].q[11..0];
 					Im_RamCt[0].cnt_en = VCC;
 					Im_RamCt[0].sclr = GND;
-	When b"0001" => Im_Ram[1].address[] = Compres.buffer_ADDR[7..0];
-					Compres.buffer_DATA[11..0] = Im_Ram[1].q[11..0];
+	When b"01" =>	Im_Ram[1].address[] = DataCnt.q[];--Compres.buffer_ADDR[7..0];
+					WriteDATA.data[11..0] = Im_Ram[1].q[11..0];
 					Im_RamCt[1].cnt_en = VCC;
 					Im_RamCt[1].sclr = GND;
-	When b"0010" => Im_Ram[2].address[] = Compres.buffer_ADDR[7..0];
-					Compres.buffer_DATA[11..0] = Im_Ram[2].q[11..0];
+	When b"10" =>	Im_Ram[2].address[] = DataCnt.q[];--Compres.buffer_ADDR[7..0];
+					WriteDATA.data[11..0] = Im_Ram[2].q[11..0];
 					Im_RamCt[2].cnt_en = VCC;
 					Im_RamCt[2].sclr = GND;
-	When b"0011" => Im_Ram[3].address[] = Compres.buffer_ADDR[7..0];
-					Compres.buffer_DATA[11..0] = Im_Ram[3].q[11..0];
+	When b"11" =>	Im_Ram[3].address[] = DataCnt.q[];--Compres.buffer_ADDR[7..0];
+					WriteDATA.data[11..0] = Im_Ram[3].q[11..0];
 					Im_RamCt[3].cnt_en = VCC;
 					Im_RamCt[3].sclr = GND;
-	When b"0100" => Im_Ram[4].address[] = Compres.buffer_ADDR[7..0];
-					Compres.buffer_DATA[11..0] = Im_Ram[4].q[11..0];
-					Im_RamCt[4].cnt_en = VCC;
-					Im_RamCt[4].sclr = GND;
-	When b"0101" => Im_Ram[5].address[] = Compres.buffer_ADDR[7..0];
-					Compres.buffer_DATA[11..0] = Im_Ram[5].q[11..0];
-					Im_RamCt[5].cnt_en = VCC;
-					Im_RamCt[5].sclr = GND;
-	When b"0110" => Im_Ram[6].address[] = Compres.buffer_ADDR[7..0];
-					Compres.buffer_DATA[11..0] = Im_Ram[6].q[11..0];
-					Im_RamCt[6].cnt_en = VCC;
-					Im_RamCt[6].sclr = GND;
-	When b"0111" => Im_Ram[7].address[] = Compres.buffer_ADDR[7..0];
-					Compres.buffer_DATA[11..0] = Im_Ram[7].q[11..0];
-					Im_RamCt[7].cnt_en = VCC;
-					Im_RamCt[7].sclr = GND;
-	When b"1000" => Im_Ram[8].address[] = Compres.buffer_ADDR[7..0];
-					Compres.buffer_DATA[11..0] = Im_Ram[8].q[11..0];
-					Im_RamCt[8].cnt_en = VCC;
-					Im_RamCt[8].sclr = GND;
-	When b"1001" => Im_Ram[9].address[] = Compres.buffer_ADDR[7..0];
-					Compres.buffer_DATA[11..0] = Im_Ram[9].q[11..0];
-					Im_RamCt[9].cnt_en = VCC;
-					Im_RamCt[9].sclr = GND;
-	When b"1010" => Im_Ram[10].address[] = Compres.buffer_ADDR[7..0];
-					Compres.buffer_DATA[11..0] = Im_Ram[10].q[11..0];
-					Im_RamCt[10].cnt_en = VCC;
-					Im_RamCt[10].sclr = GND;
-	When b"1011" => Im_Ram[11].address[] = Compres.buffer_ADDR[7..0];
-					Compres.buffer_DATA[11..0] = Im_Ram[11].q[11..0];
-					Im_RamCt[11].cnt_en = VCC;
-					Im_RamCt[11].sclr = GND;
-	When others => 	Im_RamCt[0].cnt_en = GND;
+	When others =>	Im_RamCt[0].cnt_en = GND;
 					Im_RamCt[0].sclr = VCC;
 					Im_RamCt[1].cnt_en = GND;
 					Im_RamCt[1].sclr = VCC;
@@ -1405,72 +1399,75 @@ CASE Compres.buffer_EN[] IS
 					Im_RamCt[2].sclr = VCC;
 					Im_RamCt[3].cnt_en = GND;
 					Im_RamCt[3].sclr = VCC;
-					Im_RamCt[4].cnt_en = GND;
-					Im_RamCt[4].sclr = VCC;
-					Im_RamCt[5].cnt_en = GND;
-					Im_RamCt[5].sclr = VCC;
-					Im_RamCt[6].cnt_en = GND;
-					Im_RamCt[6].sclr = VCC;
-					Im_RamCt[7].cnt_en = GND;
-					Im_RamCt[7].sclr = VCC;
-					Im_RamCt[8].cnt_en = GND;
-					Im_RamCt[8].sclr = VCC;
-					Im_RamCt[9].cnt_en = GND;
-					Im_RamCt[9].sclr = VCC;
-					Im_RamCt[10].cnt_en = GND;
-					Im_RamCt[10].sclr = VCC;
-					Im_RamCt[11].cnt_en = GND;
-					Im_RamCt[11].sclr = VCC;
-					Compres.buffer_DATA[11..0] = GND;
 END Case;
 
 Addr_Ram.clock = Clk100;
-Addr_Ram.(wren, wraddress[], data[15..0]) = ((DelayWorkTime0.q AND Compres.work_time), WrAddrCnt.q[], Compres.ram_ADDR[15..0]);
+Addr_Ram.(wren, wraddress[], data[15..0]) = ((DelayWorkTime0.q AND WriteEn.q), WrAddrCnt.q[], Write_ExtRamCt.q[15..0]);
 Addr_Ram.(rden, rdaddress[]) = ((DelayWorkTime1.q AND !DelayWorkTime0.q AND !ReadExtMem), ReadAddrCnt.q[]);
 
-WrAddrCnt.(clock, clk_en, cnt_en) = (Clk100, VCC, (DelayWorkTime0.q AND !Compres.work_time));
+WrAddrCnt.(clock, clk_en, cnt_en) = (Clk100, VCC, (DelayWorkTime0.q AND !WriteEn.q));
 ReadAddrCnt.(clock, clk_en, cnt_en) = (Clk100, VCC, (DelayWorkTime1.q AND !DelayWorkTime0.q AND !ReadExtMem));
 
 DelayWorkTime[1..0].(clk) = Clk100;
-DelayWorkTime0.d = Compres.work_time;
+DelayWorkTime0.d = WriteEn.q;
 DelayWorkTime1.d = DelayWorkTime0.q;
 
-If Compres.work_time == VCC Then 
-	ExtRAM_Addr[15..0]		= Compres.ram_ADDR[15..0];
-	ExtRAM_OutEn			= Compres.ram_OE_N;
-	ExtRAM_CEn				= Compres.ram_CE_N;
-	ExtRAM_WriteEn			= Compres.ram_WE_N;
-	ExtRAM_LowerByteControl	= Compres.ram_LB_N;
-	ExtRAM_UpByteControl	= Compres.ram_UB_N;
-							Else
+DelayReadTime[1..0].(clk) = Clk100;
+DelayReadTime0.d = !WriteEn;
+DelayReadTime1.d = DelayWorkTime0.q;
+
+Read_time.(S, clk, R) = ((!DelayWorkTime0.q AND DelayWorkTime1.q), Clk100, StopCnt);
+
+If	WriteEn.q == VCC Then 
+	ExtRAM_Addr[15..0]		= Write_ExtRamCt.q[15..0];
+	ExtRAM_OutEn			= GND;
+	ExtRAM_CEn				= GND;
+	ExtRAM_WriteEn			= GND;
+	ExtRAM_LowerByteControl	= GND;--Clk50;--
+	ExtRAM_UpByteControl	= GND;--Clk50;--
+Elsif Read_time.q == VCC Then 
 	ExtRAM_Addr[15..0]		= Read_ExtRamCt.q[];
 	ExtRAM_OutEn			= GND;
 	ExtRAM_CEn				= GND;
 	ExtRAM_WriteEn			= VCC;
-	ExtRAM_LowerByteControl	= GND;
-	ExtRAM_UpByteControl	= GND;
+	ExtRAM_LowerByteControl	= GND;--Clk50;--
+	ExtRAM_UpByteControl	= GND;--Clk50;--
+							Else
+	ExtRAM_OutEn			= VCC;
+	ExtRAM_CEn				= VCC;
+	ExtRAM_WriteEn			= VCC;
+	ExtRAM_LowerByteControl	= VCC;
+	ExtRAM_UpByteControl	= VCC;
 End IF;
 
-FOR i IN 0 TO 15 GENERATE 
-	ExtRAM_Data[i] = TRI(Compres.ram_DATA[i], Compres.work_time); 
-	Read_Ram.data[i]= ExtRAM_Data[i];
-END GENERATE;
+For i in 0 to 11 generate
+	ExtRAM_Data[i] = TRI (WriteDATA.q[i],WriteEn.q);
+End generate;
+For i in 12 to 13 generate
+	ExtRAM_Data[i] = TRI (ChannelCnt.q[i-12],WriteEn.q);
+End generate;
+For i in 14 to 15 generate
+	ExtRAM_Data[i] = TRI (GND,WriteEn.q);
+End generate;
+
+Read_Ram.data[15..0]	= ExtRAM_Data[15..0];
 
 Read_ExtRamCt.clock = Clk100;
+--Read_ExtRamCt.sload = (Compres.ram_ADDR[15..0] - 936);
 Read_ExtRamCt.clk_en  = VCC;
-Read_ExtRamCt.cnt_en = StopCnt;
---Read_ExtRamCt.sclr = Compres.work_time;
+Read_ExtRamCt.cnt_en = Read_time.q;
+--Read_ExtRamCt.sclr = StopCnt;
 
-IF (Read_ExtRamCt.q[] == Addr_Ram.q[]) Then StopCnt = VCC;
-									   Else StopCnt = GND;
+IF (Read_ExtRamCt.q[] == Addr_Ram.q[15..0]) Then StopCnt = VCC;
+											Else StopCnt = GND;
 END IF;
 
-Read_Ram.(address[], wren, clock) = (Write_IntRamCt.q[], !(DelayWorkTime1.q AND DelayWorkTime0.q) AND !ReadExtMem, Clk100);
+Read_Ram.(address[], wren, clock) = (Write_IntRamCt.q[], Read_time.q, Clk100);
 
 Write_IntRamCt.clock = Clk100;
 Write_IntRamCt.clk_en  = VCC;
-Write_IntRamCt.cnt_en = !(Compres.work_time AND Read_ExtRamCt.cout);
-Write_IntRamCt.sclr = Compres.work_time;
+Write_IntRamCt.cnt_en = !(WriteEn.q AND Read_ExtRamCt.cout);
+Write_IntRamCt.sclr = WriteEn.q;
 
 --============================================================================
 --******** 7. Fust LINK's Interface *******************************************
@@ -1848,15 +1845,24 @@ TestCt.aclr				= !PowerUp0;    -- even if NO clock - Reset does occur
 TestRAM.(address[7..0], data[],    clock,    wren                     ) =
         (AddrBus[7..0], DataBus[], Clk100,(DataStrobe & DevSel[15] & RW)); 
 
-Test1	= PLL_res;																-- pin 231
-Test2	= FQuartz;																-- pin 232
-Test3	= Test_in;																-- pin 233
-Test4	= Compres.work_time;													-- pin 234
-Test5	= ExtRAM_Data[0];--SelCommdList_Trig3.q;																		-- pin 235
-Test6	= ExtRAM_Data[1];--TA12Channel[3].test5;																	-- pin 236
-Test7	= ExtRAM_Data[2];--AddrSettled;																			-- pin 237
-Test8	= NWordFLink[0];--TA12Channel[3].test1;																	-- pin 146
-Test9	= TA12Channel[3].test2;				--FLink_Data_BUS.q[3];--DataStrobe;			--Digitizer1.Test1;		-- pin 147
-Test10	= TA12Channel[3].test3;				--FLink_Data_BUS.q[4];--DataBus[0];			--Digitizer1.Working;	-- pin 148
+--Test1	= PLL_res;																-- pin 231
+--Test2	= FQuartz;																-- pin 232
+--Test3	= Test_in;																-- pin 233
+--Test4	= Compres.work_time;													-- pin 234
+--Test5	= ExtRAM_Data[0];--SelCommdList_Trig3.q;																		-- pin 235
+--Test6	= ExtRAM_Data[1];--TA12Channel[3].test5;																	-- pin 236
+--Test7	= ExtRAM_Data[2];--AddrSettled;																			-- pin 237
+--Test8	= NWordFLink[0];--TA12Channel[3].test1;																	-- pin 146
+--Test9	= TA12Channel[3].test2;				--FLink_Data_BUS.q[3];--DataStrobe;			--Digitizer1.Test1;		-- pin 147
+--Test10	= TA12Channel[3].test3;				--FLink_Data_BUS.q[4];--DataBus[0];			--Digitizer1.Working;	-- pin 148
+Test[2] = ExtRAM_OutEn;
+Test[3] = ExtRAM_CEn;
+Test[4] = ExtRAM_WriteEn;
+Test[5] = ExtRAM_LowerByteControl;
+Test[6] = ExtRAM_Addr[1];
+Test[7] = Compres.work_time;
+Test[8] = DelayWorkTime0.q;
+Test[9] = DelayWorkTime1.q;
+Test[10] = Read_time.q;
 
 END;

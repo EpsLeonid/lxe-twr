@@ -89,6 +89,13 @@ Error			: node;
 Im_Ram[11..0]		: ImRam;
 Im_RamCt[11..0]		: lpm_counter with (lpm_width = 8, lpm_direction="up" ); -- 
 
+DataCnt				: lpm_counter with (lpm_width = 8, lpm_direction="up" ); -- 
+ChannelCnt			: lpm_counter with (lpm_width = 2, lpm_direction="up" ); -- 
+WriteEn				: SRFF;
+WriteDATA			: lpm_shiftreg with (lpm_width = 12, lpm_direction="unused");
+Write_ExtRamCt		: lpm_counter with (lpm_width = 16, lpm_direction="up" ); -- 
+StopWrite			: node;
+
 Read_time			: SRFF;
 DelayReadTime[1..0]	: DFF;
 Read_TimeCt			: lpm_counter with (lpm_width = 12, lpm_direction="up" ); -- 
@@ -230,57 +237,70 @@ For i in 0 to 11 generate
 	Im_RamCt[i].clk_en  = VCC;
 End generate;
 
-Compres.(trigger, CLOCK_100) = (Test_in, Clk100); -- ѕосмотреть клок внешней пам€ти по документу!!!
+WriteEn.(S, clk, R) = (Test_in, Clk100, StopWrite);
+DataCnt.(clock, clk_en, cnt_en) = (Clk100, VCC, WriteEn.q);
 
-CASE Compres.buffer_EN[] IS
-	When b"0000" => Im_Ram[0].address[] = Compres.buffer_ADDR[7..0];
-					Compres.buffer_DATA[11..0] = Im_Ram[0].q[11..0];
+ChannelCnt.(clock, clk_en, cnt_en) = (Clk100, VCC, DataCnt.cout);
+
+If ((DataCnt.cout == VCC) and (ChannelCnt.q[] == b"11")) then StopWrite = VCC;
+														   else StopWrite = GND;
+End if;
+
+WriteDATA.(clock, enable, load) = (Clk100, VCC, VCC);
+
+Write_ExtRamCt.(clock, clk_en, cnt_en) = (Clk100, VCC, WriteEn.q);
+
+--Compres.(trigger, CLOCK_100) = (Test_in, Clk100); -- ѕосмотреть клок внешней пам€ти по документу!!!
+
+CASE ChannelCnt.q[] IS
+	When b"00" => Im_Ram[0].address[] = DataCnt.q[];--Compres.buffer_ADDR[7..0];
+					WriteDATA.data[11..0] = Im_Ram[0].q[11..0];
 					Im_RamCt[0].cnt_en = VCC;
 					Im_RamCt[0].sclr = GND;
-	When b"0001" => Im_Ram[1].address[] = Compres.buffer_ADDR[7..0];
-					Compres.buffer_DATA[11..0] = Im_Ram[1].q[11..0];
+	When b"01" => Im_Ram[1].address[] = DataCnt.q[];--Compres.buffer_ADDR[7..0];
+					WriteDATA.data[11..0] = Im_Ram[1].q[11..0];
 					Im_RamCt[1].cnt_en = VCC;
 					Im_RamCt[1].sclr = GND;
-	When b"0010" => Im_Ram[2].address[] = Compres.buffer_ADDR[7..0];
-					Compres.buffer_DATA[11..0] = Im_Ram[2].q[11..0];
+	When b"10" => Im_Ram[2].address[] = DataCnt.q[];--Compres.buffer_ADDR[7..0];
+					WriteDATA.data[11..0] = Im_Ram[2].q[11..0];
 					Im_RamCt[2].cnt_en = VCC;
 					Im_RamCt[2].sclr = GND;
-	When b"0011" => Im_Ram[3].address[] = Compres.buffer_ADDR[7..0];
-					Compres.buffer_DATA[11..0] = Im_Ram[3].q[11..0];
+	When b"11" => Im_Ram[3].address[] = DataCnt.q[];--Compres.buffer_ADDR[7..0];
+					WriteDATA.data[11..0] = Im_Ram[3].q[11..0];
 					Im_RamCt[3].cnt_en = VCC;
 					Im_RamCt[3].sclr = GND;
-	When b"0100" => Im_Ram[4].address[] = Compres.buffer_ADDR[7..0];
-					Compres.buffer_DATA[11..0] = Im_Ram[4].q[11..0];
-					Im_RamCt[4].cnt_en = VCC;
-					Im_RamCt[4].sclr = GND;
-	When b"0101" => Im_Ram[5].address[] = Compres.buffer_ADDR[7..0];
-					Compres.buffer_DATA[11..0] = Im_Ram[5].q[11..0];
-					Im_RamCt[5].cnt_en = VCC;
-					Im_RamCt[5].sclr = GND;
-	When b"0110" => Im_Ram[6].address[] = Compres.buffer_ADDR[7..0];
-					Compres.buffer_DATA[11..0] = Im_Ram[6].q[11..0];
-					Im_RamCt[6].cnt_en = VCC;
-					Im_RamCt[6].sclr = GND;
-	When b"0111" => Im_Ram[7].address[] = Compres.buffer_ADDR[7..0];
-					Compres.buffer_DATA[11..0] = Im_Ram[7].q[11..0];
-					Im_RamCt[7].cnt_en = VCC;
-					Im_RamCt[7].sclr = GND;
-	When b"1000" => Im_Ram[8].address[] = Compres.buffer_ADDR[7..0];
-					Compres.buffer_DATA[11..0] = Im_Ram[8].q[11..0];
-					Im_RamCt[8].cnt_en = VCC;
-					Im_RamCt[8].sclr = GND;
-	When b"1001" => Im_Ram[9].address[] = Compres.buffer_ADDR[7..0];
-					Compres.buffer_DATA[11..0] = Im_Ram[9].q[11..0];
-					Im_RamCt[9].cnt_en = VCC;
-					Im_RamCt[9].sclr = GND;
-	When b"1010" => Im_Ram[10].address[] = Compres.buffer_ADDR[7..0];
-					Compres.buffer_DATA[11..0] = Im_Ram[10].q[11..0];
-					Im_RamCt[10].cnt_en = VCC;
-					Im_RamCt[10].sclr = GND;
-	When b"1011" => Im_Ram[11].address[] = Compres.buffer_ADDR[7..0];
-					Compres.buffer_DATA[11..0] = Im_Ram[11].q[11..0];
-					Im_RamCt[11].cnt_en = VCC;
-					Im_RamCt[11].sclr = GND;
+--	When b"0100" => Im_Ram[4].address[] = DataCnt.q[];--Compres.buffer_ADDR[7..0];
+--					WriteDATA.data[11..0] = Im_Ram[4].q[11..0];
+--					Im_RamCt[4].cnt_en = VCC;
+--					Im_RamCt[4].sclr = GND;
+--	When b"0101" => Im_Ram[5].address[] = DataCnt.q[];--Compres.buffer_ADDR[7..0];
+--					WriteDATA.data[11..0] = Im_Ram[5].q[11..0];
+--					Im_RamCt[5].cnt_en = VCC;
+--					Im_RamCt[5].sclr = GND;
+--	When b"0110" => Im_Ram[6].address[] = DataCnt.q[];--Compres.buffer_ADDR[7..0];
+--					WriteDATA.data[11..0] = Im_Ram[6].q[11..0];
+--					Im_RamCt[6].cnt_en = VCC;
+--					Im_RamCt[6].sclr = GND;
+--	When b"0111" => Im_Ram[7].address[] = DataCnt.q[];--Compres.buffer_ADDR[7..0];
+--					WriteDATA.data[11..0] = Im_Ram[7].q[11..0];
+--					Im_RamCt[7].cnt_en = VCC;
+--					Im_RamCt[7].sclr = GND;
+--	When b"1000" => Im_Ram[8].address[] = DataCnt.q[];--Compres.buffer_ADDR[7..0];
+--					WriteDATA.data[11..0] = Im_Ram[8].q[11..0];
+--					Im_RamCt[8].cnt_en = VCC;
+--					Im_RamCt[8].sclr = GND;
+--	When b"1001" => Im_Ram[9].address[] = DataCnt.q[];--Compres.buffer_ADDR[7..0];
+--					WriteDATA.data[11..0] = Im_Ram[9].q[11..0];
+--					Im_RamCt[9].cnt_en = VCC;
+--					Im_RamCt[9].sclr = GND;
+--	When b"1010" => Im_Ram[10].address[] = DataCnt.q[];--Compres.buffer_ADDR[7..0];
+--					WriteDATA.data[11..0] = GND;--Im_Ram[10].q[11..0];
+--					Im_RamCt[10].cnt_en = VCC;
+--					Im_RamCt[10].sclr = GND;
+--	When b"1011" => Im_Ram[11].address[] = DataCnt.q[];--Compres.buffer_ADDR[7..0];
+--					WriteDATA.data[11..0] = Im_Ram[11].q[11..0];
+--					Im_RamCt[11].cnt_en = VCC;
+--					Im_RamCt[11].sclr = GND;
 	When others => 	Im_RamCt[0].cnt_en = GND;
 					Im_RamCt[0].sclr = VCC;
 					Im_RamCt[1].cnt_en = GND;
@@ -289,49 +309,48 @@ CASE Compres.buffer_EN[] IS
 					Im_RamCt[2].sclr = VCC;
 					Im_RamCt[3].cnt_en = GND;
 					Im_RamCt[3].sclr = VCC;
-					Im_RamCt[4].cnt_en = GND;
-					Im_RamCt[4].sclr = VCC;
-					Im_RamCt[5].cnt_en = GND;
-					Im_RamCt[5].sclr = VCC;
-					Im_RamCt[6].cnt_en = GND;
-					Im_RamCt[6].sclr = VCC;
-					Im_RamCt[7].cnt_en = GND;
-					Im_RamCt[7].sclr = VCC;
-					Im_RamCt[8].cnt_en = GND;
-					Im_RamCt[8].sclr = VCC;
-					Im_RamCt[9].cnt_en = GND;
-					Im_RamCt[9].sclr = VCC;
-					Im_RamCt[10].cnt_en = GND;
-					Im_RamCt[10].sclr = VCC;
-					Im_RamCt[11].cnt_en = GND;
-					Im_RamCt[11].sclr = VCC;
-					Compres.buffer_DATA[11..0] = GND;
+--					Im_RamCt[4].cnt_en = GND;
+--					Im_RamCt[4].sclr = VCC;
+--					Im_RamCt[5].cnt_en = GND;
+--					Im_RamCt[5].sclr = VCC;
+--					Im_RamCt[6].cnt_en = GND;
+--					Im_RamCt[6].sclr = VCC;
+--					Im_RamCt[7].cnt_en = GND;
+--					Im_RamCt[7].sclr = VCC;
+--					Im_RamCt[8].cnt_en = GND;
+--					Im_RamCt[8].sclr = VCC;
+--					Im_RamCt[9].cnt_en = GND;
+--					Im_RamCt[9].sclr = VCC;
+--					Im_RamCt[10].cnt_en = GND;
+--					Im_RamCt[10].sclr = VCC;
+--					Im_RamCt[11].cnt_en = GND;
+--					Im_RamCt[11].sclr = VCC;
 END Case;
 
 Addr_Ram.clock = Clk100;
-Addr_Ram.(wren, wraddress[], data[15..0]) = ((DelayWorkTime0.q AND Compres.work_time), WrAddrCnt.q[], Compres.ram_ADDR[15..0]);
+Addr_Ram.(wren, wraddress[], data[15..0]) = ((DelayWorkTime0.q AND WriteEn.q), WrAddrCnt.q[], Write_ExtRamCt.q[15..0]);
 Addr_Ram.(rden, rdaddress[]) = ((DelayWorkTime1.q AND !DelayWorkTime0.q AND !ReadExtMem), ReadAddrCnt.q[]);
 
-WrAddrCnt.(clock, clk_en, cnt_en) = (Clk100, VCC, (DelayWorkTime0.q AND !Compres.work_time));
+WrAddrCnt.(clock, clk_en, cnt_en) = (Clk100, VCC, (DelayWorkTime0.q AND !WriteEn.q));
 ReadAddrCnt.(clock, clk_en, cnt_en) = (Clk100, VCC, (DelayWorkTime1.q AND !DelayWorkTime0.q AND !ReadExtMem));
 
 DelayWorkTime[1..0].(clk) = Clk100;
-DelayWorkTime0.d = Compres.work_time;
+DelayWorkTime0.d = WriteEn.q;
 DelayWorkTime1.d = DelayWorkTime0.q;
 
 DelayReadTime[1..0].(clk) = Clk100;
-DelayReadTime0.d = !Compres.work_time;
+DelayReadTime0.d = !WriteEn;
 DelayReadTime1.d = DelayWorkTime0.q;
 
 Read_time.(S, clk, R) = ((!DelayWorkTime0.q AND DelayWorkTime1.q), Clk100, StopCnt);
 
-If	Compres.work_time == VCC Then 
-	ExtRAM_Addr[15..0]		= Compres.ram_ADDR[15..0];
-	ExtRAM_OutEn			= Compres.ram_OE_N;
-	ExtRAM_CEn				= Compres.ram_CE_N;
-	ExtRAM_WriteEn			= Compres.ram_WE_N;
-	ExtRAM_LowerByteControl	= Compres.ram_LB_N;--Clk50;--
-	ExtRAM_UpByteControl	= Compres.ram_UB_N;--Clk50;--
+If	WriteEn.q == VCC Then 
+	ExtRAM_Addr[15..0]		= Write_ExtRamCt.q[15..0];
+	ExtRAM_OutEn			= GND;
+	ExtRAM_CEn				= GND;
+	ExtRAM_WriteEn			= GND;
+	ExtRAM_LowerByteControl	= GND;--Clk50;--
+	ExtRAM_UpByteControl	= GND;--Clk50;--
 Elsif Read_time.q == VCC Then 
 	ExtRAM_Addr[15..0]		= Read_ExtRamCt.q[];
 	ExtRAM_OutEn			= GND;
@@ -347,8 +366,14 @@ Elsif Read_time.q == VCC Then
 	ExtRAM_UpByteControl	= VCC;
 End IF;
 
-For i in 0 to 15 generate
-	ExtRAM_Data[i] = TRI (Compres.ram_DATA[i],Compres.work_time);
+For i in 0 to 11 generate
+	ExtRAM_Data[i] = TRI (WriteDATA.q[i],WriteEn.q);
+End generate;
+For i in 12 to 13 generate
+	ExtRAM_Data[i] = TRI (ChannelCnt.q[i-12],WriteEn.q);
+End generate;
+For i in 14 to 15 generate
+	ExtRAM_Data[i] = TRI (GND,WriteEn.q);
 End generate;
 
 Read_Ram.data[15..0]	= ExtRAM_Data[15..0];
@@ -360,15 +385,15 @@ Read_ExtRamCt.cnt_en = Read_time.q;
 --Read_ExtRamCt.sclr = StopCnt;
 
 IF (Read_ExtRamCt.q[] == Addr_Ram.q[15..0]) Then StopCnt = VCC;
-							   Else StopCnt = GND;
+											Else StopCnt = GND;
 END IF;
 
 Read_Ram.(address[], wren, clock) = (Write_IntRamCt.q[], Read_time.q, Clk100);
 
 Write_IntRamCt.clock = Clk100;
 Write_IntRamCt.clk_en  = VCC;
-Write_IntRamCt.cnt_en = !(Compres.work_time AND Read_ExtRamCt.cout);
-Write_IntRamCt.sclr = Compres.work_time;
+Write_IntRamCt.cnt_en = !(WriteEn.q AND Read_ExtRamCt.cout);
+Write_IntRamCt.sclr = WriteEn.q;
 
 --============================================================================
 -- ******** 5. Testing circuitry *********************************************
