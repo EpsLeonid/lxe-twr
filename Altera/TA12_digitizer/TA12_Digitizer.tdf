@@ -1416,8 +1416,6 @@ DelayReadTime[1..0].(clk) = Clk100;
 DelayReadTime0.d = !WriteEn;
 DelayReadTime1.d = DelayWorkTime0.q;
 
-Read_time.(S, clk, R) = ((!DelayWorkTime0.q AND DelayWorkTime1.q), Clk100, StopCnt);
-
 If	WriteEn.q == VCC Then 
 	ExtRAM_Addr[15..0]		= Write_ExtRamCt.q[15..0];
 	ExtRAM_OutEn			= GND;
@@ -1425,7 +1423,7 @@ If	WriteEn.q == VCC Then
 	ExtRAM_WriteEn			= GND;
 	ExtRAM_LowerByteControl	= GND;--Clk50;--
 	ExtRAM_UpByteControl	= GND;--Clk50;--
-Elsif Read_time.q == VCC Then 
+Elsif ((Read_time.q == VCC) and (EtherLinkMessage.q == GND)) Then 
 	ExtRAM_Addr[15..0]		= Read_ExtRamCt.q[];
 	ExtRAM_OutEn			= GND;
 	ExtRAM_CEn				= GND;
@@ -1450,19 +1448,18 @@ For i in 14 to 15 generate
 	ExtRAM_Data[i] = TRI (GND,WriteEn.q);
 End generate;
 
+Read_time.(S, clk, R) = ((!DelayWorkTime0.q AND DelayWorkTime1.q), Clk100, StopCnt);
+
 Read_Ram.data[15..0]	= ExtRAM_Data[15..0];
+Read_Ram.(address[], wren, clock) = (Write_IntRamCt.q[], Read_time.q, Clk100);
 
 Read_ExtRamCt.clock = Clk100;
---Read_ExtRamCt.sload = (Compres.ram_ADDR[15..0] - 936);
 Read_ExtRamCt.clk_en  = VCC;
 Read_ExtRamCt.cnt_en = Read_time.q;
---Read_ExtRamCt.sclr = StopCnt;
 
 IF (Read_ExtRamCt.q[] == Addr_Ram.q[15..0]) Then StopCnt = VCC;
 											Else StopCnt = GND;
 END IF;
-
-Read_Ram.(address[], wren, clock) = (Write_IntRamCt.q[], Read_time.q, Clk100);
 
 Write_IntRamCt.clock = Clk100;
 Write_IntRamCt.clk_en  = VCC;
