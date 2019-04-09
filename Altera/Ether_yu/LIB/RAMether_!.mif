@@ -1,0 +1,148 @@
+-- Copyright (C) 1991-2010 Altera Corporation
+-- Your use of Altera Corporation's design tools, logic functions 
+-- and other software and tools, and its AMPP partner logic 
+-- functions, and any output files from any of the foregoing 
+-- (including device programming or simulation files), and any 
+-- associated documentation or information are expressly subject 
+-- to the terms and conditions of the Altera Program License 
+-- Subscription Agreement, Altera MegaCore Function License 
+-- Agreement, or other applicable license agreement, including, 
+-- without limitation, that your use is for the sole purpose of 
+-- programming logic devices manufactured by Altera and sold by 
+-- Altera or its authorized distributors.  Please refer to the 
+-- applicable agreement for further details.
+
+-- Quartus II generated Memory Initialization File (.mif)
+
+WIDTH=16;
+DEPTH=256;
+
+--ADDRESS_RADIX=UNS;
+--DATA_RADIX=UNS;
+ADDRESS_RADIX = Dec;
+DATA_RADIX    = Bin;
+
+CONTENT  BEGIN
+
+ 00         : 0110011000000000; -- 100 + N_firmware
+ 01         : 0000000000000001; -- 
+ 02         : 0000000000000010; -- 
+ 03         : 0000000000000100; -- 
+ 04         : 0000000000001000; -- 
+ 05         : 0000000000000000; -- 
+ 06         : 0000000000000000; -- Protocol Code
+ 07         : 0000000000000000; -- unused
+
+--********  Region allocated for ARP-packets
+ 08         : 0000000000000000; -- 
+ 09         : 0000000000000000; -- Protocol_Code within ARP-packet
+ 10         : 0000000000000000; -- 
+ 11         : 0000000000000010; -- ARP-OpCode to be transmitted
+
+--"SourceAddr" (MAC + IP) to be transmitted (ThisDevice' address) :
+ 12         : 0000010101010101; --\ 0555
+ 13         : 0101010101010101; -- >5555  ThisDevice' MAC
+ 14         : 0101010111001111; --/ 55CF
+ 15         : 1100000010101000; --\_192.168.      \_ThisDevice'
+ 16         : 0100000000001010; --/         64.10 /   IP-address
+
+--"DestinAddr" (MAC + IP) to be transmitted (Computer' address) :
+[ 17.. 19]  : 0000000000000000; -- Computer's MAC
+ 20         : 1100000010101000; --\_192.168.      \_Comp's default 
+ 21         : 0000000000000000; --/         00.00 /   IP-address
+
+[ 22.. 31]  : 0000000000000000; -- region to store the (empty) part of ARP
+
+--********  Region allocated for UDP-packets
+ 32         : 0100010100000000; -- H"4500"
+ 33         : 0000000000101110; -- H"002E"=46  Length of DBlck =46B (Frame is 64B, MIN)
+ 34         : 1111000000111100; -- H"F03C"     Number of UDP-packet (default, for Test)
+ 35         : 0100000000000000; -- H"4000"
+ 36         : 1000000000010001; -- H"8011"  ?? | Type="UDP"
+ 37         : 0000000000000000; --   IP-header' CRC
+ 38         : 1100000010101000; --\_192.168.      ThisDevice' IP
+ 39         : 0100000000001010; --/         64.10 
+ 40         : 1010101110111010; -- H"ABBA"  "UDP-SourPort" (of ThisDevice)
+ 41         : 0000000000000000; -- H"****"  "UDP-DestPort" (of Computer)
+ 42         : 0000000000011010; -- H"001A"=26  Length of UDP-packet (Frame is 64B, MIN)
+ 43         : 0000000000000000; --   UDP-header' CRC
+[ 44..47]   : 0000000000000000; -- reserved
+
+[ 48.. 61]  : 0000000000000000; -- 
+
+--********  TEST data (can be overwritten during operation)
+ 62         : 0000000000000001; -- 
+ 63         : 0000000000000010; -- 
+ 64         : 0000000000000100; -- 
+ 65         : 0000000000001000; -- 
+ 66         : 0000000000010000; -- 
+ 67         : 0000000000100000; -- 
+ 68         : 0000000001000000; -- 
+ 69         : 0000000010000000; -- 
+ 70         : 0000000100000000; -- 
+ 71         : 0000001000000000; -- 
+ 72         : 0000010000000000; -- 
+ 73         : 0000100000000000; -- 
+ 74         : 0001000000000000; -- 
+ 75         : 0010000000000000; -- 
+ 76         : 0100000000000000; -- 
+ 77         : 1000000000000000; -- 
+
+ 78         : 0000000111100110; -- 1000
+ 79         : 0000000000000001; --    1
+ 80         : 0000000000000010; --    2
+ 81         : 0000000000000011; --    3
+ 82         : 0000000000000100; --    4
+ 83         : 0000000000000101; --    5
+ 84         : 0000000000000110; --    6
+ 85         : 0000000000000111; --    7
+ 86         : 0000000000001000; --    8
+ 87         : 0000000000001001; --    9
+ 88         : 0000000000001010; --   10
+ 89         : 0000000000001011; --   11
+ 90         : 0000000000001100; --   12
+ 91         : 0000000000001101; --   13
+ 92         : 0000000000001110; --   14
+ 93         : 0000000000001111; --   15
+[ 94..127]  : 0000000000000000; -- 
+
+--********  TEST data (can be overwritten during operation)
+128         : 0000000001100110; -- LSByte = ( 100 + N_firmware )
+129         : 0000000000000000; -- 
+130         : 0000000000000001; -- 
+131         : 0000000000000010; -- 
+132         : 0000000000000100; -- 
+133         : 0000000000001000; -- 
+134         : 0000000000010000; -- 
+135         : 0000000000100000; -- 
+136         : 0000000001000000; -- 
+137         : 0000000010000000; -- 
+138         : 0000000100000000; -- 
+139         : 0000001000000000; -- 
+140         : 0000010000000000; -- 
+141         : 0000100000000000; -- 
+142         : 0001000000000000; -- 
+143         : 0010000000000000; -- 
+144         : 0100000000000000; -- 
+145         : 1000000000000000; -- 
+
+146         : 0000000111100110; -- 1000
+147         : 0000000000000001; --    1
+148         : 0000000000000010; --    2
+149         : 0000000000000011; --    3
+150         : 0000000000000100; --    4
+151         : 0000000000000101; --    5
+152         : 0000000000000110; --    6
+153         : 0000000000000111; --    7
+154         : 0000000000001000; --    8
+155         : 0000000000001001; --    9
+156         : 0000000000001010; --   10
+157         : 0000000000001011; --   11
+158         : 0000000000001100; --   22
+159         : 0000000000001101; --   13
+160         : 0000000000001110; --   14
+161         : 0000000000001111; --   15
+
+[162..255]  : 0000000000000000; --
+
+END;

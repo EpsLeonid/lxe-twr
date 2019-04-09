@@ -1,0 +1,2345 @@
+Title "IFLT for LXe-Towers";
+-- v1.0  : The project of First-Level Trigger Interface module for LXe-calorimeter. 
+-- v.4d  : With ETHERNET_4b module, this Project supports ARP-request / ARP-reply, 
+--           and is capable of receiving UDP-packets and sending them back. 
+-- v.4g  : With ETHERNET_4d module, this Project provides full support of UDP-protocol 
+--           (incl. ARP-request/ARP-reply) => this Project provides FULL COMPATIBILITY 
+--           with any standard hardware/software. 
+-- v.4i : With ETHERNET_4f module, this Project provides full support of UDP-protocol 
+--           (incl. ARP-request/ARP-reply), and =guaranteed= synchronization of signals 
+--           aligned to all clocks (RxClk, TxClk and Clock100) is provided. 
+
+INCLUDE "lpm_shiftreg.inc" ;
+INCLUDE "lpm_counter.inc" ;
+INCLUDE "lpm_add_sub.inc" ;
+INCLUDE "lpm_ff.inc";
+
+INCLUDE "EdgeSensing.inc" ;
+INCLUDE "LevelSensing.inc" ;
+INCLUDE "DelayLine.inc" ;
+INCLUDE "PulseShaper.inc" ;
+INCLUDE "LightPulser.inc";
+
+INCLUDE "PLL_IPT.inc";
+INCLUDE "PhaseSwitch.inc";
+INCLUDE "UpLink.inc";
+INCLUDE "CAMAC.inc" ;
+INCLUDE "ETHERNET.inc";
+--INCLUDE "Loader.inc";
+--INCLUDE "PROCESSOR.inc" ;
+INCLUDE "PROCESSOR2m.inc" ;
+INCLUDE "RAMmain.inc" ;     -- MainRAM - general purpose RAM
+INCLUDE "RAMcommd.inc" ;    -- CommandList RAM
+--INCLUDE "TestRAM_main.inc";
+INCLUDE "EtherRAM2P.inc";     -- ^^ replaced with 2-port RAM (temporarily ?)
+INCLUDE "Arbiter.inc" ;
+
+INCLUDE "TAData_processing.inc";
+INCLUDE "ErrorCounters.inc";
+
+--============================================================================
+-- Map of Objects' addresses in IFLT-LXe Module
+
+Constant MainRAM_Offset     = H"0300";	-- main RAM block, 256words * 16bits
+Constant MainRAM_Size       = 256;		-- #768..#1023
+Constant EtherRAM_Offset    = H"2000" ; -- #8192
+Constant EtherRAM_Size      = 256;
+Constant ProgRAM_Offset 	= H"0400";	-- Program RAM block, 256words * 16bits
+Constant ProgRAM_Size		= 256;		-- #1024..#1279
+Constant CommdList_Offset	= H"0C00";	-- #3072  RAM block containing the Command Lists
+Constant CommdList_Size		= 1024;		-- #3072..#4095
+
+--Constant ThisDeviceAddr     = H"666666008CEF"; 
+Constant ThisDeviceAddr     = H"0555555555CF"; 
+Constant ThisDeviceIPAddr   = H"C0A8400A";  -- 192.168. 64. 10
+Constant ARP_InitAddr       =  8;       -- 8=8192=8200 BaseAddr for storing ARP-packets in EtherRAM
+Constant ARP_InitAd_plus07  = ARP_InitAddr + 7;
+Constant ARP_InitAd_plus09  = ARP_InitAddr + 9;
+Constant ARP_InitAd_plus12  = ARP_InitAddr +12; -- used in UDP-packet transmission cycle
+Constant ARP_InitAd_plus14  = ARP_InitAddr +14;
+Constant ARP_InitAd_plus16  = ARP_InitAddr +16;
+Constant ARP_InitAd_plus23  = ARP_InitAddr +23;
+Constant UDP_InitAddr       = 48;       --48=8192=8240 BaseAddr for storing UDP-packets in EtherRAM
+Constant UDP_InitAd_plus01  = UDP_InitAddr + 1;
+Constant UDP_InitAd_plus02  = UDP_InitAddr + 2;
+Constant UDP_InitAd_plus12  = UDP_InitAddr +12;
+Constant UDP_InitAd_plus13  = UDP_InitAddr +13;
+Constant UDP_InitAd_plus14  = UDP_InitAddr +14; -- used in UDP-packet transmission cycle
+
+Constant Link_IFace_Offset  = 2048+32;  -- #2080=H"0820" - Link's InData_Port
+                                        -- #2081=H"0821" - Link's Data_Port
+Constant OpCode_offset      = 2048+34;  -- #2082=H"0822" - OpCode (read-only register)
+Constant SelCommdList		= H"0BB8";	-- #3000 - Select the CommandList (read-only register)
+
+--Constant CtrlStat_offset    = 2048;     -- #2048 "Control-Status Reg", composed of named Triggers
+--Constant BaseAddr_offset    = H"0801";  -- #2049  Base Address of Program to be started
+--Constant UDPlength_Offset   = H"0804";  -- #2052  Length of UDP Data block
+--Constant UDP_PkNum_Offset   = H"0805";  -- #2053  Number of UDP-packet transmitted
+--Constant EthPause_Offset    = H"0806";  -- #2054  Value of Ethernet' PAUSE (in 10ns units)
+--Constant EthOpCode_Offset   = 2048+ 7;  -- #2055=H"0807" - EthOpCode (read-only register)
+Constant Servo_offset   = 2048   ;  --\(#2048..#2055) addresses of servo Regs and Cnts :
+Constant Servo_size     =       8;  --/ CtrStat-"reg"(#2048), Reg_BaseAddr(#2049), etc.
+
+Constant TA_HistRAM_Offset	= H"8000";	-- #
+Constant TA_HistRAM_Size	= 256;
+Constant WF_HistRAM_Offset	= H"8400";	-- #
+Constant WF_HistRAM_Size	= 256;
+
+CONSTANT TA_Bits			= 10;   -- разрядность Приемо/передатчика ТА6/12
+CONSTANT NUM_board			=  2;   -- количество подсоединенных плат ТА6/12
+
+Constant ErrorCounters_Offset	= H"1400" ;
+Constant ErrorCounters_Size		= 16;
+
+--CONSTANT DeviceNumber       = 2 + NUM_CH;   -- число устройст доступных для чтения/записи
+
+SUBDESIGN IPT_LXe
+(
+-- 1. Reference Clock's & Frequency Control I/O
+FQuartz			: input;	-- 25MHz clock from Quartz oscillator		<- Pin43
+-- In IPT_LXe module Link's Clock is checked inside Altera but switched outside 
+Sw_Quartz		: output;	-- connects Quartz to PLL ref.Input			-> Pin44
+--Sw_LinkClk      : output;   -- connects Link's Clock to PLL ref.Input   -> Pin41
+Phase25         : output;   -- selected Ref.clock to PLL ref.Input      -> Pin41
+
+
+PLL_in			: input;	-- Ref.clock for PLL (dedicated)			<- Pin31
+PLL_ExtOut		: output;	-- Output of PLL.e0 to outside				-> Pin120
+
+-- 1.1 PLL Installation
+PLLinst_S0		: output;
+PLLinst_S1		: output;
+PLLinst_EN		: output;
+
+-- Outputs for Indicators on LED's
+LedR			: output;	-- drives the Red LED               -> Pin18
+LedG			: output;	-- drives the Green LED             -> Pin21
+LedB			: output;	-- drives the Blue(Yellow) LED      -> Pin22
+LedTest         : output;   -- drives additional LED            -> Pin217
+
+-- Outputs for Connectors Indicators on LED's
+--FastSerLed				: output;	-- drives the LED         -> Pin
+--FastDeserLed			: output;	-- drives the LED             -> Pin
+--TALed[NUM_board-1..0]	: output;	-- drives the LED             -> Pin
+--EtherLed				: output;	-- drives the LED             -> Pin
+--Led						: output;	-- drives the LED         -> Pin
+
+-- 2. Links signals 
+-- 2a. UpLink signals 
+LinkClk			: input;    -- Clock from Link's ClockLine		   <- Pin119
+LinkData		: bidir;    -- Data <-> Link's DataLine			   <->Pin117
+LinkTxRx		: output;   -- направление передачи в "DataLine"   -> Pin118
+%
+-- 2b. FastLink signals to CF
+3PH_CLK								: output; -- тактовый сигнал Serializer-а
+PWRDN           : output; -- вкл/выкл Serializer-а
+FSync           : input;  
+SerDataOut[7..0]: output; -- данные для передачи с помощью Serializer-а
+NWord[1..0]     : output; -- номер слова в данных для передачи с помощью Serializer-а
+%
+-- 3. Signals from TA6/12
+DataIn_TA[NUM_board-1..0][TA_Bits-1..0]	: input;	-- данные полученные с помощью Deserializer-а 
+NWordFLink_TA[NUM_board-1..0][1..0]			: input;	-- номер слова в данных полученных с помощью Deserializer-a 
+
+NChLock[NUM_board-1..0]				: input;
+NChStrobe[NUM_board-1..0]			: input;
+SerClk          : output;
+
+-- 4. КАМАК интерфейс
+CAMAC_N         :input;     -- Active LOW input !               <- Pin69
+--CAMAC_B         :input;     -- Input from Pin________________ реально отсутствует
+CAMAC_S1        :input;     -- Active LOW input !               <- Pin73
+CAMAC_S2        :input;     -- Active LOW input !               <- Pin78
+CAMAC_A[4..1]   :input;     -- Input from Pin 49,55,56,57
+CAMAC_F[5..1]   :input;     -- Input from Pin 51,52,53,54,48
+	
+CAMAC_X         :output;    -- OpnDrn, Active-LOW output!!      -> Pin56
+CAMAC_Q         :output;    -- OpnDrn, Active-LOW output!!      -> Pin80
+CAMAC_L         :output;    -- OpnDrn, Active-LOW output!!      -> Pin71
+--CAMAC_I         :input;   -- Input from Pin--
+--CAMAC_C         :input;   -- Input from Pin--
+CAMAC_Z         :input;     -- Input from Pin58
+
+--CAMAC_R[24..1]  : bidir;  -- Parallel output bus R24=93...R1=134
+--CAMAC_W[24..1]  : bidir;  -- Parallel input  bus W24=61...W1=88
+CAMAC_RW[16..1] : bidir;-- Parallel output bus RW16=84, 82, 31, 87, 83, 94, 88, 95, 93, 100, 98, 103, 108, 106, 109, 107
+Cam_Rd_Enable	: output;   -- Enable external buffers of CAMAC_R -> Pin110
+Cam_Wr_Enable   : output;   -- Enable external buffers of CAMAC_W -> Pin81
+
+-- 5. Ethernet Phy device ports     LXT972
+CRS             : input;    -- Carrier_Sense                    <- Pin126
+RxClk           : input;    --                                  <- Pin137
+RxDV            : input;    -- Data_Valid                       <- Pin139
+RxD[3..0]       : input;    -- inputs for data half-Bytes       <- Pin[145..142]
+RxEr            : input;    -- RxEr not in use!!!!              <- Pin109-corner
+
+TxClk           : input;    --                                  <- Pin135
+TxEn            : output;   --                                  -> Pin134
+TxD[3..0]       : output;   -- inputs for data half-Bytes       <- Pin[128,131,132,133]
+COL             : input;    -- Collision_Detect not used        <- pin127
+
+-- 6. Пробные сигналы  
+CLK100_         : output;
+CLK75_          : output;
+CLK25_          : output;
+
+ExtReset        : input = GND;  -- external Reset (tied to GND --VCC)   <- Pin6
+
+Test[10..1]     : output;
+)
+
+VARIABLE
+--============================================================================
+--******** 1. Reference clock's & Frequency Control **************************
+PLL								: Pll_IPT;  -- PLL:  Fin=25MHz, PLL.c0=(25MHz shift=0), PLL.c1=(100MHz shift=0)
+Clk25							: node; -- This is Global Node 
+Clk75							: node; -- This is Global Node
+Clk100							: node; -- This is Global Node
+Clk150							: node; -- This is Global Node
+
+-- Automatic Clock Switch: if External_Clock frequency (kHz) is in specified 
+--   range, PhaseSwitch transfers the External_Clock to PLL1's reference input, 
+--   thus all PLL's output clocks are locked to the External_Clock. 
+PhaseSw         : PhaseSwitch with (FmaxThresh=26000, FminThresh=23000, RefClock=25000);
+
+Clk25del1,
+Clk25del2       : node;
+PhaseSet,               -- _/^^\_ pulse aligned to _/ front of StartBit
+Phase12,
+Synchro12,              -- 1-clock _/^\_ pulse aligned to _/ front of PHASE
+Synchro25       : node; -- 1-clock _/^\_ pulse aligned to PHASE and half-PHASE
+%
+Bunch_Crossing_12_5_DS			: Bunch_Crossing_adjust with (Cavity_to_Bunch_Ratio = 12, Number_of_Channel=1);
+Bunch_Crossing_12_5_FLS			: Bunch_Crossing_adjust with (Cavity_to_Bunch_Ratio = 12, Number_of_Channel=1);
+Bunch_Crossing_12_5_T0			: Bunch_Crossing_adjust with (Cavity_to_Bunch_Ratio = 12, Number_of_Channel=1);
+Bunch_Crossing_12_5_DS_CS		: node;
+Bunch_Crossing_12_5_FLS_CS		: node;
+Bunch_Crossing_12_5_T0_CS		: node;
+BC_Sample_Enable				: node;
+BC_Fast_Link_Start				: node;
+BC_Time0						: node;
+%
+--******** Power-up self-Reset and self-Set pulses ***************************
+PowerUp0,                      --\   Circuit 
+PowerUp1, PowerUp2,            -- \  which generates 
+PowerUp3, PowerUp4,            --  \ a pulse 
+PowerUp5, PowerUp6,            --  / for power-up Reset  \  many milliseconds apart 
+PwrUpReset,                    -- /  and then few pulses  > from each other
+PwrUpSet1,PwrUpSet2 : node;    --/   for power-up Set    /  
+
+--============================================================================
+--******** 2. Timers for Indicators on LED's (Duration in ms, RefClock in kHz)
+B_Flash         : LightPulser with (Duration = 16, RefClock = 100000); -- Blue
+R_Flash         : LightPulser with (Duration = 40, RefClock = 100000); -- Red
+--LinkFlash       : LightPulser with (Duration = 40, RefClock = 100000); -- Green
+CamacFlash      : LightPulser with (Duration = 40, RefClock = 100000); -- Green
+Test_Flash      : LightPulser with (Duration = 20, RefClock = 100000); -- color??
+
+--============================================================================
+--******** 3. общий СТОП
+-- LinkMessage_DFF               : DFF;
+
+Event_ES_Beg				: EdgeSensing;
+Event_ES_End				: EdgeSensing; 
+Event_Trig					: SRFF;
+LinkMsg_Trig				: DFF;
+
+Event_ES_Beg_				: EdgeSensing;
+Event_ES_End_				: EdgeSensing; 
+Event_Trig_					: SRFF;
+LinkMsg_Trig_				: DFF;
+
+--==============================================================================
+--************ 4. Control Unit  ************************************************
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+St_Compuls,             -- Compulsive start by CAMAC command
+St_One,                 -- One-shot start by external "Start"
+St_Multi        : node; -- Multiple start by external "Start"
+St_Load         : node; -- start of Loading Att.Coeff-s & Masks
+Reset_all       : node; -- Reset_all by CAMAC command
+Confirm         : node; -- flag: "Command accepted for execution"
+
+Delay_StCompuls : DelayLine with (DelayCode = 600,  -- to delay the real Start of Digitizing
+                                  DurationCode= 4); --  after CAMAC-cycle
+Delay_StOne     : DelayLine with (DelayCode = 600,  -- to delay the real Start of Digitizing
+                                  DurationCode= 4); --  after CAMAC-cycle
+Delay_StMulti   : DelayLine with (DelayCode = 600,  -- to delay the real Start of Digitizing
+                                  DurationCode= 4); --  after CAMAC-cycle
+
+StartOne        : node;         -- Trigger of One-Shot_Start
+StartOne_En     : EdgeSensing;  -- _/~\_ sets StartOne to =1
+StartMulti      : node;         -- Trigger of Multiple_Start
+StartMulti_En   : EdgeSensing;  -- _/~\_ sets StartMulti to =1
+EtherCMD3mode   : node; -- Trigger, enables "CMD3" mode of Ethernet
+EtherUDPmode    : node; -- Trigger, enables "UDP" mode of Ethernet
+
+--Start_Link      : PulseShaper with (DurationCode=4);--Start whatever by Link command
+SelCommdList_Reg: lpm_shiftreg with (lpm_width=16, lpm_direction="unused");
+SelCommdList_Count: lpm_counter with (lpm_width = 1, lpm_direction="up");
+SelCommdList_cs	: node;
+
+StartADC_Camac  : PulseShaper with (DurationCode=4);--Start ADC by "Compulsive_Start"
+St_ADC_Link     : node;
+--StartADC_Link   : node;
+StartADC_Link   : PulseShaper with (DurationCode=4);--Start Digitizer by Link command
+--StartADC_Ext    : PulseShaper with (DurationCode=4);-- Start ADC by external Start pulse
+StartADC        : node; -- all sources of Start ADC combined
+
+StProc_CAMAC    : node; 
+Delay_StProc_CAMAC  : DelayLine with (DelayCode = 120,  -- to delay the real start of Processor 
+                                      DurationCode= 4); -- after CAMAC-command
+StartProc_Camac : node; -- final signal which starts Processor upon CAMAC-command
+StProc_Link     : node;
+StartProc_Link  : PulseShaper with (DurationCode=4);--Start Processor by Link command
+--StProc_Ether    : node;
+--Delay_StProc_Ether  : DelayLine with (DelayCode = 240,  -- to delay the real start of Processor 
+--                                      DurationCode= 4); -- after receiving an Ethernet command
+--StartProc_Ether : node; -- final signal which starts Processor upon Ethernet command
+StartProc       : node; -- all sources of Start_Processor combined
+
+StEthTx_CAMAC   : node;
+Delay_EthTxRq_CAMAC : DelayLine with (DelayCode = 120,  --\_delay of request for starting of Tx_cycle .. 
+                                      DurationCode= 4); --/  after a Command received
+--EtherTxRq_CAMAC : node; -- delayed request for starting a Tx_cycle upon a CAMAC-command
+
+--StEthTx_Link    : node; --Start of an Ether' Tx cycle (UDP orCMD3) by Link
+EtherTxRq_Link  : node; --(request for) Start of an Ether' Tx cycle (UDP orCMD3) by Link
+
+--PhSwErr_Ct      : lpm_counter with (lpm_width=16, lpm_direction="up") ; -- counts PhaseSwitch's flips
+--LinkErr_Ct      : lpm_counter with (lpm_width=16, lpm_direction="up") ; -- counts Link's errors
+
+Busy            : node; -- flag: Action in progress (Digitizing, Link cycle, ...)
+Error           : node;
+RESET           : node; -- main RESET, i.e. =RESET all=  
+Reset_2, Reset2 : node; -- partial Reset:  logic | registered
+
+--============================================================================
+--******** 5. Processor, RAM blocks and registers ****************************
+--CPU             : Processor ;
+CPU             : Processor2m ;
+BaseAd[7..0]    : node; -- address of the beginning of selected Program
+BaseAddr[7..0]  : node; -- address of the beginning of selected Program, registered
+
+--ADC_RAM belongs to "Digitizer_TA6" unit, and is defined there
+MainRAM         : RAMmain;  -- RAM  256words * 16bits, 1-port
+--ProgRAM belongs to "Processor" unit, and is defined there
+CommandRAM      : RAMcommd; -- RAM 1024words * 16bits, 1-port
+
+-- Register contains Base Address of Program to be started
+Reg_BaseAddr    : LPM_SHIFTREG with (lpm_width=8, lpm_direction="left");
+
+--============================================================================
+--******** 6. Internal Bus of Project **************************************** 
+--    Address recognition and devise selection
+RW				: node; -- RW=1 - a (master)unit will output data 
+AddrBus[15..0]	: node; -- 16 bit address
+DataBus[15..0]	: node; -- 16 bit bidir Data Line
+--Data[15..0]		: NODE; -- 16 bit bidir Data Line
+
+Bus_Arbiter		: Arbiter with (DeviceMaxNumber=4%,TimeOut=6%);
+AddrSettled     : node; -- Arbiter asserts this signal at next clock after Request Granted
+AddrValid       : node; -- OR'ed Address Comparator's output, dff-strobed
+DataStrobe		: node; --Strobe: latch data into the destination object, and finish the Bus Oper-n
+--  signals of Address Comparators
+DevSel[14..1]	: DFF ; -- Registered Addr_Comparator outputs for Selection
+
+MainRAM_cs		: node; -- select for Rd/Wr from/to MainRAM
+ProgRAM_cs		: node; -- ProgRAM is declared in Processor module 
+CommandRAM_cs	: node; -- select for Rd/Wr from/to CommandList
+EtherRAM_cs     : node; -- select for Rd/Wr from/to TestRAM
+
+Link_cs         : node;
+OpCode_cs       : node; -- select for Link's OpCode register 
+--InData_cs       : node;
+--CtrlStat_cs     : node; -- select for "Ctrl-Status" reg (StOne, StMulti, ...)
+--BaseAddr_cs     : node;
+--EthOpCode_cs    : node; -- select for ETHERNET's OpCode register 
+Servo_CS        : node; -- select for various Reg-s (CtrlStat-"Reg", BaseAddr Reg, etc.) 
+Servo_Mux[16..1]: node; -- Multiplexer of Data Bus among various Registers
+
+--DDREqu_cs[NUM_CH-1..0]		: node;
+--DDRNEqu_cs[NUM_CH-1..0]		: node;
+
+ZERO_cs			: node; 
+
+--******** =Local= bus for the ETHETNET module, "Bus Handler"
+RdWr            : node; -- RdWr=1 ("Write") => Data: MainProj -> Ethernet
+AcsRqDetect     : node; -- =new= "AccessReq" detected
+AccessGrtd      : node; -- by 1clk after AccessReq, =1 during whole Operation
+Addr_Settled    : node; -- Flag: Address is (reliably) settled at AddrBus
+BusOper1,
+BusOper2,
+BusOper3		: node; -- delay by 3 clocks 
+Data_Strobe	    : node; -- Strobe: latch data into the destination object, and finish the Bus Oper-n
+
+--============================================================================
+--******** 7. Rx Data from TA12 **********************************************
+--FLink_TA12[NUM_CH-1..0]		: Fast_Link_TA12;
+
+TA_HistRAM_cs[NUM_board-1..0]   : node;
+TA_proces[NUM_board-1..0]       : TAData_processing;
+TALed[NUM_board-1..0]           : node; -- Indicators related to TA channels
+TAproces_Error[NUM_board-1..0]  : node;
+
+--============================================================================
+--******** 8. Error counter
+ErrorCounters_IFace			: ErrorCounters with (Width = 7);
+ErrorCounters_IFace_CS		: node;
+Sync_ES						: EdgeSensing;
+PLL_PS						: PulseShaper;
+
+--============================================================================
+--******** 9a. Up_Link *******************************************************
+Link_IFace      : UpLink with (RefClock = 100);
+Reg_OpCode      : LPM_SHIFTREG with (lpm_width=(CommandSize+Pause), -- contains Command
+                                     lpm_direction="unused"); -- not important
+OpCode_load     : node; -- puts Reg_OpCode into "load" mode
+--InDataSave, InDataSaved : node; -- for TEST Only!!
+%
+--============================================================================
+--******** 9b_1. Fast_Link_CF ************************************************
+FLink							: Fast_Link_CF;
+SerDataOut_Out_Pin_Buffer		: lpm_shiftreg with (LPM_WIDTH=8,LPM_DIRECTION="unused");
+NWord_Out_Pin_Buffer			: lpm_shiftreg with (LPM_WIDTH=2,LPM_DIRECTION="unused");
+3PH_CLK_Out_Pin_Buffer			: DFF;
+
+--******** 9b_2.Симулятор данных для быстрого линка
+Lines_Simulator					: CMD3_FOR_Lines_Simulator;
+Lines_Simulator_CS				: node;
+FLink_Data_BUS[23..0]			: node;
+RAM_Simulator_Start_CS			: node;
+RAM_Simulator_Stop_CS			: node;
+%
+--============================================================================
+--******** 9c. CAMAC *********************************************************
+CAMAC_IFace						: CAMAC with ( RefClock = 100); -- 100MHz timing
+
+--==============================================================================
+--******** 9d. ETHERNET ********************************************************
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+Ether           : ETHERNET;     -- ETHERNET module
+
+EthWord_Rd      : node; -- strobe at "Read"  operation, read 1 DWord from ETHERNET
+EthWord_Wr      : node; -- strobe at "Write" operation, write 1 DWord to ETHERNET
+
+TypeRaw         : node; -- flag :  "Raw" packet received
+Typ_CMD3, TypeCMD3  : node; -- fast|registered flag :  "CMD3" packet received
+Typ_IP, TypeIP  : node; -- fast|registered flag :  IP  packet received
+Typ_ARP,TypeARP : node; -- fast|registered flag :  ARP packet received
+
+--********  Proceeding of the RECEIVING Cycle  *********************************
+ProtoNext       : node; -- makes the Protocol Execution Circuit to go to the next Stage
+
+--Circuit which handles the Ether'addresses within Rx_Cycle ;
+--  Triggers are connected in to decouple stages of big logic.
+RxAdrSet[6..1]  : node; -- logical nodes - conditions for Setting addr. within Tx_cycle
+RxAdrSet1a,
+RxAdrSet1b      : node; -- flips  0->1, 1->0  when TxAdrSet1 has =garanteedly= settled.
+RxAdrSet2a,
+RxAdrSet2b      : node; -- flips  0->1, 1->0  when TxAdrSet2 has =garanteedly= settled.
+RxAdrSet3a,
+RxAdrSet3b      : node; -- flips  0->1, 1->0  when TxAdrSet3 has =garanteedly= settled.
+RxAdrSet4a,
+RxAdrSet4b      : node; -- flips  0->1, 1->0  when TxAdrSet4 has =garanteedly= settled.
+RxAdrSet5a,
+RxAdrSet5b      : node; -- flips  0->1, 1->0  when TxAdrSet4 has =garanteedly= settled.
+RxAdrSet6a,
+RxAdrSet6b      : node; -- flips  0->1, 1->0  when TxAdrSet4 has =garanteedly= settled.
+EthAdrInit      : node; -- strobe : set the initial addr for storing DataBlock
+EthNextAdr[6..1]: DFFE; -- initial addr for storing data during the next Stage of receiving
+EthAddrLd[2..1] : node; -- "request" for loading next InitAddr into EtherAdrCt
+
+EthAdrCt_en     : node; -- strobe for operating EtherAdrCt =after= .. 
+            --.. a DWord has been stored into RAM or a DWord has been read out from RAM
+RxStop          : node; -- makes ETHERNET to stop receiving, IF 
+
+--Counter which contains address for data exchange between ETHERNET and EtherRAM
+EtherAdrCt      : lpm_counter with (lpm_width = 10, lpm_direction="up");
+--RAM for DataWords, PortA is used exclusively by Ethernet section
+EtherRAM        : EtherRAM2P;   -- RAM for DWords (Ethernet section uses PortA)
+--EtherRAM_cs     : node;       --declared at "Data Bus" section
+
+--Main Protocol Cycle Counter :
+CtProto         : LPM_COUNTER with ( lpm_width=6, lpm_direction="up" );
+
+ProtoInited     : node; -- Execution of a Protocol =has been= initiated
+
+Rx_Err          : node; -- Error during Ethernet Receiving
+
+--********  Execution of the CMD3-packet  **************************************
+-- Circuitry which latches the 1st Byte received, as it is a COMMAND
+CMD3OpCode_save : node; --strobe for latching the =1st= DWord (OpCode) of DataBlock of CMD3-packet
+CMD3command     : node; -- =1 when CMD3' OpCode is saved, till the End of Frame
+Reg_EthOpCode[8..1] : DFFE; -- "register" for storing CMD3' OpCode received from Ethernet
+
+--********  Execution of the IP-packet  (UDP-packet)****************************
+RxDVtrig        : node; --unnecessary trigger, but it helps Quartus to analyze the Stages
+
+RxIPheader      : DFF ; -- flag:  IP-header is being received
+RxIP_Saddr      : DFF ; -- flag:  IP-Packet's "SourceAddr" is being received
+RxIP_Daddr      : DFF ; -- flag:  IP-header's "DestinAddr" is being received
+TypeUDP         : SRFF; -- flag:  "UDP" tag detected
+RxUDPheadr      : DFF ; -- flag:  UDP-header is being received
+RxUDPDBlck      : DFF ; -- flag:  UDP-DataBlock is being received
+
+RxIPleng[12..1] : DFFE; -- "register" containing the length of IP-Pkt's Data_Block
+RxIPleng_ld     : node; -- strobe for catching the "IP-Length" value
+
+--********  Execution of the ARP-packet  ***************************************
+RxARPheadr      : DFF ; -- flag:  ARP-header is being received
+RxARPSaddr      : DFF ; -- flag:  ARP-packet's SourceAddr (MAC+IP) is being received
+RxARPDaddr      : DFF ; -- flag:  ARP-packet's DestinationAddr (MAC only!) is being received
+RxARPDadIP      : DFF ; -- flag:  ARP-packet's DestinationAddr (IP only!) is being received
+RxARPDBlck      : DFF ; -- flag:  ARP-DataBlock is being received 
+
+--Register (temporary - simply a bus) which contains "ThisDevice'_IP" 
+ThisDeviceIP[32..1] : node;
+
+DadrIP_MSW      : node; -- strobe for checking the MSWord of IP-Daddr
+DadrIP_LSW1,
+DadrIP_LSW2, 
+DadrIP_LSW3, 
+DadrIP_LSW4     : node; -- delay for deriving strobe for checking the LSWord of IP-Daddr
+DadrIP_LSW      : node; -- strobe for checking the LSWord of IP-Daddr
+
+ChkIPDaddr      : DFFE; -- represents the result of checking of "IP-Daddr"
+DadrIP_cmp      : node; -- strobe for using the result of checking of "IP-Daddr"
+
+--********  Recognizng the Commands received from Ethernet  ********************
+Ether_ARPreply  : node; -- flag: ARP-reply command is being proceeded
+TxARPrepl_Rq    : node; -- request for sending ARP-reply
+
+--For Tests :  Send a UDP-packet "in reply" upon receiving a UDP-packet
+UDPtestDel      : node; --Handles the delay CountDown before Requesting a UDP Tx_cycle
+UDPtstDelCt     : LPM_COUNTER with (LPM_width=3,    --\_ Makes the delay before..
+        LPM_direction="down",  LPM_Svalue=7 );      --/ ..requesting a UDP Tx_cycle
+TxUDP_Rq_UDP    : node; --request for starting a UDP Tx_cycle upon receiving UDP-packet
+
+UDPtstSeries    : node; --enables initiation of UDP-Tx_cycles upon Link commands 12 times
+UDPtstSerCt     : LPM_COUNTER with (LPM_width=4,    --\_ Counts UDP-Tx_cycles ..
+        LPM_direction="down",  LPM_Svalue=12 );     --/ ..started in one Series
+
+StEthTx_Ether   : node; -- start Ethernet Tx cycle upon CMD3 command
+Eth_WRITE,              -- flag:  CMD3' "Write" command is received 
+EtherWRITE      : node; -- flag:  CMD3' "Write" command is received, registered 
+--EtherWR_we      : node; -- Upon Ether' "WRITE" command, enables ETHERNET -> TestRAM
+
+--********  Proceeding of the TRANSMISSION Cycle  ******************************
+EtherPauseRg[10..1] : DFFE; --"register" which contains Duration of Ether' PAUSE
+EtherPauseCt    : LPM_COUNTER with (LPM_width=10,   --\_ Makes the PAUSE before..
+                        LPM_direction="down" );     --/ ..initiating a next Tx_cycle
+EtherBusy       : node; -- flag:  ETHERNET is busy
+EthBusyEnd      : node; -- 1*Clk100 _/^^\_ by the end of EtherBusy
+TxUDP_Rq        : node; -- all requests for starting a UDP-Tx_cycle, gathered
+TxUDPwait       : node; -- "WaitList" of request for UDP-Tx_cycle
+
+InitARP         : node; -- initialize ARP-reply Tx_cycle 
+InitUDP         : node; -- initialize UDP Tx_cycle
+StartEthTx      : PulseShaper with (DurationCode=4);--Start any Ether' Tx_cycle
+Ether_TxUDPcycle: node; -- flag: UDP-packet is being transmitted
+
+UDPlength_Reg[11..1]: DFFE;     -- "register" contains Length of UDP-DataBlock
+IPlength        : LPM_ADD_SUB with (LPM_width=11,   --\  
+                LPM_direction="add",                -- \ This adder is used ..
+                LPM_representation="unsigned",      --  > to calculate ..
+                ONE_INPUT_IS_CONSTANT="yes",        -- / ..the Length of IP-header, 
+                LPM_pipeline=1 );                   --/  ..and hold it
+UDP_PackCt      : LPM_COUNTER with (LPM_width=16,   --\_ Counts the Number of UDP-packet ..
+        LPM_direction="up", LPM_Svalue=H"0002");    --/ .. to be transmitted
+
+--EthAdrInit      : node; --(Declared in "RECEIVER") Strobe : set the initial addr
+EthTxAdrIni2    : node; --\_ 1*Clk100 _/^^\_ pulse, 
+EthTxAdrInit    : node; --/ initiates a strobe for loading InitAddr into EtherAdrCt
+EthTxAdrIncr    : node; -- initiates increment of EtherAdrCt
+
+TxAdrSet[4..1]  : node; -- logical nodes - conditions for Setting addr. within Tx_cycle
+TxAdrSet1a,
+TxAdrSet1b      : node; -- flips  0->1, 1->0  when TxAdrSet1 has =garanteedly= settled.
+TxAdrSet2a,
+TxAdrSet2b      : node; -- flips  0->1, 1->0  when TxAdrSet2 has =garanteedly= settled.
+TxAdrSet3a,
+TxAdrSet3b      : node; -- flips  0->1, 1->0  when TxAdrSet3 has =garanteedly= settled.
+TxAdrSet4a,
+TxAdrSet4b      : node; -- flips  0->1, 1->0  when TxAdrSet4 has =garanteedly= settled.
+
+--****  Circuit which calculates the IP-header'CRC :
+IPinit_cnt      : node; -- enables [IPinitCt, IPinit2, IPinit1] to count-down 
+IPinit[2..1]    : node; -- Prescaler by 4, consist of 2 D-triggers
+IPinitCt        : LPM_COUNTER with (LPM_width=4,    --\_ Handles the circuit which..
+        LPM_direction="down",  LPM_Svalue=12 );     --/ ..calculates the IP-header' CRC
+
+IPhdCRCadder    : LPM_ADD_SUB with (LPM_width=16,   --\  
+                LPM_direction="add",                -- \ This adder is used ..
+                LPM_representation="unsigned",      -- / to calculate ..
+                LPM_pipeline=1 );                   --/  the CRC of IP-header
+IPhdCRCcarry    : LPM_COUNTER with (LPM_width=4,    --\_ Handles the circuit which..
+                        LPM_direction="up");        --/ ..calculates the IP-header' CRC
+
+IPhdCRC_Cen     : node; -- strobes which cause IPhdCRCadder to perform addition 
+IPhdCRCclken    : node; -- same as above, registered
+
+TxDataBus[15..0]: node; -- local bus (formal only) used by Tx_cycle proceeding circuit
+
+--==============================================================================
+--******** 9e. Measurement Data transmission via Ethernet
+DataTrans       : node;
+CntBoard        : lpm_counter with (lpm_width = NUM_board-1, lpm_direction="up");
+
+--==============================================================================
+--******** 10. Test circuitry
+TestCt          : LPM_COUNTER with (LPM_width=26,           --\ Test Counter,
+                                    LPM_direction="up");    --/   Blinking counter
+TestTrg[4..1]   : node; -- nodes for a =sophisticated= tests
+--Test[8..1]      : --declared as outputs
+									
+--============================================================================
+BEGIN
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+DEFAULTS
+
+PLLinst_S0	= VCC;  PLLinst_S1	= GND;  PLLinst_EN	= GND;
+%
+REN		= VCC; -- включить/выключить выходы Deserializer  
+DEN		= GND; -- включить/выключить выходы Serializer
+RPWDN	= VCC; -- включить/выключить Deserializer  
+TPWDN	= GND; -- включить/выключить Serializer
+%
+St_Compuls = GND;   St_One = GND;       St_Multi = GND;     St_Load = GND;
+StProc_CAMAC = GND; 
+
+StProc_Link  = GND; St_ADC_Link = GND;
+
+TypeCMD3   = GND;   TypeIP = GND;       TypeARP  = GND; 
+RxIPheader.D = GND; RxIP_Saddr.D = GND; RxIP_Daddr.D = GND; RxUDPDBlck = GND;
+RxARPheadr.D = GND; RxARPSaddr.D = GND; RxARPDaddr.D = GND; RxARPDadIP = GND;
+RxARPDBlck.D = GND;
+ProtoNext  = GND;   EthAdrInit   = GND; EthNextAdr[].D = 0;   
+
+--StProc_Ether = GND; StEthTx_Ether=GND;
+%Ether.TxLenTyp[]=0;% Ether.TxLength[]=0; 
+Eth_WRITE = GND;    
+
+IPhdCRCadder.clken = GND;
+
+END DEFAULTS;
+
+--============================================================================
+--******** 1. Reference Clock & Frequency Control ****************************
+
+--============================================================================
+--******** 1a. POWER_UP self-Reset pulse *************************************
+--PowerUp0= DFF (.d=!(camac_s1 & camac_s2) AND PLL1.locked, .clk=Clk25);
+        --               ^^^^^^^^ substituted by (CAMAC_IFace.Reset & CAMAC_IFace.Aout[4])..
+        --  .. to provide a possibility to emulate PowerUp situation
+PowerUp0 = DFF (.d=PLL.locked, .clk=Clk25); --!ExtReset AND 
+
+PowerUp1 = SRFF(.s=(PowerUp0 AND (TestCt.q25 & TestCt.q0)),--sets 1.0s after PLL1 has locked
+				.r=ExtReset, .clk=Clk25);  -- .r never =1
+PowerUp2 = SRFF(.s=(PowerUp1 AND TestCt.q2),             -- _/^^^^\_ 3clocks
+				.r=ExtReset, .clk=Clk25);  -- .r never =1
+PwrUpReset  = PowerUp1 AND !PowerUp2;   -- ONE pulse ~1sec after powering up
+
+--******** 1b. POWER_UP self-Set pulse ***************************************
+PowerUp3 = SRFF(.s=(PowerUp2 AND (!TestCt.q20 & !TestCt.q19 &  TestCt.q18)), --sets 0.015s after PwrUpReset
+				.r=ExtReset, .clk=Clk25);      -- .r never =1
+PowerUp4 = SRFF(.s=(PowerUp3 AND TestCt.q2),             -- _/^^^^\_ 3clocks
+				.r=ExtReset, .clk=Clk25);      -- .r never =1
+PwrUpSet1   = PowerUp3 AND !PowerUp4;       -- ONE pulse ~0.015sec after PwrUpReset
+
+--******** 1c. POWER_UP self-Set pulse ***************************************
+PowerUp5 = SRFF(.s=(PowerUp4 AND ( TestCt.q20 & !TestCt.q19 & !TestCt.q18)), --sets 0.060s after PwrUpReset
+				.r=ExtReset, .clk=Clk25);      -- .r never =1
+PowerUp6 = SRFF(.s=(PowerUp5 AND TestCt.q2),             -- _/^^^^\_ 3clocks
+				.r=ExtReset, .clk=Clk25);      -- .r never =1
+PwrUpSet2 = PowerUp5 AND !PowerUp6;       -- ONE pulse ~0.060sec after PwrUpReset
+
+--**************** Automatic Clock Switch for PLL reference ******************
+PhaseSw.clock	= FQuartz ;         -- 25MHz from Quartz
+PhaseSw.LinkClk	= LinkClk ;         -- 25MHz from Link
+PhaseSw.Reset	= GND  ;
+Phase25         = PhaseSw.Phase25 ; -- selected clock output to real pin
+--Sw_LinkClk      = !PhaseSw.LinkClk_selected; -- connects Link's Clock to PLL ref.Input
+Sw_Quartz		= PhaseSw.LinkClk_selected; -- connects Quartz to PLL ref.Input
+
+--**************** PLL section ***********************************************
+PLL.inclk0	= PLL_in;           -- ~25MHz from Link -> Input of PLL
+Clk25		= PLL.c0;           --  25MHz = (Fin x 1)    from PLL.c0
+Clk75		= GLOBAL(PLL.c2);   --  75MHz = (Fin x 3)    from PLL.c1
+Clk100		= GLOBAL(PLL.c1);   -- 100MHz = (Fin x 4)    from PLL.c1
+--3Ph_Clk		= PLL.c4;
+PLL_ExtOut	= PLL.c3;           --  25MHz -> outside of Altera
+--PLL1.pfdena = VCC;--!Reset;
+--        = PLL.locked;           -- connected below
+CLK100_ = Clk100;
+CLK75_ = Clk75;
+CLK25_ = Clk25;
+
+--**************** Synchro-signals generation ********************************
+--  25MHz Clock ^\_______________/^^^^^^^^^^^^^^^\_______________/^^^^^^
+-- 100MHz Clock _/^^^\___/^^^\___/^^^\___/^^^\___/^^^\___/^^^\___/^^^\__
+--                           ^-this falling edge is selected
+--    Clk25Del1 ^^^^^^\_______________/^^^^^^^^^^^^^^^\_______________/^
+--    Clk25Del2 ^^^^^^^^^^^^^^\_______________/^^^^^^^^^^^^^^^\_________
+--    Phase12   __________________/^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\_____synchronized with actual _/ of StartBit
+--    Synchro12 _____________/^^^^^^^\__________________________________aligned to actual _/ of StartBit
+--    Synchro25 _____________/^^^^^^^\_______________________/^^^^^^^\__aligned to actual _/ of StartBit and to half-PHASE
+
+Clk25Del1	= DFF(.d=Clk25,    .clk=!Clk100); 
+Clk25Del2	= DFF(.d=Clk25Del1,.clk=!Clk100); 
+
+PhaseSet	= EdgeSensing(.d=Link_IFace.LinkMessage, -- must be aligned: 
+						.clk=Clk100, .reset=RESET); -- 8 or 16 "Clk100"clocks after actual _/ of StartBit
+Phase12		= DFFE(.d=!Phase12,.clk=Clk100, .ena=(!Clk25Del1 & !Clk25Del2),
+					.prn=!PhaseSet);            -- F = (2*Fphase)/2 , _/ aligned to Phase
+                    -- ^^^^ excluded temporary !!
+
+Synchro12	= DFF(.d=(!Clk25Del1 & Clk25Del2 & !Phase12), .clk=!Clk100 );
+Synchro25	= DFF(.d=(!Clk25Del1 & Clk25Del2), .clk=!Clk100 );
+%
+--***************************** Bunch_Crossing adjust *********************************	
+Bunch_Crossing_12_5_T0.(Cavity_Clock, BusClock, Bunch_Crossing, DataBus_In[15..0], DataBusStrobe, AddrBus_In[0]  ) =
+						(CLK150      , CLK100  , Event_ES_Beg.q,   DataBus[]    , DataStrobe  , AddrBus[0]);
+Bunch_Crossing_12_5_T0.DirectIn		= RW;
+Bunch_Crossing_12_5_T0.Select		= DevSel[11].q;
+  
+Bunch_Crossing_12_5_DS.(Cavity_Clock, BusClock, Bunch_Crossing, DataBus_In[15..0], DataBusStrobe, AddrBus_In[0]  ) =
+						(CLK150      , CLK100  , Event_ES_Beg.q,   DataBus[]    , DataStrobe  , AddrBus[0]);
+Bunch_Crossing_12_5_DS.DirectIn		= RW;
+Bunch_Crossing_12_5_DS.Select		= DevSel[12].q;
+
+Bunch_Crossing_12_5_FLS.(Cavity_Clock, BusClock, Bunch_Crossing, DataBus_In[15..0], DataBusStrobe, AddrBus_In[0]  ) =
+						(CLK150      , CLK100  , Event_ES_Beg.q,   DataBus[]    , DataStrobe  , AddrBus[0]);
+Bunch_Crossing_12_5_FLS.DirectIn	= RW;
+Bunch_Crossing_12_5_FLS.Select		= DevSel[13].q;
+   
+ --  Bunch_Crossing_37_5.(Cavity_Clock, BusClock, Bunch_Crossing , DataBus_In[15..0], DataBusStrobe    , AddrBus_In[0]) =
+ --                      (CLK150      , CLK100  , Event_ES_Beg_.q,   Data_Bus_In[]  , Data_Strobe_, AddrReg.q[0]);
+ --  Bunch_Crossing_37_5.DirectIn		    = Direct;
+ --  Bunch_Crossing_37_5.Select		    = Bunch_Crossing_37_5_CS;
+
+BC_Sample_Enable	= Bunch_Crossing_12_5_DS.Start_Enable[];  -- 12.5 IAo i?eaycaiiua e noa?oiaiio aeoo	
+BC_Fast_Link_Start	= Bunch_Crossing_12_5_FLS.Start_Enable[];
+BC_Time0			= Bunch_Crossing_12_5_T0.Start_Enable[];
+--CLK25              = Bunch_Crossing_25.Start_Enable[];--Bunch_Crossing_25.Sample_Enable;
+--   3PH_CLK_Int        = Bunch_Crossing_37_5.Refrence_Clock[];
+%
+--********************************** Общий стоп ***********************************	
+Event_ES_Beg.(d,clk)  = (!LinkData%первый бит входной посылки, нужно исправить% AND !Event_Trig.q, CLK100);
+LinkMsg_Trig.(d,clk)  = (!Link_IFace.LinkMessage, CLK100);    
+Event_ES_End.(d,clk)  = (LinkMsg_Trig.q, CLK100);
+Event_Trig.(S,clk,R)  = (Event_ES_Beg.q, CLK100, Event_ES_End.q);
+
+--Event_ES_Beg_.(d,clk) = (!LinkData%первый бит входной посылки, нужно исправить% AND !Event_Trig_.q, CLK150);
+--LinkMsg_Trig_.(d,clk) = (!Link_IFace.LinkMessage, CLK150);    
+--Event_ES_End_.(d,clk) = (LinkMsg_Trig_.q, CLK150);
+--Event_Trig_.(S,clk,R) = (Event_ES_Beg_.q, CLK150, Event_ES_End_.q);
+
+--============================================================================
+-- ******** 2. Indicators section ********************************************
+LedG = OPNDRN ( !( 
+         ( (PLL.locked &  PhaseSw.LinkClk_Selected) --always "ON" => PLL locked to LinkClock
+        OR (PLL.locked & !PhaseSw.LinkClk_Selected AND TestCt.q[25])) --blinks slowly => PLL locked to Quartz
+        XOR CamacFlash.DirOut) );       --short blinks by CAMAC cycles
+       --%XOR LinkFlash.DirOut%) );       --short blinks by Link cycles
+--LedG = OPNDRN (!(TestCt.q[25]));        -- for TEST
+CamacFlash.(clock,event)= (Clk100, CAMAC_IFace.CAMAC_Active);
+--LinkFlash.(clock, event)= (Clk100, Link_IFace.LinkMessage);
+
+LedB = OPNDRN( !(B_Flash.DirOut OR Busy));
+--LedB = OPNDRN( !TestCt.q[21] ) ;    -- for TEST Only! - quick blink
+B_Flash.(clock, event)  =(Clk100,Busy); -- Busy is defined in Control Unit section
+
+LedR = R_Flash.LightOut;
+--LedR = OPNDRN( TC.q[21] ) ;         -- for TEST Only! - quick blink
+R_Flash.(clock, event)  =(Clk100,Error);-- Error is defined in Control Unit section
+
+LedTest  = Test_Flash.LightOut;
+--Test_Flash.(clock, event)   =(Clk100, Ether_ARPreply); --Indicator of a chosen Event
+Test_Flash.(clock, event)   =(Clk100, Ether.TX_EN); --Indicator of a chosen Event
+
+
+--============================================================================
+--******** 3. LINK's Interface ***********************************************
+--	Serial Port
+LinkData    = TRI (!Link_IFace.LinkData_out, Link_IFace.TxRx);-- Output to Pin
+Link_IFace.LinkData_in = !LinkData ;                          -- Input from Pin
+LinkTxRx    =  ( Link_IFace.TxRx );     -- Tx/Rx control, High => Tx
+	
+-- Project Bus Port
+Link_IFace.Clock	=	Clk100 ;
+
+--    = Link_IFace.IORq ;               -- Connected at Processor section
+--    = Link_IFace.RdWr_out;            -- Connected at Processor section
+--    = Link_IFace.LinkMessage ;        -- connected at "Control Unit" section
+
+Link_IFace.DataBus_in[] = DataBus[] ;
+--    = Link_IFace.DataBus_out[] ;      -- connected at "Internal Bus ..." section
+Link_IFace.Select       = DevSel[4].q %OR DevSel[5].q% ;
+Link_IFace.RdWr_in      = RW ;
+Link_IFace.DataStrobe   = DataStrobe ;
+
+Link_IFace.Reset        = RESET ;
+
+--************ Circuit which saves OpCode ************
+-- OpCode is stored into OpCode_Reg by any LinkOperation :
+OpCode_load = LevelSensing(.D=Link_IFace.LinkMessage, .clk=Clk100, .reset=RESET);
+
+Reg_OpCode.data[(CommandSize+Pause-1)..0]= Link_IFace.OpCode_out[(CommandSize+Pause-1)..0];
+Reg_OpCode.(clock, enable, load)= (Clk100, OpCode_load, VCC); -- catch data when RxOpCodeReload=1 
+Reg_OpCode.(aclr, sclr)         = (RESET, GND );
+
+--============================================================================
+--******** 4. CAMAC Interface I/O connection *********************************
+
+CAMAC_IFace.clock = CLK100 ;
+
+CAMAC_IFace.N   = !CAMAC_N ;        -- Input from Pin
+CAMAC_IFace.B   = VCC;--CAMAC_B;    -- Input from Pin, actually is absent
+CAMAC_IFace.S1  = !CAMAC_S1 ;       -- Input from Pin
+CAMAC_IFace.S2  = !CAMAC_S2 ;       -- Input from Pin
+CAMAC_IFace.A[] = !CAMAC_A[];       -- Input from Pin 
+CAMAC_IFace.F[] = !CAMAC_F[];       -- Input from Pin 
+
+CAMAC_X = OpnDrn(!CAMAC_IFace.oX);  -- Output to Pin56
+CAMAC_Q = OpnDrn(!CAMAC_IFace.oQ);  -- Output to Pin80
+CAMAC_L = OpnDrn(!CAMAC_IFace.oL);  -- Output to Pin71
+
+CAMAC_IFace.Confirm = Confirm;  -- confirmation of Operation is being started
+
+--CAMAC_IFace.LamSet = EdgeSensing(.d=!Digitizer.Working,   -- set LAM by the End of Digitizing 
+--                .clk=CLK100, .Reset=RESET); 
+--CAMAC_IFace.LamReset= EdgeSensing(.d=(StartADC            -- reset LAM by new Start
+--                %# !CAMAC_C%), .clk=CLK100, .Reset=RESET);--  or by "Clear" CAMAC-operation
+
+-- "Standard" Status Register connections	
+CAMAC_IFace.LinkClockCaptured   = PhaseSw.LinkClk_Selected; -- => StatusR.q0
+CAMAC_IFace.LinkActive          = Link_IFace.LinkMessage; -- => StatusR.q1
+CAMAC_IFace.LinkError           = Link_IFace.Error ;      -- => StatusR.q2
+--CAMAC_IFace.Busy_on_Digitizing  = Digitizer.Working ;     -- => StatusR.q3
+--CAMAC_IFace.Busy_on_Copy        = Loader.Working;         -- => StatusR.q4
+CAMAC_IFace.DeadTime            = Busy ;--GND;            -- => StatusR.q5
+--    = CAMAC_IFace.Error;  --used inside "CAMAC_IFace" itself  => StatusR_q6
+--    = EnableLAM_Trig.q;   --used inside "CAMAC_IFace" itself, => StatusR_q7
+CAMAC_IFace.StatusR_d[ 8]       = CPU.Working ;           -- => StatusR.q8
+CAMAC_IFace.StatusR_d[ 9]       = CPU.Error ;             -- => StatusR.q9
+CAMAC_IFace.StatusR_d[10]       = GND;--StartOne ;              -- => StatusR.q10
+CAMAC_IFace.StatusR_d[11]       = GND;--StartMulti ;            -- => StatusR.q11
+CAMAC_IFace.StatusR_d[15..12]   = GND;     -- unused bits => StatusR
+
+--	Bus_Arbiter.BARQ[0] = CAMAC_IFace.AccessRequest; -- High priority input
+CAMAC_IFace.AccessGranted      = Bus_Arbiter.BAGD[0] ;
+CAMAC_IFace.DataBusStrobe      = DataStrobe ;
+CAMAC_IFace.DataBusIn[]        = DataBus[] ;
+
+FOR i IN 1 TO 16 Generate
+	CAMAC_RW[i] = TRI (CAMAC_IFace.R[i],  CAMAC_IFace.R_OE);
+	CAMAC_IFace.W[i] = CAMAC_RW[i];
+END GENERATE;
+
+Cam_Rd_Enable   =  CAMAC_IFace.R_OE; -- Enable external buffers of CAMAC_R
+Cam_Wr_Enable   = !CAMAC_IFace.W_OE; -- Enable external buffers of CAMAC_W
+
+--==============================================================================
+--********  5. ETHERNET Interface  *********************************************
+--==============================================================================
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--************  RECEIVER section  ************
+
+Ether.RX_CLK = RxClk;   --Ether-Rx Clock: Ether module <- Rx-channel of Eth_Controller
+Ether.RX_DV = RxDV;     --"DataValid"   : Ether module <- Rx-channel of Eth_Controller
+Ether.COL = Col;        --"Collision"   : Ether module <-     -//-
+Ether.CRS = Crs;        --"CarrierSense": Ether module <-     -//-
+Ether.RXD[3..0] = RxD[3..0];--Data half-Byte: Ether mod <- Rx-channel of Eth_Controller
+
+--This_Device' address (to be sent at SourceAddr field of the reply packets)
+Ether.Saddr[48..1] = ThisDeviceAddr;--for Test: 0110011001100110....1000110011101111
+
+--       = Ether.RxWaitSFD        --connected below Waiting for "StartFrameDelimiter"
+--       = Ether.RxDestAddr       --connected below "DestinationAddr" is being received
+--       = Ether.RxSourAddr       --connected below "SourceAddr" is being received
+--       = Ether.RxPkLenTyp       --connected below "Length/Type" is being received
+--       = Ether.RxDataBlck;      --connected below
+--       = Ether.RxFrameCRC;      --connected below
+--       = Ether.RxEndFrame;      --connected below
+--       = Ether.RxLenTyp[16..1]; -- value of the "PkLength/Type" field
+--       = Ether.RxLength[12..1]; --for RAW packets - Length(Bytes) of the DataBlock (MSbit always =0 !)
+--Ether.RxLengIn[12..1] =         --for other packets - Length(Bytes) of the DataBlock (MSbit always =0 !), 
+        -- ^^^^defined in "LENGTH/TYPE  RECOGNITION" sub-section
+--       = Ether.TypeRaw;         -- connected "LENGTH/TYPE  RECOGNITION" sub-section
+--       = Ether.RxError;         --connected below
+--       = Ether.DataBus_out[];   --connected below  
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--************  TRANSMITTER section  ************
+
+Ether.TX_CLK = TxClk;           -- Ether-Tx Clock: "ETHERNET" <- Tx-chan of Eth_Controller
+TxEn = Ether.TX_EN;             -- Initiate a Transmission
+TxD[3..0] = Ether.TXD[3..0];    -- half-Bytes of Data -> Eth_Controller
+
+Ether.StTransmit= StartEthTx.q; -- StartEthTx is defined in "Control Unit" section
+--Ether.TxLenTyp[16..1] =         -- connected in "Ethernet command proceeding" sub-section
+--Ether.TxLength[12..1] =         -- connected in "Ethernet command proceeding" sub-section
+--      = Ether.TxStFrmDel
+--      = Ether.TxPkLenTyp 
+--      = Ether.TxDataBlck        -- connected below
+--      = Ether.TxEndFrame;       -- connected in "ETHERNET Cycle proceeding units" section 
+--      = Ether.TxError;          --connected in ??
+Ether.DataBus_in[15..0] = TxDataBus[15..0]; 
+
+
+Ether.RESET = RESET # Reset2 # RxStop ; -- reset
+--    = Ether.Test[8..1];       -- connected at the "Testing circuitry" section 
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--************  Data Write/Read to/from the =local= RAM/ROM  :  ****************
+--(Data received in the entire DataBlock)/(Data to be transmitted in the entire DataBlock)
+--  are written/read by ETHERNET to/from EtherRAM via PortA.
+
+--************  Ethernet Memory (2-port RAM)  **********************************
+--EtherRAM.(address_b[9..0],          data_b[],  wren_b  ) =  --\ for reading out 
+--        ((B"0000",CtProtoAdr[5..0]), H"0000",          );   -- > sequences of HandlingWords
+----            = EtherRAM.q_b[];  -- connected below         --/ for execution of Protocols
+--EtherRAM.(clock_b,enable_b) = (RxClk, VCC); 
+EtherRAM.(address_b[9..0], data_b[], wren_b                      )= --\ for common
+        (AddrBus[9..0],   DataBus[],(DataStrobe & DevSel[9] & RW)); -- > access
+--      = EtherRAM.q_b[];     -- connected in DataBus section       --/ (except "Ethernet")
+EtherRAM.(clock_b, enable_b)= (Clk100, VCC); 
+
+EtherRAM.(address_a[9..0],   data_a[],            wren_a ) =    --\ for local access 
+        (EtherAdrCt.q[9..0], Ether.DataBus_out[], EthWord_Rd);  --/ from inside of "Ethernet" section
+EtherRAM.(clock_a,enable_a) = (Clk100, VCC);
+--      = EtherRAM.q_a[];     -- connected in "START of an ETHERNET Tx Cycle" sub-section
+
+--************  Counter which contains the Address for Writing/Reading ..
+--.. DWords of the DataBlock  to/from EtherRAM
+EtherAdrCt.(clock, clk_en)  = (Clk100, VCC);
+EtherAdrCt.cnt_en  = (!EthAddrLd2 & EthAdrCt_en); --increments =after= a DWord has been stored
+EtherAdrCt.sload   = ( EthAddrLd2 & EthAdrCt_en); --=after= a DWord has been stored, ..
+EtherAdrCt.data[]  = (B"0000",EthNextAdr[6..1]);  --.. loads InitAddress for next Stage ..
+EtherAdrCt.sclr = DFF(.D=(Ether.RxWaitSFD # Ether.RxEndFrame), .clk=Clk100);
+
+--************ ETHERNET's Bus Port : *******************************************
+Ether.Clock = Clk100; -- Clock Frequency MUST BE > 50MHz !!!!
+
+--    = Ether.IORq;             -- Connected at "Bus Handler" sub-section
+--    = Ether.RdWr_out;         -- Connected at "Bus Handler" sub-section
+--Ether.DataBus_in[15..0] = EtherRAM.q_a[];   -- data:  connected in "START of an ETHERNET Tx Cycle" sub-section
+Ether.Select  = Addr_Settled;   -- Ethernet is selected for local data reading/writing
+Ether.RdWr_in = RdWr;   -- RdWr=0 => data: EtherRAM <- Ethernet / RdWr=1 => data: EtherRAM -> Ethernet
+Ether.DataStrobe = Data_Strobe; -- input data must be latched while DataStrobe=1 
+--    = Ether.DataBus_out[];    -- data:  Ethernet -> EtherRAM (connected at "Ethernet Memory" sub-section)
+
+--************ (Local)Bus Handler : ********************************************
+AcsRqDetect = EdgeSensing(.D=Ether.IORq, .clk=Clk100, .reset=RESET);
+AccessGrtd	=SRFF(.S=AcsRqDetect,.clk=Clk100,.R=Data_Strobe, .clrn=!RESET); --=1 during whole Operation
+Addr_Settled=SRFF(.S=(AccessGrtd & !Addr_Settled),                          --flag; enables "DevSel[]" triggers
+                    .clk=Clk100, .R=Data_Strobe, .clrn=!RESET); 
+BusOper1    = DFF(.D=Addr_Settled,.clk=Clk100,.clrn=!(RESET OR Data_Strobe));-- delay by 1 clock
+BusOper2    = DFF(.D=BusOper1,    .clk=Clk100,.clrn=!(RESET OR Data_Strobe));-- delay by 1 clock
+BusOper3    = DFF(.D=BusOper2,    .clk=Clk100,.clrn=!(RESET OR Data_Strobe));-- delay by 1 clock
+Data_Strobe = DFF(.D=BusOper3,    .clk=Clk100,.clrn=!RESET); -- 1-clk pulse
+
+-- Ether.RW_out=0 => Data: MainProj -> Ethernet ("write") => RdWr=1 
+-- Ether.RW_out=1 => Data: MainProj <- Ethernet ("read")  => RdWr=0
+RdWr   = DFF(.D=!Ether.RdWr_out, .clk=Clk100);  
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--The procedure of receiving of packets other than "Raw" depends crucially on the type ! 
+--RxLenType[] has been latched by ETHERNET unit ; 
+--RxLenType[] != 0  ONLY if ( Daddr = ThisDeviceAddr  OR  Daddr = Broadcast ) 
+--     (see "ETHERNET Interface" section in which all connections of RxLenType[] are defined )
+
+--************ LENGTH/TYPE  RECOGNITION :  *************************************
+--  TypeRaw  => Recognized and executed by ETHERNET unit
+--  TypeCMD3 => RxLength= 64[Bytes] 
+--  TypeIP   => RxLength=IPlength[Bytes]  |  TypeARP => RxLength= 46[Bytes]
+
+TypeRaw = Ether.TypeRaw;                -- RAW packets are recognized by ETHERNET itself
+--IF (Ether.RxLenTyp[] >= 1536) Then 
+    --CASE Ether.RxLenTyp[] IS 
+    --    WHEN  H"CDCC" =>    CMD3-type => according to the Type, length = 64Bytes
+    --    WHEN  H"0800" =>    IP     -- Length is defined inside IP-packet
+    --End CASE;
+IF  (Ether.RxLenTyp[] == H"CDCC") Then  -- IF  CMD3-type, ..
+    Typ_CMD3    = VCC;                  -- .. fast flag: Type = CMD3
+End IF;
+TypeCMD3= DFF(.D=Typ_CMD3, .clk=Clk100);-- registered flag: Type = CMD3
+
+IF  (Ether.RxLenTyp[] == H"0800") Then  -- IF  IP-type, ..
+    Typ_IP      = VCC;                  -- .. fast flag: Type = IP
+End IF;
+TypeIP  = DFF(.D=Typ_IP,  .clk=Clk100);  -- registered flag: Type = IP
+
+IF  (Ether.RxLenTyp[] == H"0806") Then  -- IF  ARP-type, ..
+    Typ_ARP     = VCC;                  -- .. fast flag: Type = ARP
+End IF;
+TypeARP = DFF(.D=Typ_ARP, .clk=Clk100); -- registered flag: Type = ARP
+
+IF    TypeCMD3  Then
+    Ether.RxLengIn[]= H"040";           -- .. length of DBlck = 64Bytes (total 82B)
+ELSIF TypeIP    Then
+    Ether.RxLengIn[]= RxIPleng[12..1];  -- .. length will be extracted from IP-header
+ELSIF TypeARP   Then
+    Ether.RxLengIn[]= H"02E";           -- .. length of DBlck = 46Bytes (Frame is 64B, MIN)
+--ELSIF (RxLenTyp[] <= 1500)     Then     -- IF  this is LENGTH, ..
+--    TypeRaw       = VCC;                -- .. flag: Type = Raw
+--    RxLength[].d  = RxLenTyp[12..1];    -- .. length => Reg, MSbit always =0 !
+ELSE                                    -- IF  an UNKNOWN value, ..
+    Ether.RxLengIn[]= H"02E";           --.. set length of DBlck = 46Bytes (Frame is 64B, MIN)
+    IF  Ether.RxDataBlck 
+      Then  Rx_Err = VCC;               -- set ERROR flag _/^^^^\_
+    End IF;
+End IF;
+
+--************  PROTOCOL Execution Circuitry :  ********************************
+----Signal which initiates execution of a recognized Protocol ( _/^^\_ dur= 1 RxClk ) : 
+
+--Strobe for incrementation EtherRAM' Addr when storing all DWords 
+--  of the =entire Frame= (Daddr,Saddr,PkLenType,DataBlock) into EtherRAM
+EthWord_Rd  = (!RdWr & Data_Strobe);    -- RdWr=0 => "Read" ETHERNET -> EtherRAM
+--Strobe for incrementation EtherRAM' Addr when reading out all DWords requested by ETHERNET
+EthWord_Wr  = ( RdWr & Data_Strobe);    -- RdWr=1 => "Write" EtherRAM -> ETHERNET
+
+--Signal for incrementing/setting the EtherAdrCt in the proper time :
+EthAdrCt_en = DFF(.clk=Clk100,          --\_strobe for operating EtherAdrCt =after= .. 
+        .D=(EthWord_rd                  -- \.. a DWord has been stored into RAM ..
+        OR (EthTxAdrInit # EthTxAdrIncr -- /..OR during initializing of Tx_cycle ..
+          # EthWord_wr)) );             --/ ..or =after= a DWord has been read out from RAM
+
+--After the entire Ethernet Frame' header (including "PacketLength/Type") has been ..
+IF  (Ether.RxDataCt[] == 1 )    --.. stored in RAM (addresses=[0..6]), then ..
+  Then  --EthAdrInit    = VCC;    --.. initialize loading of the InitAddr into EtherAdrCt
+    IF  (TypeIP ==VCC) Then             --\_IF IP detected, ..
+--        EthNextAdr[].D= UDP_InitAddr;   --/ .. set the InitialAddress = UDP_InitAddr
+        RxAdrSet1 = VCC;
+    End IF;
+    IF  (TypeARP==VCC) Then             --\_IF ARP detected, ..
+--        EthNextAdr[].D= ARP_InitAddr;   --/ .. set the InitialAddress = ARP_InitAddr
+        RxAdrSet2 = VCC;
+    End IF;
+End IF;
+RxAdrSet1a  = DFF (.D=RxAdrSet1,  .clk=!Clk100);--\ Flips  0->1  and  1->0  when ..
+RxAdrSet1b  = DFFE(.D=RxAdrSet1a, .clk= Clk100, -- \..RxAdrSet1 has =garanteedly= settled.
+            .ena=(!(RxAdrSet1  $ RxAdrSet1a) &  -- / ena:  ( (RxAdrSet1a == RxAdrSet1)
+                   (RxAdrSet1a $ RxAdrSet1b)) );--/        & (RxAdrSet1b != RxAdrSet1a) )
+RxAdrSet2a  = DFF (.D=RxAdrSet2,  .clk=!Clk100);--\ Flips  0->1  and  1->0  when ..
+RxAdrSet2b  = DFFE(.D=RxAdrSet2a, .clk= Clk100, -- \..RxAdrSet2 has =garanteedly= settled.
+            .ena=(!(RxAdrSet2  $ RxAdrSet2a) &  -- / ena:  ( (RxAdrSet2a == RxAdrSet2)
+                   (RxAdrSet2a $ RxAdrSet2b)) );--/        & (RxAdrSet2b != RxAdrSet2a) )
+
+IF    RxAdrSet1b  Then
+    EthAdrInit    = VCC;                -- initiates Loading of the new address
+    EthNextAdr[].D= UDP_InitAddr;       --/ .. set the InitialAddress = UDP_InitAddr
+End IF;
+IF    RxAdrSet2b  Then
+    EthAdrInit    = VCC;                -- initiates Loading of the new address
+    EthNextAdr[].D= ARP_InitAddr;       --/ .. set the InitialAddress = ARP_InitAddr
+End IF;
+
+--EthAddrLd0  = DFF(.D=EthAdrInit,                  --\_ "request" for loading NextAddr, ..
+--                .clk=Clk100, .clrn=!EthAddrLd2);  --/ .. aligned to Clk100
+--EthAddrLd1  = DFF(.D=EthAddrLd0,--EthAdrInit,                  --\_ "request" for loading NextAddr, ..
+EthAddrLd1  = DFF(.D=EthAdrInit,                  --\_ "request" for loading NextAddr, ..
+                .clk=Clk100, .clrn=!EthAddrLd2);  --/ .. aligned to Clk100
+EthAddrLd2  = SRFF(.S=EthAddrLd1, .R=EthAdrCt_en, --\_resets to =0 just after ..
+                .clk=Clk100);                     --/..next addr is loaded into EtherAdrCt
+
+--"Register" containing initial addr for storing data during the next Stage of Rx or Tx :
+EthNextAdr[].(clk, ena) = (Clk100, EthAddrLd1); -- .D inputs connected above and below
+
+--Main Protocol Cycle Counter :
+CtProto.(clock,clk_en, cnt_en)  = (RxClk, VCC, DFF(.D=(TypeIP # TypeARP), .clk=RxClk) );
+CtProto.sclr    = ProtoNext # !(TypeIP # TypeARP);  -- when going to the next Stage
+
+ProtoInited = SRFF(.S=(RxIPheader # RxARPheadr),--flag: IP or ARP =has been= initiated
+        .R=(Ether.RxEndFrame # Ether.RxError),  --\_reset after entire Packet has been received ..
+        .clk=RxClk);                            --/ ..or if Error of receiving occured
+
+-- Unnecessary trigger, but it helps Quartus to analyze the logics of Stages correctly:
+RxDVtrig = DFF(.D=RxDV, .clk=RxClk);
+-- Triggers which represent the Stages of execution of the recognized Protocol :
+( RxIPheader, RxIP_Saddr, RxIP_Daddr, RxUDPheadr, RxUDPDBlck,
+  RxARPheadr, RxARPSaddr, RxARPDaddr, RxARPDadIP, RxARPDBlck).clk   = RxClk; 
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--************  EXECUTION of IP-Protocol :  receiving of IP-packet  ************
+--      TypeIP   => RxLength=IPlength[Bytes], and IP chain of StateMachine is started
+
+IF  (TypeIP & !ProtoInited )    -- IF IP-packet is recognized, .. 
+    Then            -- RxIPheader =1,  CtProto  = 0,
+                    -- RxIPheader =1,  CtProto  = 1,
+                    -- RxIPheader =1,  CtProto  = 2, 
+                    -- RxIPheader =1,  CtProto  = 3, Ether.DataBus_out = DWord01
+                    --  .  .  .  .  .  .  .  .  .  .  .  .  .  .
+                    -- RxIPheader =1,  CtProto  = 7, Ether.DataBus_out = DWord02="IP_Length"  
+                    --  .  .  .  .  .  .  .  .  .  .  .  .  .  .
+                    -- RxIPheader =1,  CtProto  =19, Ether.DataBus_out = DWord05(MSByte="IPencaps-Proto")
+                    --  .  .  .  .  .  .  .  .  .  .  .  .  .  .
+    RxIPheader.D  = VCC;            --..then RxIPheader will flip to =1 by next _/RxClk
+ELSIF (RxIPheader AND RxDVtrig) Then    -- receiving IP-header (12 Bytes) :
+    IF  (CtProto.q[] == 23 ) -- IF it's time to go to receive "IP-SourceAddr", ..
+      Then  RxIPheader.D  = GND;    --\ .. Then  jump (by next _/RxClk) ..
+            RxIP_Saddr.D  = VCC;    -- >.. to receive "IP-SourceAddr", ..
+            ProtoNext     = VCC;    --/ ..and Protocol Circuitry jump to the next Stage
+    ELSE
+            RxIPheader.D  = VCC;    --IF receiving is going OK, .. 
+    End IF;                         --.. just continue receiving the IP-header
+ELSE      -- if receiving has crashed, 
+    RxIPheader.D  = GND;        --\_.. STOP (by next _/RxClk) .. 
+--    RxLineIdle.D  = VCC;        --/ .. to the initial state 
+End IF;
+
+IF  (RxIP_Saddr AND RxDVtrig)   -- receiving IP-SourceAddr (4 Bytes) :
+    Then            -- RxIP_Saddr =1,  CtProto  = 0, 1, ..
+                    -- RxIP_Saddr =1,  CtProto  = 3, Ether.DataBus_out = IP-Saddr[32..17]
+                    -- RxIP_Saddr =1,  CtProto  = 7, Ether.DataBus_out = IP-Saddr[16.. 1]
+    IF  (CtProto.q[3..0] == 7)  --  IF 4Bytes of "IP-SourceAddr" received, .. 
+      Then  RxIP_Saddr.D  = GND;    --\ .. Then  jump (by next _/RxClk) ..
+            RxIP_Daddr.D  = VCC;    -- > .. to receive "IP-DestinationAddr"
+            ProtoNext     = VCC;    --/ ..and Protocol Circuitry jump to the next Stage
+    ELSE
+            RxIP_Saddr.D  = VCC;    --IF receiving is going OK, .. 
+    End IF;                         --.. just continue receiving the IP-SourceAddr
+ELSE      -- if receiving has crashed, 
+    RxIP_Saddr.D  = GND;      --\_.. STOP (by next _/RxClk) .. 
+--    RxLineIdle.D  = VCC;      --/ .. to the initial state 
+End IF;
+
+IF  (RxIP_Daddr AND RxDVtrig)   -- receiving IP-DestinationAddr (4 Bytes) :
+    Then            -- RxIP_Saddr =1,  CtProto  = 0, 1, ..
+                    -- RxIP_Saddr =1,  CtProto  = 3, Ether.DataBus_out = IP-Daddr[32..17]
+                    -- RxIP_Saddr =1,  CtProto  = 7, Ether.DataBus_out = IP-Daddr[16.. 1]
+    IF  (CtProto.q[3..0] == 7)  --  IF 4Bytes of "IP-DestinationAddr" received, .. 
+      Then  RxIP_Daddr.D  = GND;    --\ .. Then  jump (by next _/RxClk) ..
+            RxUDPheadr.D  = TypeUDP;-- > .. to receive UDP-header, =IF UDP detected!=
+            ProtoNext     = VCC;    --/ ..and Protocol Circuitry jump to the next Stage
+    ELSE
+            RxIP_Daddr.D  = VCC;    --IF receiving is going OK, .. 
+    End IF;                         --.. just continue receiving the IP-DestinAddr
+ELSE      -- if receiving has crashed, 
+    RxIP_Daddr.D  = GND;        --\_.. STOP (by next _/RxClk) .. 
+--    RxLineIdle.D  = VCC;        --/ .. to the initial state 
+End IF;
+
+IF  (RxUDPheadr AND RxDVtrig)   Then    --ANYWAY, begin receiving UDP-header ..
+    --..until the moment when the result of comparison of IP-Daddr and ThisDeviceIP is ready
+    IF  (DadrIP_cmp AND !ChkIPDaddr)--\_IF this packet is sent NOT to ThisDevice, ..
+      Then  RxUDPheadr.D= GND;      -- >..Then STOP execution of Protocol\_(by next _/RxClk)
+            RxStop      = VCC;      --/ ..and STOP receiving             /
+    ELSIF (CtProto.q[] ==15)   --  IF 8Bytes of "UDP-header" received, .. 
+      Then  RxUDPheadr.D  = GND;    --\ .. Then  jump (by next _/RxClk) ..
+            RxUDPDblck.D  = VCC;    -- >.. to receive UDP-DataBlock, ..
+            ProtoNext     = VCC;    --/ ..and Protocol Circuitry jump to the next Stage
+    ELSE        -- IF receiving is going OK, 
+            RxUDPheadr.D= VCC;      --.. just continue receiving the UDP-header
+--        IF(CtProto.q[3..0]==4) Then -- when "UDP-SourPort" received, ..
+--            EthAdrCnd7.d  = VCC;    --initiates storing the rest data of UDP-header
+--        End IF;
+    End IF;
+ELSE      -- if receiving has crashed, 
+    RxUDPheadr.D  = GND;        --\_.. STOP (by next _/RxClk) .. 
+--    RxLineIdle.D  = VCC;        --/ .. to the initial state 
+End IF;
+
+IF  ((RxUDPDBlck AND RxDVtrig)  --\_receiving IP-DataBlock..
+    AND ChkIPDaddr )  Then  --/ ..ONLY IF This_IP-packet is addressed to ThisDevice ..
+    IF  Ether.RxFrameCRC            -- IF receiving of DataBlock has been finished, .. 
+      Then  RxUDPDBlck.D= GND;      --.. Then STOP execution of Protocol (by next _/RxClk)
+    ELSE
+            RxUDPDBlck.D= VCC;      -- IF receiving is going OK, .. 
+    End IF;                         --.. just continue receiving the IP-DataBlock
+ELSE      -- if receiving has crashed, 
+    RxUDPDBlck.D  = GND;        --\_.. STOP (by next _/RxClk) .. 
+--    RxLineIdle.D  = VCC;        --/ .. to the initial state 
+End IF;
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+-- Latch the 11-bit value of IP-Packet' length (to be forwarded to ETHERNET) :
+RxIPleng[12.. 1].d  = Ether.DataBus_out[11..0]; -- 12bits of the "IPlength" field
+RxIPleng[12.. 1].clk= RxClk;        --\_latches in 2*RxClk after receiving "IP-Length", 
+RxIPleng[12.. 1].ena= RxIPleng_ld;  --/ .. just ONCE in IP-Cycle.
+RxIPleng[12.. 1].clrn = !Ether.RxEndFrame;  -- reset to =0 at the End of Frame
+
+--Strobe for catching the DWord02="IP-Length" :  2*RxClk _/^^^^\_, ..
+RxIPleng_ld = RxIPheader AND (CtProto.q[5..0]==8);  --.. appears just ONCE in IP-cycle
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+%-- Latch the 8-bit value of Protocol (UDP?) within IP-Packet :
+RxIP_Pro[ 8.. 1].d  = Ether.DataBus_out[ 7..0]; -- 8bits of the "Protocol" field
+RxIP_Pro[ 8.. 1].clk= RxClk;            --\ latches in 1 RxClk 
+RxIP_Pro[ 8.. 1].ena= RxIPheader AND    -- >  after receiving DWord05(LSByte="USB")
+        ( CtProto.q[5..0]==19) ;        --/   just ONCE in IP-Cycle.
+RxIP_Pro[ 8.. 1].clrn = !RxEndFrame;        -- reset to =0 at the End of Frame
+%
+--********  Recognition of the UDP protocol tag  *******************************
+IF  ( (CtProto.q[] == 19) AND (Ether.DataBus_out[7..0] == H"11") )
+    Then    TypeUDP.S = VCC;
+End IF;
+TypeUDP.(R,clk) = (Ether.RxEndFrame, RxClk);    --For Test ONLY !
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--********  EXECUTION of ARP-Protocol :  receiving of ARP-packet  **************
+--  TypeARP => RxLength=H"02E"=46[Bytes], and ARP chain of StateMachine is started
+
+IF  (TypeARP & !ProtoInited )   -- IF ARP-packet is recognized, .. 
+    Then            -- RxARPheadr =1,  CtProto  = 0,
+                    -- RxARPheadr =1,  CtProto  = 1,
+                    -- RxARPheadr =1,  CtProto  = 2, 
+                    -- RxARPheadr =1,  CtProto  = 3, Ether.DataBus_out = DWord01
+                    --  .  .  .  .  .  .  .  .  .  .  .  .  .  .
+                    -- RxARPheadr =1,  CtProto  =15, Ether.DataBus_out = DWord04="OpCode"  
+    RxARPheadr.D  = VCC;            --..then RxARPheadr will flip to =1 by next _/RxClk
+ELSIF (RxARPheadr AND RxDVtrig) Then    -- receiving ARP-header ( 8 Bytes) :
+    IF  (CtProto.q[] ==12) Then
+--            EthAdrInit    = VCC;                --\_initiates Loading of the new addr, ..
+--            EthNextAdr[].D= ARP_InitAd_plus23;  --/ prepare for storing ARP-OpCode
+            RxAdrSet3 = VCC;
+    End IF;
+    IF  (CtProto.q[] ==15 ) -- IF 8Bytes of ARP-header received, ..
+      Then  RxARPheadr.D  = GND;    --\ .. Then  jump (by next _/RxClk) ..
+            RxARPSaddr.D  = VCC;    -- >.. to receive Source' Addr, ..
+            ProtoNext     = VCC;    --/ ..and Protocol Circuitry jump to the next Stage
+--            EthAdrInit    = VCC;                --\_initiates Loading of the new addr, ..
+--            EthNextAdr[].D= ARP_InitAd_plus09;  --/ prepare for storing "SourAddr", to be used as "DestAddr"
+            RxAdrSet4 = VCC;
+    ELSE
+            RxARPheadr.D  = VCC;    --IF receiving is going OK, .. 
+    End IF;                         --.. just continue receiving the IP-header
+ELSE      -- if receiving has crashed, 
+    RxARPheadr.D  = GND;        --\_.. STOP (by next _/RxClk) .. 
+--    RxLineIdle.D  = VCC;        --/ .. to the initial state 
+End IF;
+
+IF  (RxARPSaddr AND RxDVtrig)   -- receiving Source' Addr (MAC+IP = 6+4 [Bytes]) :
+    Then            -- RxARPSaddr =1,  CtProto  = 0, 1, ..
+                    -- RxARPSaddr =1,  CtProto  = 3, Ether.DataBus_out = SourAddr[48..33]
+                    -- RxARPSaddr =1,  CtProto  = 7, Ether.DataBus_out = SourAddr[32..17]
+                    -- RxARPSaddr =1,  CtProto  =11, Ether.DataBus_out = SourAddr[16.. 1]
+                    -- RxARPSaddr =1,  CtProto  =15, Ether.DataBus_out = IP-Saddr[32..17]
+                    -- RxARPSaddr =1,  CtProto  =19, Ether.DataBus_out = IP-Saddr[16.. 1]
+    IF  (CtProto.q[] ==19)   --  IF (6+4)Bytes of Source' (MAC+IP)addr received, .. 
+      Then  RxARPSaddr.D  = GND;    --\ .. Then  jump (by next _/RxClk) ..
+            RxARPDaddr.D  = VCC;    -- >.. to receive Destination' Addr, ..
+            ProtoNext     = VCC;    --/ ..and Protocol Circuitry jump to the next Stage
+--            EthAdrInit    = VCC;    -- initiates Loading of the new address
+--            EthNextAdr[].D= ARP_InitAd_plus16;  --addr. for storing "DestAddr"=H"00..00", to be IGNORED
+            RxAdrSet5 = VCC;
+    ELSE
+            RxARPSaddr.D  = VCC;    --IF receiving is going OK, .. 
+    End IF;                         --.. just continue receiving the Source' Addr
+ELSE      -- if receiving has crashed, 
+    RxARPSaddr.D  = GND;      --\_.. STOP (by next _/RxClk) .. 
+--    RxLineIdle.D  = VCC;      --/ .. to the initial state 
+End IF;
+
+--In ARP-request the Dest-n'Addr (MAC +IP) is ThisDevice'Addr => it is NOT NEEDED.
+--Hence, "DestAddr"+"IP-Daddr" are written into the same addresses where the rest part..
+--..of ARP-request will be written => "DestAddr"+"IP-Daddr" will be overwritten !
+IF  (RxARPDaddr AND RxDVtrig)   -- receiving Destination' Addr (MAC only! = 6[Bytes]) :
+    Then            -- RxARPSaddr =1,  CtProto  = 0, 1, ..
+                    -- RxARPSaddr =1,  CtProto  = 3, Ether.DataBus_out = DestAddr[48..33]
+                    -- RxARPSaddr =1,  CtProto  = 7, Ether.DataBus_out = DestAddr[32..17]
+                    -- RxARPSaddr =1,  CtProto  =11, Ether.DataBus_out = DestAddr[16.. 1]
+    IF  (CtProto.q[] ==11)   --  IF 6Bytes of Destination' MAC-addr received, .. 
+      Then  RxARPDaddr.D  = GND;    --\ .. Then  jump (by next _/RxClk) ..
+            RxARPDadIP.D  = VCC;    -- >.. to receive Destination' IP-Addr, ..
+            ProtoNext     = VCC;    --/ ..and Protocol Circuitry jump to the next Stage
+    ELSE
+            RxARPDaddr.D  = VCC;    --IF receiving is going OK, .. 
+    End IF;                         --.. just continue receiving the Source' Addr
+ELSE      -- if receiving has crashed, 
+    RxARPDaddr.D  = GND;      --\_.. STOP (by next _/RxClk) .. 
+--    RxLineIdle.D  = VCC;      --/ .. to the initial state 
+End IF;
+
+--"RxARPDadIP" in receiving ARP-request is conducted as =separate= Stage so that ..
+--everything proceed identically to the "RxIP_Daddr" Stage (particularly, CtProto.q[]=[0..7]).
+IF  (RxARPDadIP AND RxDVtrig)   -- receiving DestinationAddr (IP only! = 4[Bytes]) :
+    Then            -- RxARPDadIP =1,  CtProto  = 0, 1, ..
+                    -- RxARPDadIP =1,  CtProto  = 3, Ether.DataBus_out = IP-Daddr[32..17]
+                    -- RxARPDadIP =1,  CtProto  = 7, Ether.DataBus_out = IP-Daddr[16.. 1]
+    IF  (CtProto.q[] == 7)   --  IF 4Bytes of Destination' IP-addr received, .. 
+      Then  RxARPDadIP.D  = GND;    --\ .. Then  jump (by next _/RxClk) ..
+            RxARPDBlck.D  = VCC;    -- >.. to receive the (empty)DataBlock, ..
+            ProtoNext     = VCC;    --/ ..and Protocol Circuitry jump to the next Stage
+--            EthAdrInit    = VCC;    -- initiates Loading of the new address
+--            EthNextAdr[].D= ARP_InitAd_plus14;  --addr. for storing (empty)DataBlock
+            RxAdrSet6 = VCC;
+    ELSE
+            RxARPDadIP.D  = VCC;    --IF receiving is going OK, .. 
+    End IF;                         --.. just continue receiving the Source' Addr
+ELSE      -- if receiving has crashed, 
+    RxARPDadIP.D  = GND;      --\_.. STOP (by next _/RxClk) .. 
+--    RxLineIdle.D  = VCC;      --/ .. to the initial state 
+End IF;
+
+IF  (RxARPDBlck AND RxDVtrig)   Then    --  always begin receiving ARP-DataBlock ..
+    --..until the moment when the result of comparison of IP-Daddr and ThisDeviceIP is ready
+    IF  (DadrIP_cmp AND !ChkIPDaddr)--\_IF this packet is sent NOT to ThisDevice, ..
+      Then  RxARPDBlck.D= GND;      -- >..Then STOP execution of Protocol\_(by next _/RxClk) 
+            RxStop      = VCC;      --/ ..and STOP receiving             /
+    ELSIF  Ether.RxFrameCRC         --\_ IF receiving of DataBlock has been finished, .. 
+      Then  RxARPDBlck.D= GND;      --/ .. Then STOP execution of Protocol (by next _/RxClk)
+    ELSE
+            RxARPDBlck.D= VCC;      -- IF receiving is going OK, .. 
+    End IF;                         --.. just continue receiving the ARP-DataBlock
+ELSE      -- if receiving has crashed, 
+    RxARPDBlck.D  = GND;        --\_.. STOP (by next _/RxClk) .. 
+--    RxLineIdle.D  = VCC;        --/ .. to the initial state 
+End IF;
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--Circuit which handles the Ether'addresses within Rx_Cycle ;
+--  Triggers are connected in to decouple stages of big logic.
+RxAdrSet3a  = DFF (.D=RxAdrSet3,  .clk=!Clk100);--\ Flips  0->1  and  1->0  when ..
+RxAdrSet3b  = DFFE(.D=RxAdrSet3a, .clk= Clk100, -- \..RxAdrSet3 has =garanteedly= settled.
+            .ena=(!(RxAdrSet3  $ RxAdrSet3a) &  -- / ena:  ( (RxAdrSet3a == RxAdrSet3)
+                   (RxAdrSet3a $ RxAdrSet3b)) );--/        & (RxAdrSet3b != RxAdrSet3a) )
+
+RxAdrSet4a  = DFF (.D=RxAdrSet4,  .clk=!Clk100);--\ Flips  0->1  and  1->0  when ..
+RxAdrSet4b  = DFFE(.D=RxAdrSet4a, .clk= Clk100, -- \..RxAdrSet4 has =garanteedly= settled.
+            .ena=(!(RxAdrSet4  $ RxAdrSet4a) &  -- / ena:  ( (RxAdrSet4a == RxAdrSet4)
+                   (RxAdrSet4a $ RxAdrSet4b)) );--/        & (RxAdrSet4b != RxAdrSet4a) )
+
+RxAdrSet5a  = DFF (.D=RxAdrSet5,  .clk=!Clk100);--\ Flips  0->1  and  1->0  when ..
+RxAdrSet5b  = DFFE(.D=RxAdrSet5a, .clk= Clk100, -- \..RxAdrSet5 has =garanteedly= settled.
+            .ena=(!(RxAdrSet5  $ RxAdrSet5a) &  -- / ena:  ( (RxAdrSet5a == RxAdrSet5)
+                   (RxAdrSet5a $ RxAdrSet5b)) );--/        & (RxAdrSet5b != RxAdrSet5a) )
+
+RxAdrSet6a  = DFF (.D=RxAdrSet6,  .clk=!Clk100);--\ Flips  0->1  and  1->0  when ..
+RxAdrSet6b  = DFFE(.D=RxAdrSet6a, .clk= Clk100, -- \..RxAdrSet6 has =garanteedly= settled.
+            .ena=(!(RxAdrSet6  $ RxAdrSet6a) &  -- / ena:  ( (RxAdrSet6a == RxAdrSet6)
+                   (RxAdrSet6a $ RxAdrSet6b)) );--/        & (RxAdrSet6b != RxAdrSet6a) )
+
+IF    RxAdrSet3b  Then
+    EthAdrInit    = VCC;                -- initiates Loading of the new address
+    EthNextAdr[].D= ARP_InitAd_plus23;  --addr. for storing ARP-OpCode
+End IF;
+IF    RxAdrSet4b  Then
+    EthAdrInit    = VCC;                -- initiates Loading of the new address
+    EthNextAdr[].D= ARP_InitAd_plus09;  --addr. for storing "SourAddr", to be used as "DestAddr"
+End IF;
+IF    RxAdrSet5b  Then
+    EthAdrInit    = VCC;                -- initiates Loading of the new address
+    EthNextAdr[].D= ARP_InitAd_plus16;  --addr. for storing "DestAddr"=H"00..00", to be IGNORED
+End IF;
+IF    RxAdrSet6b  Then
+    EthAdrInit    = VCC;                -- initiates Loading of the new address
+    EthNextAdr[].D= ARP_InitAd_plus14;  --addr. for storing (empty)DataBlock
+End IF;
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--********  CHECK-UP of the IP-Daddr :  ****************************************
+ThisDeviceIP[32..1] = ThisDeviceIPAddr; -- enter a constant into a =bus=
+
+--Check-up of IP-address in ARP (mandatory!) and in IP (optional) Protocols :
+IF  (RxARPDadIP OR RxIP_Daddr)  --\_at 6th period of RxClk ..
+    AND (CtProto.q[] == 6) Then --/ .. from the beg-g of "RxARPDadIP" Stage or "RxIP_Daddr" Stage ..
+        ChkIPDaddr.d   =        --  .. compare MSWord of IP-Daddr and MSWord of ThisDeviceIP
+            ( Ether.DataBus_out[] == ThisDeviceIP[32..17] ) ;
+        DadrIP_MSW     = VCC;   -- strobe for checking the MSW of IP-Daddr
+        DadrIP_LSW1    = VCC;   --initiate a strobe for checking the LSW of IP-Daddr
+End IF;
+
+DadrIP_LSW2 = DFF(.D=DadrIP_LSW1, .clk=RxClk);  --\ DadrIP_LSW1  delayed by 4*RxClk ..
+DadrIP_LSW3 = DFF(.D=DadrIP_LSW2, .clk=RxClk);  -- \.. is used as a strobe ..
+DadrIP_LSW4 = DFF(.D=DadrIP_LSW3, .clk=RxClk);  -- /..for checkking the LSW of IP-Daddr
+DadrIP_LSW  = DFF(.D=DadrIP_LSW4, .clk=RxClk);  --/ ..at 10th RxClk from the beg-g of RxARPDadIP Stage
+
+IF  DadrIP_LSW  Then   --at 10th period of RxClk from the beg-g of RxARPDadIP Stage ..
+        ChkIPDaddr.d =      --  .. compare LSWord of IP-Daddr and LSWord of ThisDeviceIP
+            ( ( Ether.DataBus_out[] == ThisDeviceIP[16.. 1] ) 
+            AND ChkIPDaddr );
+End IF;
+
+ChkIPDaddr.(clk, ena)  = (RxClk, (DadrIP_MSW # DadrIP_LSW)); 
+ChkIPDaddr.clrn = !Ether.RxWaitSFD;     -- reset to =0 at the beg-g of Frame
+
+DadrIP_cmp = DFF(.D=DadrIP_LSW, .clk=RxClk); -- strobe for using the "ChkIPDaddr"
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--********  Execution of the TypeCMD3-command (not Protocol!)  *****************
+
+--  Circuit which saves CMD3-OpCode received from Ethernet :
+Reg_EthOpCode[8..1].D   = Ether.DataBus_out[15..8]; -- 1st Byte is the MSB of the 1st DWord !
+Reg_EthOpCode[8..1].(clk, ena)= (Clk100, CMD3OpCode_save);  -- latch the 1st DWord received
+Reg_EthOpCode[8..1].clrn      = !RESET;
+
+CMD3OpCode_save = ( TypeCMD3                    --\  when CMD3 packet is received, get..
+            AND (EthWord_Rd & !CMD3command));   --/ ..ONLY the 1st DWord of DataBlock
+CMD3command     = SRFF(.S=CMD3OpCode_save, 
+               .R=(Ether.TxEndFrame # RESET), .clk=Clk100 );
+
+
+--============================================================================
+--************ 6. Fast LINK's Interface ****************************************
+%
+CLK150_  = CLK150;				
+CLK37_5_ = BC_Sample_Enable;			   
+CLK12_5_ = BC_Fast_Link_Start;	
+CLK25_   = CLK25;			
+
+FastSerLed				: output;	-- drives the LED				-> Pin
+FastDeserLed			: output;	-- drives the LED				-> Pin
+
+FLink.Data_To_Ser[23..0] = FLink_Data_BUS[23..0]; --CAMAC_R_In_Pin_Buffer.q[];
+FLink.(Clock , Bunch_Crossing_Data_Sample, Bunch_Crossing_Fast_Link_Start) = 
+	  (CLK150,     BC_Sample_Enable      ,       BC_Fast_Link_Start      );
+
+-- Inferring of Fast output Buffers
+SerDataOut[7..0]  = SerDataOut_Out_Pin_Buffer.q[];
+NWord[1..0]       = NWord_Out_Pin_Buffer.q[];  
+
+SerDataOut_Out_Pin_Buffer.(data[],clock,enable,load) = (FLink.SerDataOut[7..0],CLK150,VCC,VCC);
+NWord_Out_Pin_Buffer.(data[],clock,enable,load)      = (FLink.NumberWord[1..0],CLK150,VCC,VCC);
+
+3PH_CLK_Out_Pin_Buffer.(d,clk) = (FLink.3xPH_Clk, CLK150);
+--3PH_CLK_Out_Pin_Buffer.(d,clk) = (3PH_CLK_Int, CLK150);
+-- 3PH_CLK_Out_Pin_Buffer.(d,clk) = (DFF(.d=FLink.3xPH_Clk,.clk=CLK150), CLK150);
+------------------      
+ 
+-- сигналы управления для Serializer/Deserializer
+3PH_CLK = 3PH_CLK_Out_Pin_Buffer.q;
+PWRDN   = VCC;  -- включить Serializer/Deserializer 
+%
+
+--============================================================================
+--******** 7. TA6/12 data Interface ******************************************************
+
+SerClk = Clk75;
+
+FOR i in NUM_board-1 to 0 Generate
+
+	TA_proces[i].Clock				= Clk75;
+	TA_proces[i].TAdata[9..0]		= DataIn_TA[i][];
+	TA_proces[i].TAdata[11..10]		= NWordFLink_TA[i][];
+
+    TA_proces[i].LnkMess        = Link_IFace.LinkMessage;
+    TA_proces[i].EtherMess      = Ether.IORq; -- Data_ready or Data_required;
+
+--    TA_proces[i].DigitInit      = StartADC_Link;--PwrUpSet1;-- initiates Cycle: Digitizing and store the results in ADC_RAM
+    TA_proces[i].DigitInit      = StartADC; --PwrUpSet1;-- initiates Cycle: Digitizing and store the results in ADC_RAM
+    TA_proces[i].RegInit        = PwrUpSet1;
+    TA_proces[i].Reset          = RESET;    -- reset by MainRESET
+
+	TA_proces[i].DataBus_In[15..0]	= DataBus[15..0];
+	TA_proces[i].AddrBus_In[9..0]	= AddrBus[9..0] ;
+	TA_proces[i].DataBusStrobe		= DataStrobe ;
+	TA_proces[i].DirectIn			= RW;
+	TA_proces[i].Select				= DevSel[11+i].q ;
+	TA_proces[i].WriteRAM			= SelCommdList_Count.q[];
+
+	TALed[i] = NChLock[i];
+
+END GENERATE;
+
+--============================================================================
+--******** 8. Processor ******************************************************
+CPU.Clock   = Clk100;   CPU.Sync    = Synchro25; 
+CPU.ProgInit        = StartProc ; 
+CPU.BaseAddr[7..0]  = BaseAddr[7..0];
+--CPU.Int[4..1]       = 
+CPU.int1            = Link_IFace.IORq;
+CPU.int4            = TestCt.q[25];
+
+CPU.DataIn[]        = DataBus[];        -- Data Bus - input
+--            = CPU.AddrOut[15..0]        -- \ connected in "Internal Bus"
+--            = CPU.DataOut[15..0]        -- /                       section
+
+--            = CPU.AccessReq ;           -- connected in "Internal Bus" section
+--                    = CPU.RdWr;         -- connected in "Internal Bus" section
+--CPU.AccessGranted   = AccessGtd;        -- connected in "Internal Bus" section
+--CPU.DataStrobe      = DataStrobe;       -- connected in "Internal Bus" section
+CPU.AccessGranted   = Bus_Arbiter.BAGD[1] ;
+CPU.DataStrobe      = DataStrobe ;
+
+--            = CPU.Working;      -- connected below, in "Control Unit" section
+--            = CPU.Error;        -- connected below, in "Control Unit" section
+CPU.Reset   = RESET;            -- reset by MainRESET
+
+-- Direct access to ProgRAM as to a part of common RAM
+CPU.(ProgRAM_addr[ 7..0],ProgRAM_data[15..0]) = (AddrBus[7..0], DataBus[]);
+CPU.ProgRAM_we  = DataStrobe & DevSel[2] & RW;
+--            = CPU.ProgRAM_q[];  -- connected in "Internal Bus" section
+
+--============================================================================
+-- RAM blocks, Registers
+
+--************ Main general-purpose Memory ***********************************
+MainRAM.(address[7..0], data[],    clock,    wren                     ) =
+        (AddrBus[7..0], DataBus[], Clk100,(DataStrobe & DevSel[1] & RW)); 
+
+--ProgRAM belongs to "Processor"unit, and is defined there
+
+--************ CommandList RAM ***********************************************
+CommandRAM.(address[9..0], data[], clock,    wren                     ) =
+        (AddrBus[9..0], DataBus[], Clk100,(DataStrobe & DevSel[3] & RW)); 
+
+--Ethernet Memory is for use by Ethernet Section ONLY, and is defined there
+
+Reg_BaseAddr.data[7..0] = DataBus[7..0];
+Reg_BaseAddr.clock      = Clk100;
+Reg_BaseAddr.enable     = ( DevSel[6] & (AddrBus[2..0]==1)  --AddrBus[]== Addr_of_thisReg
+                        AND (DataStrobe & RW) );            --.. and "write" is conducted
+Reg_BaseAddr.(load, aclr)   = (VCC, RESET);
+
+--============================================================================
+--******** 9. Control Unit section *******************************************
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+-- Start an Action by CAMAC command
+IF (CAMAC_IFace.Start == VCC)  then -- If "Start" (F25Axx) command received, 
+    CASE CAMAC_IFace.Aout[]  IS     -- recognizing the particular Operation :
+        WHEN 0  => St_Compuls= VCC;     -- Compulsive Start (one-shot)
+                   Confirm   = VCC;     -- command confirmed
+        WHEN 1  => St_One    = VCC;     -- Start by external "Start" (one-shot)
+                   Confirm   = VCC;     -- command confirmed
+        WHEN 2  => St_Multi  = VCC;     -- Start by external "Start" (multiple)
+                   Confirm   = VCC;     -- command confirmed
+        WHEN 8  => St_Load   = VCC;     -- Load Att.Codes & Masks
+                   Confirm   = VCC;     -- command confirmed
+        WHEN 12 => StProc_CAMAC = VCC;  -- Start Processor upon CAMAC, BaseAddr in ????
+                   Confirm   = VCC;     -- command confirmed
+        WHEN 14 => StEthTx_CAMAC= VCC;  -- Start Ethernet Transmission cycle upon CAMAC
+                   Confirm   = VCC;     -- command confirmed
+        WHEN OTHERS =>  Confirm = GND;  -- command INvalid
+    END CASE;
+END IF ;
+
+-- RESET of all/some Objects by CAMAC command
+IF (CAMAC_IFace.Reset == VCC)  then -- If "Reset" (F30Axx) command received, 
+    CASE CAMAC_IFace.Aout[]  IS     -- recognizing the particular Operation :
+        WHEN 0  => Reset_all = VCC;     -- Main RESET by CAMAC command
+                   Confirm   = VCC;     -- command confirmed
+        WHEN 1  => Reset_2   = VCC;     -- Partial Reset by CAMAC command
+                   Confirm   = VCC;     -- command confirmed
+        WHEN OTHERS =>  Confirm = GND;  -- command INvalid
+    END CASE;
+END IF ;
+
+-- Ethernet TRANSMISSION is started by CAMAC command FOR TEST ONLY!!  
+Delay_EthTxRq_CAMAC.(D,clk,reset)  = (StEthTx_CAMAC,    --\_Ethernet TX start delayed ..
+                                      Clk100, RESET);   --/ ..after receiving a CAMAC command
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--**************** LINK Cycle proceeding units *******************************
+
+---- Start an Action by Link command  (4-clock pulse)
+--Start_Link.(D, clk, reset)  = (Link_IFace.LinkMessage, Clk100, RESET);--PulseShaper
+
+IF (Link_IFace.LinkMessage == VCC)  then -- If VALID command received, 
+    CASE  Link_IFace.OpCode_out[(CommandSize+Pause-1)..0] is -- recognizing the particular Operation :
+        WHEN  Read     => BaseAddr[]    = 80;   --#145-"Read" (=<8words) from Objects 
+                        StProc_Link     = VCC;
+        WHEN  Write    => BaseAddr[]      =192; --#154-"Write"(=<4words) to Objects
+                        StProc_Link     = VCC;
+        WHEN  Read62 => BaseAd[]        =  2;   --#130-"Read62": Read 62words from Object(s)
+                        StProc_Link     = VCC;
+        WHEN  Write8 => BaseAd[]        =160;   --#137-"Write8": Write 8 words  to Object(s)
+                        StProc_Link     = VCC;
+
+        WHEN  StartRegul     =>     -- #193-"START_Regular"        (+Єхэшх Lst0)
+                        BaseAd[]        = 24;           --Program: CommdList_Rd000
+                        StProc_Link     = VCC;          --Start up the Program
+                        St_ADC_Link     = VCC;          --Start up ADC
+        WHEN  CommdLst_Wr001 =>     -- #202-"Blocking_Begin"       (¦ряшё№ Lst1)
+                        BaseAd[]        =100;           --Program: CommdList_Wr001
+                        StProc_Link     = VCC;          --Start up the Program
+
+        WHEN  StartAlter     =>     -- #210-"START_Alternative"    (+Єхэшх Lst2)
+                        BaseAd[]        = 28;           --Program: CommdList_Rd010
+                        StProc_Link     = VCC;          --Start up the Program
+                        --St_ADC_Link     = VCC;          --Start up ADC
+        WHEN  CommdLst_Wr011 =>     -- #217-"Blocking_End"         (¦ряшё№ Lst3)
+                        BaseAd[]        =106;           --Program: CommdList_Wr011
+                        StProc_Link     = VCC;          --Start up the Program
+
+        WHEN  CommdLst_Rd100 =>     -- #226-"Read  by CommdLst100" (+Єхэшх Lst4)
+                        BaseAd[]        = 32;           --Program: CommdList_Rd100
+                        StProc_Link     = VCC;          --Start up the Program
+        WHEN  CommdLst_Wr101 =>     -- #233-"Write by CommdLst101" (¦ряшё№ Lst5)
+                        BaseAd[]        =112;           --Program: CommdList_Wr101
+                        StProc_Link     = VCC;          --Start up the Program
+
+        WHEN  CommdLst_Rd110 =>     -- #241-"Read  by CommdLst110" (+Єхэшх3)
+                        BaseAd[]        = 36;           --Program: CommdList_Rd110;
+                        StProc_Link     = VCC;          --Start up the Program
+        WHEN  CommdLst_Wr111 =>     -- #250-"Write by CommdLst111" (¦ряшё№3)
+                        BaseAd[]        =118;           --Program: CommdList_Wr111
+                        StProc_Link     = VCC;          --Start up the Program
+
+        WHEN  Rd_SelCommdLst =>     -- #198-"Read  by CommdLst_selected_by_InData"
+                        BaseAd[]        = 72;           --Program: Rd_SelCommdList
+                        StProc_Link     = VCC;          --Start up the Program
+        WHEN  Wr_SelCommdLst =>     -- #205-"Write by CommdLst_selected_by_InData"
+                        BaseAd[]        =153;           --Program: Wr_SelCommdList
+                        StProc_Link     = VCC;          --Start up the Program
+
+        WHEN OTHERS            => StProc_Link  = GND;
+                                  St_ADC_Link  = GND;
+    End CASE;
+End IF ;
+
+--StartProc_Link  = DFF(.D=St_Proc_Link, .clk=Clk100);
+StartProc_Link.(D,clk,reset)= (StProc_Link, Clk100, RESET);     --PulseShaper
+--StartADC_Link   = DFF(.D=St_ADC_Link,  .clk=Clk100);
+StartADC_Link.(D,clk,reset) = (St_ADC_Link,  Clk100, RESET);    --PulseShaper
+
+--!!!!For the SERIES-SENDING_TEST, comment the 1st line below and uncomment the 2nd one.
+EtherTxRq_Link = StartADC_Link.q;       -- =request= for sending data via Ethernet
+--EtherTxRq_Link = StartADC_Link.q AND UDPtstSeries;  -- =request= for sending data via Ethernet
+
+-- Circuitry for sending 124 DataWords related to 1 event in 2 consecutive LinkCycles (Temporary)
+SelCommdList_Reg.(data[15..8],data[7],data[6..0]) = (B"00001100",SelCommdList_Count.q,B"0000000");
+SelCommdList_Reg.(clock,load,enable) = (Clk100,VCC,VCC);
+SelCommdList_Count.cnt_en = EdgeSensing(.D= !Link_IFace.LinkMessage, .clk=Clk100, .reset=RESET);
+SelCommdList_Count.(clock,clk_en) = (Clk100, VCC);
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--****************  ETHERNET Commands proceeding unit  *************************
+
+--****  1. Execution of ARP-reply 
+--ARP-Reply Transmission is initiated AUTOMATICALLY ONLY !
+Ether_ARPreply  = SRFF(.S=(RxARPDBlck AND       --\_Sets when ARP-request ..
+                  (ChkIPDaddr & DadrIP_cmp) ),  --/ ..sent to ThisDevice is received
+    .R=(Ether.TxEndFrame # RESET # Reset2),     --the =next= Tx_cycle must be ARP-reply => 
+    .clk=Clk100);   -- => Ether_ARPreply can be reset directly by the end of that Tx_cycle.
+
+TxARPrepl_Rq= SRFF(.S=(Ether_ARPreply & Ether.RxEndFrame),
+                .R=InitARP, .clk=Clk100);       --flips to =0 when ARP-reply Tx has started
+
+--****  2. Execution of UDP command
+--For TEST ONLY !  Transmission of UDP packet is initiated upon receiving a UDP packet
+UDPtestDel  = SRFF(.S=(RxUDPDBlck AND           --\_Sets when a UDP packet ..
+                                ChkIPDaddr),    --/ ..sent to ThisDevice is received
+        .R=(TxUDP_Rq_UDP                        --\_R = 1*Clk100 _/^^\_ after the 7us Delay
+            # RESET # Reset2), .clk=Clk25 );    --/ .. OR RESET
+
+UDPtstDelCt.(clock, clk_en) = (TestCt.q7, VCC); -- Fclock=(Fquartz/256) => Tclock = ~10us
+UDPtstDelCt.cnt_en  =  UDPtestDel & !UDPtstDelCt.eq0 ; 
+UDPtstDelCt.sset    = !UDPtestDel ;             -- counts down from =7 to =0
+
+TxUDP_Rq_UDP    = EdgeSensing(.D=UDPtstDelCt.eq0, .clk=Clk25);
+
+--!!!!For the SERIES-SENDING_TEST ONLY !  
+--1st Request for UDP-Tx_cycle is issued upon receiving a UDP packet (see above), ..
+--    .. the rest 11 Requests are issued upon Link commands.
+UDPtstSeries= SRFF(.S=(RxUDPDBlck AND           --\_Sets when a UDP packet ..
+                                ChkIPDaddr),    --/ ..sent to ThisDevice is received
+        .R=(UDPtstSerCt.eq0                     --\_Reset after issuing 12th Request 
+            # RESET # Reset2), .clk=Clk25 );    --/ .. OR RESET
+
+UDPtstSerCt.(clock, clk_en) = (Clk25, VCC);     -- 
+UDPtstSerCt.cnt_en  = (UDPtstSeries & !UDPtstSerCt.eq0) 
+                    AND EdgeSensing(.D=Ether_TxUDPcycle, .clk=Clk25) ; 
+UDPtstSerCt.sset    = !UDPtstSeries ;           -- counts down from =12 to =0
+
+
+--****  3. Execution of CMD3 command
+IF CMD3command  Then
+--    Ether.TxLenTyp[]= H"CDCC";      -- "PacketLength/Type" value to be transmitted
+    CASE  Reg_EthOpCode[8..1]   is  -- recognizing the particular Operation :
+        WHEN  H"01" =>  -- "PING" command
+            StEthTx_Ether   = VCC;  -- Start up the Transmit
+            Ether.TxLength[]=  64;  -- DataBlock length = 64Bytes
+--            EthNextAdr[].D  = 128;  -- initial addr of data to be transmitted 
+
+        --WHEN  H"03" =>  -- "StartMulti" for sending Ethernet' frames" 
+        --WHEN  H"04" =>  -- "STOP sending Ethernet' frames" 
+
+        WHEN  H"05" =>  -- "Set LinkMask and TimeGap" 
+            Eth_WRITE       = VCC;  -- Ethernet' "Write" Command received 
+            --St_EthTx_Ether  = GND;  -- NO Transmit 
+
+        WHEN  H"08" =>  -- "Write" data to TestRAM
+            Eth_WRITE       = VCC;  -- Ethernet' "Write" Command received 
+            --St_EthTx_Ether  = GND;  -- NO Transmit 
+
+        WHEN  H"09" =>  -- "Read" data from TestRAM
+            StEthTx_Ether   = VCC;  -- Start up the Transmit
+            --Ether.TxLength[]= 255;  -- DataBlock length = 256Bytes
+            Ether.TxLength[]=  64;  -- DataBlock length - temporary
+--            EthNextAdr[].D  = 128;  -- initial addr of data to be transmitted 
+
+        WHEN OTHERS => StEthTx_Ether    = GND;
+            Ether.TxLength[]=   46;  -- DataBlock length = 46Bytes (Frame is 64B, MIN)
+    End CASE;
+End IF;
+
+--When CMD3-Type "WRITE" command => EtherWRITE=1 => write to EtherRAM enabled 
+EtherWRITE  = DFF(.D=Eth_WRITE, .clk=Clk100, .clrn=!(Ether.RxEndFrame # RESET)); 
+--EtherWR_we  = EtherWRITE    -- Upon "CMD3"-type "WRITE" command, enables ETHERNET -> TestRAM
+--            AND(Addr_Settled & !RdWr & Data_Strobe);-- RdWr=0 => "Read" from ETHERNET
+
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--****************  ENABLING of Action_Initializing  ***************************
+Delay_StOne.(d,clk,reset)   = (St_One,    Clk100,RESET);    -- Delay of one-shot START
+Delay_StMulti.(d,clk,reset) = (St_Multi,  Clk100,RESET);    -- Delay of multiple START
+
+StartOne_En.(d,clk,reset)   =(Delay_StOne.q,Clk100,RESET);  -- 1-clk _/^\_ by F25A1 
+StartOne    = SRFF(.clk=Clk100,                 --<< One-shot Start >>
+        .S=(StartOne_En.q OR                                -- by F25A1, or..
+            (DataBus[0] AND                                 -- by 1st_bit=1
+             DevSel[6] & (AddrBus[2..0]==0) AND             --\_AddrBus[]== Addr_of_thisReg
+             DataStrobe & RW) ),                            --/ ..and "write" is conducted
+        .R=(%Digitizer.Working OR%                          -- Reset by actual start, or..
+           Ether.TX_EN  OR                                  -- by ETNERNET' TX Cycle 
+          (St_Compuls # St_Multi) OR                        -- by other Mode of Start 
+          (!DataBus[0] AND                                  -- by 2nd_bit=0
+             DevSel[6] & (AddrBus[2..0]==0) AND             --\_AddrBus[]== Addr_of_thisReg
+             DataStrobe & RW) OR                            --/ ..and "write" is conducted
+          RESET) );                                         -- by RESET command 
+
+StartMulti_En.(d,clk,reset) =((Delay_StMulti.q OR PwrUpSet2), -- 1-clk _/^\_ ..
+                    Clk100, RESET);             -- .. by F25A2 or by PwrUpSet2
+StartMulti  = SRFF(.clk=Clk100,                 --<< Multi-shot Start >>
+        .S=( StartMulti_En.q OR                             -- by F25A2, or..
+            (DataBus[1] AND                                 -- by 2nd_bit=1
+             DevSel[6] & (AddrBus[2..0]==0) AND             --\_AddrBus[]== Addr_of_thisReg
+             DataStrobe & RW) ),                            --/ ..and "write" is conducted
+        .R=(%Digitizer.Working OR%                          -- NO Reset by actual start 
+          (St_Compuls # St_One) OR                          -- by other Mode of Start, or.. 
+           (!DataBus[1] AND                                 -- by 2nd_bit=0
+             DevSel[6] & (AddrBus[2..0]==0) AND             --\_AddrBus[]== Addr_of_thisReg
+             DataStrobe & RW) OR                            --/ ..and "write" is conducted
+          RESET) );                                         -- by RESET command 
+
+--QuickStart  = DFFE(.D=DataBus[2], .clk=Clk100,              -- 3rd_bit 
+--                .ena=(DevSel[6] & (DataStrobe & RW)),       -- write enabling
+--                .clrn=!RESET );
+--GateOpenM   = DFFE(.D=DataBus[3], .clk=Clk100,              -- 4th bit
+--                .ena=(DevSel[6] & (Data_Strobe & RW)),      -- write enabling
+--                .clrn=!(RESET # PwrUpSet2) );
+EtherCMD3mode   = DFFE(.D=DataBus[2], .clk=Clk100,          -- 3rd_bit, "CMD3_Mode"
+                    .ena= ( DevSel[6] & (AddrBus[2..0]==0)  --\_AddrBus[]== Addr_of_thisReg
+                    AND (DataStrobe & RW) ),                --/ ..and "write" is conducted
+                    .clrn=!(RESET # PwrUpSet2) );           -- by default =0
+EtherUDPmode    = DFFE(.D=DataBus[3], .clk=Clk100,          -- 4th_bit, "UDP_Mode"
+                    .ena= ( DevSel[6] & (AddrBus[2..0]==0)  --\_AddrBus[]== Addr_of_thisReg
+                    AND (DataStrobe & RW) ),                --/ ..and "write" is conducted
+                    .prn= !(RESET # PwrUpSet2) );           -- by default =1
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--**************** START of a PROCESSOR operation ******************************
+Delay_StProc_CAMAC.(D,clk,reset)= (StProc_CAMAC, Clk100,RESET); --\_Processor start delayed ..
+StartProc_CAMAC = SRFF(.s=Delay_StProc_CAMAC.q, .clk=Clk100,    --/ after the CAMAC-cycle
+                       .r=CPU.Working, .clrn=!RESET ); --
+-- Processor is started by CAMAC command FOR TEST ONLY!!  
+IF (StartProc_CAMAC == VCC)  
+    Then  BaseAd[7..0] = Reg_BaseAddr.q[7..0];  --A special BaseAddr= is to be used !
+End IF;
+
+For i in 0 to 7  GENERATE
+BaseAddr[i] = DFF(.D=BaseAd[i], .clk=Clk100);
+End GENERATE;
+
+StartProc   = (StartProc_CAMAC  OR              -- Start Work by CAMAC .. 
+--               StartProc_Ether  OR              -- .. or Start by Ethernet ..
+    ((StartOne # StartMulti)& StartProc_Link.q))-- .. or Start by Link, if allowed
+    AND !CPU.Working                    -- if Processor is NOT working
+    %AND !Digitizer.Working%;           -- if Digitizing is NOT in progress 
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--****************  START of a DIGITIZING Cycle  *******************************
+Delay_StCompuls.(D,clk,reset) = (St_Compuls,Clk100,RESET);  -- Delay of Compulsive START
+-- Compulsive_START delayed after the CAMAC-cycle 
+StartADC_CAMAC.(D, clk,reset) =(Delay_StCompuls.q, Clk100, RESET);--PulseShaper
+
+---- START by external Start pulse
+--StartADC_Ext.(D, clk,reset)   =(NIM_in, Clk100, RESET);     --PulseShaper
+
+StartADC    = StartADC_CAMAC.q                  -- Compulsive START by CAMAC ..
+    OR((StartOne # StartMulti)& StartADC_Link.q)-- or START by Link' Command ..
+    --OR((StartOne # StartMulti)& StartADC_Ext.q )-- or START by external Start pulse 
+    %AND !Digitizer.Working% ;            -- if Digitizing is NOT in progress 
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--***************  START of an ETHERNET Tx Cycle  ******************************
+
+--****A PAUSE must be done between a completed Ethernet' Operation and the next Tx cycle !
+--"Register" which contains the value of Ethernet' PAUSE (in 10ns units) :
+EtherPauseRg[10..1].D   = DataBus[ 9..0];
+EtherPauseRg[10..1].ena =( DevSel[6] & (AddrBus[2..0]==6)   -- AddrBus[]== Addr_of_thisReg
+                        AND (DataStrobe & RW) );            --.. and "write" is conducted
+EtherPauseRg[10..1].clk = Clk100;
+EtherPauseRg[10].clrn   = !(RESET);         --\  Default value = 400 = 
+EtherPauseRg[ 9..8].prn = !(RESET);         -- \  = B"01 1001 0000", ..
+EtherPauseRg[ 7..6].clrn= !(RESET);         --  > .. so that the PAUSE..
+EtherPauseRg[ 5].prn    = !(RESET);         -- / ..between Ethernet' oper-s.. 
+EtherPauseRg[ 4..1].clrn= !(RESET);         --/  ..is 4.0us
+
+--Counter which counts down the Ethernet' PAUSE (in 10ns units) :
+EtherPauseCt.(clock,clk_en) = (Clk100, VCC);
+EtherPauseCt.sload  = DFF(.D=(Ether.RxEndFrame # Ether.TxEndFrame), .clk=Clk100);
+EtherPauseCt.data[] = EtherPauseRg[].q;     -- loads the value of Pause time
+EtherPauseCt.cnt_en = !EtherPauseCt.eq0;    -- after having loaded, counts down
+--EtherPauseCt.sclr   = Reset # Reset2;       -- in principle, not needed
+
+EtherBusy   = SRFF(.S=((RxDV & !EtherBusy)      --\_A.S.A.P. after beg-g of Rx cycle, ..
+                    OR StartEthTx.q),           --/ ..OR simultaneously with Tx cycle 
+    .R=((EtherPauseCt.eq0 &                     --\_after the PAUSE .. 
+        !DFF(.D=EtherPauseCt.eq0, .clk=Clk100)) --/ ..after the previous Eth' Operation, ..
+        AND !RxDV ),                            --..AND if NO Rx_cycle is in progress
+    .clk=Clk100, .clrn=!(RESET # Reset2) );
+--                    OR  Ether_ARPreply;         -- OR [ARPreply is in progress]
+EthBusyEnd  = !EtherBusy & DFF(.D=EtherBusy, .clk=Clk100);  -- 1*Clk100 _/^^\_
+
+--****Start of ARP-reply Tx_cycle :  HIGH-priority, immediately after the PAUSE..
+InitARP = SRFF(.S=(EthBusyEnd & TxARPrepl_Rq),  --..after the ARP-request
+                .R=Ether.TX_EN, .clk=Clk100, .clrn=!(RESET # Reset2));  
+
+--****Start of UDP Tx_cycle : 
+--1) Gather all Requests for sending a =UDP= packet : 
+TxUDP_Rq    = EdgeSensing(.D=(                  -- 1*Clk100 _/^^\_
+      ( Delay_EthTxRq_CAMAC.q & EtherUDPmode )  --    =unconditional= Start by CAMAC.. 
+    OR( (EtherTxRq_Link       & EtherUDPmode )  --\_..OR Start UDP-Tx by Link, ..
+       &(StartOne # StartMulti) )               --/ .. IF allowed
+    OR(  TxUDP_Rq_UDP                           --\_..OR Start UDP-Tx upon UDP, ..
+       &(StartOne # StartMulti) )               --/ .. IF allowed
+    --OR ((StartOne # StartMulti)& (TestCt.q[25..4]==H"3FFF0"))   -- For TEST ONLY !!
+                ), .clk=Clk100);                --
+
+--2) IF TxUDP_Rq has appeared when [EtherBusy=1 OR if ARP-reply is requested], ..
+--   ..then TxUDP_Rq must be put on WaitList :
+TxUDPwait   = SRFF(.S=(TxUDP_Rq AND (EtherBusy # Ether_ARPreply)),  --"put on WaitList"
+                .R=InitUDP,                 --flips to =0 when UDP Tx_cycle has started
+                .clrn=!(RESET # Reset2), .clk=Clk100);
+
+--Start of UDP Tx_cycle :  [immediate, IF possible] / [after the end of EtherBusy]
+InitUDP = SRFF(.S=( ((TxUDP_Rq & !EtherBusy)    --\ Start immediately ..
+                OR (EthBusyEnd & TxUDPwait ))   -- >..OR Start after PAUSE,
+               AND !Ether_ARPreply ),           --/ ..AND if ARP-reply is NOT requested
+                .R=Ether.TX_EN, .clk=Clk100, .clrn=!(RESET # Reset2));  
+
+StartEthTx.D= InitARP # InitUDP;            -- Start pulse for all Tx cycles
+        --AND !Ether.TX_EN ) );               -- if a Transmit is NOT in progress
+StartEthTx.(clk,reset)= (Clk100, RESET);    -- PulseShaper, _/^^^\_ 4*Clk100
+
+Ether_TxUDPcycle= SRFF(.S=InitUDP,                  --\_flag: UDP packet ..
+                        .R=Ether.TxEndFrame,        --/    .. is being transmitted
+                        .clk=Clk100, .clrn=!(RESET # Reset2) );
+ 
+--When starting any Tx_cycle, initiate setting of the InitAddr :
+--  _/^^\_ not longer than 4*Clk100 !
+EthAdrInit  = StartEthTx.q; --and several terms OR'ed to EthAdrInit below
+--When starting the ARP-reply Tx_cycle (initiated by ARP-request only!) :
+IF  InitARP  Then
+    Ether.TxLenTyp[16..1]  = H"0806";   -- Type="ARP", value to be transmitted
+    Ether.TxLength[12..1]  = 46;    -- DataBlock length = 46Bytes (Frame is 64B, MIN)
+    EthNextAdr[].D  = ARP_InitAddr; -- DataBlock will be read out starting from addr=8
+End IF; 
+--When starting a UDP Tx_cycle (by Link, or (for Test: by receiving UDP or by CAMAC)) :
+IF  InitUDP  Then
+    Ether.TxLenTyp[16..1]  = H"0800";   -- Type="IP", value to be transmitted
+    --Length of DataBlock = ( (UDP-header+UDP-data)+20B ), and..
+    Ether.TxLength[12..1]  = (B"0", IPlength.result[10..0]);--.. Frame=(DataBlock+18B)
+    EthNextAdr[].D  = ARP_InitAd_plus07;-- InitAddr for calculating IP-header' CRC
+----****For TEST :  send  THE SAME UDP-packet  back to Comp
+--    EthNextAdr[].D  = 48;   --(IP-headr + UDP-headr) will be composed from that of received UDP-packet
+End IF;
+--When starting a CMD3 Tx_cycle (Automatically or by CAMAC) :
+--IF  (StartEthTx_CAMAC & EtherCMD3mode) Then
+--        Ether.TxLenTyp[16..1]  = H"CDCC";   -- Type="CMD3", value to be transmitted
+--        Ether.TxLength[12..1]  = TxLength_Reg.q[];      --Length of DBlock, Frame=(DBlock+18B)
+--        EthNextAdr[].D=  48;    -- DataBlock will be read out starting from addr=48(=8240)
+--End IF;
+--ONLY when starting Tx cycle, one extra strobe for loading InitAddr into EthAdrCt is added :
+EthTxAdrIni2= DFF(.D=EthAddrLd2, .clk=Clk100);          --
+EthTxAdrInit= DFF(.D=(StartEthTx.q AND                  --\_ 1*Clk100 _/^^\_ pulse, .. 
+            (EthAddrLd2 & !EthTxAdrIni2)), .clk=Clk100);--/ .. appears =after= EthAddrLd2
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--***************  PROCEEDING of an ETHERNET Tx Cycle  *************************
+
+--"Register" which contains Length of UDP DataBlock to be transmitted :
+UDPlength_Reg[11..1].D  = DataBus[10..0];
+UDPlength_Reg[11..1].ena=( DevSel[6] & (AddrBus[2..0]==4)   -- AddrBus[]== Addr_of_thisReg
+                        AND (DataStrobe & RW) );            --.. and "write" is conducted
+UDPlength_Reg[11..1].clk   = Clk100;
+UDPlength_Reg[11..6].clrn  = !(RESET);-- # Reset2);     --\  
+UDPlength_Reg[ 5..4].prn   = !(RESET);-- # Reset2);     -- \  Default value = 26, ..
+UDPlength_Reg[ 3].clrn     = !(RESET);-- # Reset2);     --  > .. so that ..
+UDPlength_Reg[ 2].prn      = !(RESET);-- # Reset2);     -- / ..the total length .. 
+UDPlength_Reg[ 1].clrn     = !(RESET);-- # Reset2);     --/  ..of Frame is 64B (MIN)
+
+--Adder which calculates and holds the Length of IP DataBlock to be transmitted :
+IPlength.dataa[10..0]   = UDPlength_Reg[11..1].q;
+IPlength.datab[10..0]   =   20;
+IPlength.(clock, clken) = (Clk100, InitUDP);    --operates at the beg-g of any UDP Tx_cycle
+--        = IPlength.result[10..0];     --used elsewhere
+
+--Counter which counts the Number of UDP-packets transmitted
+UDP_PackCt.(clock, clk_en)  = (Clk100, VCC);
+UDP_PackCt.cnt_en  = EthTxAdrInit;      --increments =after= a DWord has been stored
+UDP_PackCt.sload   = ( DevSel[6] & (AddrBus[2..0]==5)   --\_AddrBus[]== Addr_of_thisCounter
+                   AND DataStrobe & RW );               --/ ..and "write" is conducted
+UDP_PackCt.data[]  = DataBus[];                         --
+UDP_PackCt.sset    = RESET # Reset2 ;                   -- reset to =1
+--UDP_PackCt.sclr    = RESET # Reset2 ;
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--********  Circuit which calculates the IP-header' CRC  ***********************
+IPinit_cnt = DFF(.D=(Ether.TxDestAddr & !IPinitCt.eq0), --\_Enables counting after beg-g of "TxDestAddr",  
+                .clk=Clk100);                           --/ .. stops at IPinitCt.q[]=0
+
+IPinit1 = DFF(.D=( !IPinit1 AND IPinit_cnt), .clk=Clk100);      --\  Prescaler :
+IPinit2 = DFF(.D=((!IPinit2 & IPinit1) # (IPinit2 & !IPinit1)   -- > divider..
+              AND IPinit_cnt ), .clk=Clk100 );                  --/  .. by 4
+
+IPinitCt.(clock, clk_en)  = (Clk100, VCC);
+IPinitCt.cnt_en = IPinit_cnt & (IPinit1 & IPinit2) ;-- increments each 4th Clk
+IPinitCt.sload  = InitUDP;                          --\_ONLY in the beg-g of UDP packet: 
+IPinitCt.data[] = 12;                               --/ counts down from =12 to =0
+
+--Handling the EtherRAM address during calculation of the IP-header'CRC :
+--             Initially the Address =15,  then :   IPinitCt.q[]  EtherAdrCt.q[]
+EthTxAdrIncr= ( IPinitCt.eq11                   --\    11              15
+              # IPinitCt.eq10                   -- |   10              16
+      --(IPinitCt.eq9 & !(IPinit1 & IPinit2))   -- |   09(see below) 17, 18,19 
+              # IPinitCt.eq8                    -- \   08              20
+      --      # IPinitCt.eq7   no need to decr  -- /   07              21
+              # IPinitCt.eq6                    -- |   06  strobe for loading addr=35
+              # IPinitCt.eq5                    -- |   05              35
+              # IPinitCt.eq3 )                  -- |   03  strobe for loading addr=32
+            AND (!IPinit1 &  IPinit2 )          -- |4*(1*Clk100) pulses by IPinit[2..1]=2
+     # (IPinitCt.eq9 & !(IPinit1 & IPinit2));   --/  3*Clk100 pulse by IPinit[2..1]=1,2,3
+
+IF  IPinitCt.eq6   Then         -- 
+    EthAdrInit  = VCC;          --\_jump to Addr=35, 
+    EthNextAdr[].D  = 35;       --/ .. to add H"4000"
+End IF;
+IF  IPinitCt.eq3   Then         -- 
+    EthAdrInit  = VCC;          --\_(IP-header + UDP-header) will be composed..
+    EthNextAdr[].D  = 32;       --/ .. starting from addr=32(=8224)
+End IF;
+
+--Strobes for adding DWords to IP-header'CRC :
+IPhdCRC_Cen = ( IPinitCt.eq11 # IPinitCt.eq10  --\_4 * (1*Clk100) pulses ..
+              # IPinitCt.eq8  # IPinitCt.eq7   --/ .. by IPinit[2..1]=3
+              # IPinitCt.eq5  # IPinitCt.eq4   -- 2pulses after Addr is set =35, ..
+              # IPinitCt.eq2                 ) -- 1pulse  after Addr is set =32, ..
+              AND ( IPinit1 &  IPinit2 ) ;     -- (1*Clk100) pulses by IPinit[2..1]=3
+              --OR  3 more terms defined below in "CASE  Ether.TxCount[11..2]" statement
+IPhdCRCclken= DFF(.D=IPhdCRC_Cen, .clk=Clk100);
+
+--Adder which accumulates IP-header' CRC :
+IPhdCRCadder.(clock, clken) = ( Clk100, IPhdCRCclken ); 
+IF  ( Ether_TxUDPcycle & Ether.TxDataBlck 
+    & (Ether.TxCount[11..2]==2) )  Then                         --\_adding ..
+    IPhdCRCadder.dataa[15.. 0] = (H"000", IPhdCRCcarry.q[3..0]);--/ .. CARRY bits
+ELSE
+    IPhdCRCadder.dataa[15.. 0] = TxDataBus[15..0];
+End IF;
+IPhdCRCadder.datab[15.. 0] = IPhdCRCadder.result[15..0]; 
+IPhdCRCadder.aclr   = InitUDP;          -- reset to =0 at the very beginning of Tx cycle
+
+--Counter which counts CARRY bits :
+IPhdCRCcarry.(clock,clk_en) = (Clk100, VCC);
+IPhdCRCcarry.cnt_en = DFF(.D=( IPhdCRCadder.cout &  --\ IPhdCRCadder.cout & 1*Clk pulse..
+            DFF(.D=IPhdCRCclken,.clk=Clk100) ),     -- >..delayed by 1*Clk..
+                          .clk=Clk100);             --/   ..after IPhdCRCclken
+--Test6 = DFF(.D=( IPhdCRCadder.cout &  --\ IPhdCRCadder.cout & 1*Clk pulse..
+--            DFF(.D=IPhdCRCclken,.clk=Clk100) ),     -- >..delayed by 1*Clk..
+--                          .clk=Clk100);             --/   ..after IPhdCRCclken
+--IPhdCRCcarry.cnt_en = Test6;
+IPhdCRCcarry.data[] = 0;
+IPhdCRCcarry.sclr   = InitUDP;          -- reset to =0 at the very beginning of Tx cycle
+
+--Selector of data sources for composing the UDP-header of transmitted UDP-packet :
+--TxDataBus - local bus (formal only) used by Tx_cycle proceeding circuit
+IF  (Ether_TxUDPcycle & Ether.TxDataBlck)  Then
+    CASE  Ether.TxCount[11..2]  is
+      WHEN  0 => TxDataBus[] = (B"00000", IPlength.result[10..0] ); -- IP-Length
+                 IPhdCRC_Cen = EthWord_Wr;      -- add IP-Length to IP-header'CRC
+      WHEN  1 => TxDataBus[] = UDP_PackCt.q[];  -- Num of UDP-packet
+                 --TxDataBus[] = EtherRAM.q_a[];  --For TEST! get =constant= value from addr=34
+                 IPhdCRC_Cen = EthWord_Wr;      -- add Num_of_UDP-Packet to IP-header'CRC
+      WHEN  2 => TxDataBus[] = EtherRAM.q_a[];  -- normal connection
+                 IPhdCRC_Cen = EthWord_Wr;      -- add 4bits of "CARRY" to IP-header'CRC
+      WHEN  4 => TxDataBus[] = !IPhdCRCadder.result[];  -- IP-header' CRC, =inverted=
+      WHEN  6 => TxDataBus[] = EtherRAM.q_a[];  -- normal connection
+        IF ( Ether.TxCount[1..0] == 0 ) Then
+--          EthAdrInit    = VCC;                  --\_prepare for transmitting ..
+--          EthNextAdr[].D= ARP_InitAd_plus12 ;   --/ .. "IP-Daddr" (Comp's IP)
+          TxAdrSet1 = VCC;
+        End IF;
+      WHEN  8 => TxDataBus[] = EtherRAM.q_a[];  -- normal connection
+        IF ( Ether.TxCount[1..0] == 0 ) Then
+--          EthAdrInit    = VCC;                  --\_prepare for transmitting ..
+--      --    EthNextAdr[].D= 59;                   --/ .. "UDP-SourPort"
+--          EthNextAdr[].D= 58;                   --/ .. "UDP-SourPort", "UDP-DestPort", etc.
+          TxAdrSet2 = VCC;
+        End IF;
+      WHEN 11 => TxDataBus[] = (B"00000",UDPlength_Reg[11..1].q); -- UDP-Length
+        IF ( Ether.TxCount[1..0] == 0 ) Then
+--          EthAdrInit    = VCC;                  --\_prepare for transmitting ..
+--          EthNextAdr[].D= 43 ;                  --/ .. "UDP-header'CRC" = 0
+          TxAdrSet3= VCC;
+        End IF;
+      WHEN 12 => TxDataBus[] = EtherRAM.q_a[];  -- normal connection
+        IF ( Ether.TxCount[1..0] == 0 ) Then
+--          EthAdrInit    = VCC;                  --\_prepare for transmitting ..
+--          EthNextAdr[].D= 62 ;                  --/ .. UDP-DataBlock
+          TxAdrSet4= VCC;
+        End IF;
+      WHEN OTHERS  => TxDataBus[15..0] = EtherRAM.q_a[15..0];
+                      IPhdCRC_Cen      = GND;
+    End CASE;
+ELSE
+    TxDataBus[15..0] = EtherRAM.q_a[15..0]; 
+End IF;
+
+TxAdrSet1a  = DFF (.D=TxAdrSet1,  .clk=!Clk100);--\ Flips  0->1  and  1->0  when ..
+TxAdrSet1b  = DFFE(.D=TxAdrSet1a, .clk= Clk100, -- \..TxAdrSet1 has =garanteedly= settled.
+            .ena=(!(TxAdrSet1  $ TxAdrSet1a) &  -- / ena:  ( (TxAdrSet1a == TxAdrSet1)
+                   (TxAdrSet1a $ TxAdrSet1b)) );--/        & (TxAdrSet1b != TxAdrSet1a) )
+
+TxAdrSet2a  = DFF (.D=TxAdrSet2,  .clk=!Clk100);--\ Flips  0->1  and  1->0  when ..
+TxAdrSet2b  = DFFE(.D=TxAdrSet2a, .clk= Clk100, -- \..TxAdrSet2 has =garanteedly= settled.
+            .ena=(!(TxAdrSet2  $ TxAdrSet2a) &  -- / ena:  ( (TxAdrSet2a == TxAdrSet2)
+                   (TxAdrSet2a $ TxAdrSet2b)) );--/        & (TxAdrSet2b != TxAdrSet2a) )
+
+TxAdrSet3a  = DFF (.D=TxAdrSet3,  .clk=!Clk100);--\ Flips  0->1  and  1->0  when ..
+TxAdrSet3b  = DFFE(.D=TxAdrSet3a, .clk= Clk100, -- \..TxAdrSet3 has =garanteedly= settled.
+            .ena=(!(TxAdrSet3  $ TxAdrSet3a) &  -- / ena:  ( (TxAdrSet3a == TxAdrSet3)
+                   (TxAdrSet3a $ TxAdrSet3b)) );--/        & (TxAdrSet3b != TxAdrSet3a) )
+
+TxAdrSet4a  = DFF (.D=TxAdrSet4,  .clk=!Clk100);--\ Flips  0->1  and  1->0  when ..
+TxAdrSet4b  = DFFE(.D=TxAdrSet4a, .clk= Clk100, -- \..TxAdrSet4 has =garanteedly= settled.
+            .ena=(!(TxAdrSet4  $ TxAdrSet4a) &  -- / ena:  ( (TxAdrSet4a == TxAdrSet4)
+                   (TxAdrSet4a $ TxAdrSet4b)) );--/        & (TxAdrSet4b != TxAdrSet4a) )
+
+IF    TxAdrSet1b  Then
+    EthAdrInit    = VCC;                --\_prepare for transmitting ..
+    EthNextAdr[].D= ARP_InitAd_plus12;  --/ .. "IP-Daddr" (Comp's IP)
+End IF;
+IF    TxAdrSet2b  Then
+    EthAdrInit    = VCC;                --\_prepare for transmitting ..
+    --EthNextAdr[].D= 59;                 --/ .. "UDP-SourPort"
+    EthNextAdr[].D= 58;                 --/ .. "UDP-SourPort", "UDP-DestPort", etc.
+End IF;
+IF    TxAdrSet3b  Then
+    EthAdrInit    = VCC;                --\_prepare for transmitting ..
+    EthNextAdr[].D= 43 ;                --/ .. "UDP-header'CRC" = 0
+End IF;
+IF    TxAdrSet4b  Then
+    EthAdrInit    = VCC;                --\_prepare for transmitting ..
+    EthNextAdr[].D= 62 ;                --/ .. UDP-DataBlock
+End IF;
+
+%
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--********  For TEST :  send  THE SAME UDP-packet  back to Comp  ***************
+--    Don't forget to change the InitAddr in "IF  StartEthTx_CAMAC" statement above !
+Ether.DataBus_in[15..0] = EtherRAM.q_a[];    
+IF  (Ether_TxUDPcycle & Ether.TxDataBlck)  Then
+    CASE  Ether.TxCount[11..2]  is
+--      WHEN  0 => Ether.DataBus_in[] = (B"00000",(UDPlength_Reg[11..1]+20)); --IP-Length
+--      WHEN  1 => Ether.DataBus_in[] = UDP_PackCt.q[];           --Num of UDP-packet
+      WHEN  4 =>
+        IF ( Ether.TxCount[1..0] == 0 ) Then
+          EthAdrInit    = VCC;                  --\_prepare for transmitting ..
+          EthNextAdr[].D= 38;                   --/ .. "IP-Saddr" (ThisDevice' IP)
+        End IF;
+      WHEN  6 =>
+        IF ( Ether.TxCount[1..0] == 0 ) Then
+          EthAdrInit    = VCC;                  --\_prepare for transmitting ..
+          EthNextAdr[].D= ARP_InitAd_plus12 ;   --/ .. "IP-Daddr" (Comp's IP)
+        End IF;
+      WHEN  8 =>
+        IF ( Ether.TxCount[1..0] == 0 ) Then
+          EthAdrInit    = VCC;                  --\_prepare for transmitting ..
+          EthNextAdr[].D= 59;                   --/ .. "UDP-SourPort"(="UDP-DestPort" in Test)
+        End IF;
+      WHEN  9 =>
+        IF ( Ether.TxCount[1..0] == 0 ) Then
+          EthAdrInit    = VCC;                  --\_prepare for transmitting ..
+          EthNextAdr[].D= 59;                   --/ .. "UDP-DestPort", etc.
+        End IF;
+    End CASE;
+End IF;%
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--************** Busy Flag, Error Flag *****************************************
+Busy	= Link_IFace.LinkMessage OR CPU.Working --OR Ether.RxDataBlck ;
+        OR ( TypeRaw # TypeCMD3 # TypeIP # TypeARP );   -- =recognized= Ethernet frame
+Error	= Link_IFace.Error OR CPU.Error OR Ether.RxError;--OR Ether.TxError ;
+RESET	= DFF(.D=(PwrUpReset OR Reset_all OR ExtReset), .clk=Clk100) ;
+Reset2  = DFF(.D=Reset_2, .clk=Clk100);
+--============================================================================
+--******** 10. Error counter ******************************************************
+
+-- Project Bus Port, common
+	ErrorCounters_IFace.clock 			=	CLK100;
+	ErrorCounters_IFace.AddrBusIn[2..0]	=	AddrBus[2..0];
+	ErrorCounters_IFace.DataBusStrobe	=	DataStrobe ;
+-- Project Bus Port, Slave
+	--ErrorCounters_IFace.DirectIn		= 	RW;
+	ErrorCounters_IFace.Select			= 	DevSel[10].q;
+
+	ErrorCounters_IFace.ErrorInputs[0]	=	CPU.Error;--Bus_Arbiter.ErrorLight;
+	ErrorCounters_IFace.ErrorInputs[1]	=	Bus_Arbiter.Error;
+	ErrorCounters_IFace.ErrorInputs[2]	=	CAMAC_IFace.Error;
+	ErrorCounters_IFace.ErrorInputs[3]	=	Link_IFace.Error;
+    ErrorCounters_IFace.ErrorInputs[4]  =   Ether.TxError;
+    ErrorCounters_IFace.ErrorInputs[5]  =   Ether.RxError;
+--    ErrorCounters_IFace.ErrorInputs[6]  =   Ether.Error;--Sync_ES.q;
+    ErrorCounters_IFace.ErrorInputs[6]  =   Error;--Sync_ES.q;
+
+--============================================================================
+-- 11. Internal Bus of Project & Data transfer control ************************
+%
+AddrBus[15..0]	= CPU.AddrOut[15..0];   -- CPU is the only Master, rules forever
+RW				= CPU.RdWr ;            -- эряЁртыхэшх яхЁхфрўш
+CPU.AccessGranted	= AccessGrtd;       -- 
+CPU.DataStrobe		= DataStrobe;       -- connected in "Control Unit" section
+
+-- Bus Handler : 
+AcsRqDetect = EdgeSensing(.D=CPU.AccessReq, .clk=Clk100, .reset=RESET);
+AccessGrtd	=SRFF(.S=AcsRqDetect,.clk=Clk100, .r=DataStrobe, .clrn=!RESET); --=1 during whole Operation
+AddrSettled =SRFF(.S=(AccessGrtd & !AddrSettled),                           --flag; enables "DevSel[]" triggers
+						.clk=Clk100, .r=DataStrobe, .clrn=!RESET); 
+BusOper1	= DFF(.D=AddrSettled,.clk=Clk100,.clrn=!(RESET OR DataStrobe)); -- delay by 1 clock
+BusOper2	= DFF(.D=BusOper1,   .clk=Clk100,.clrn=!(RESET OR DataStrobe)); -- delay by 1 clock
+BusOper3	= DFF(.D=BusOper2,   .clk=Clk100,.clrn=!(RESET OR DataStrobe)); -- delay by 1 clock
+DataStrobe	= DFF(.D=BusOper3,   .clk=Clk100,.clrn=!RESET); -- 1-clk pulse
+%
+Bus_Arbiter.clock  = Clk100;
+Bus_Arbiter.Reset  = GND;
+
+Bus_Arbiter.BARQ[0] = CAMAC_IFace.AccessRequest; -- High priority input
+Bus_Arbiter.BARQ[1] = CPU.AccessReq; -- Processor's AccessRequest;
+Bus_Arbiter.BARQ[2] = GND; 
+Bus_Arbiter.BARQ[3] = GND;
+
+Bus_Arbiter.clock   = Clk100 ;
+Bus_Arbiter.Reset   = RESET;
+
+--  Когда Арбитр выбрал MASTER-устройство, которому разрешен доступ к 
+--  SLAVE-устр-вам, этому MASTER-у предоставляется сначала шина Адреса 
+--      RW:        VCC => Master -> Slave  | GND => Master <- Slave
+--	    Addr[15..0] - 16-битный адрес
+CASE Bus_Arbiter.BAGD[3..0] IS 
+    WHEN b"0001" => AddrBus[15..0]  = CAMAC_IFace.AddrBusOut[15..0] ; 
+                    RW              = CAMAC_IFace.RdWr; -- iai?aaeaiea ia?aaa?e
+    WHEN b"0010" => AddrBus[15..0]  = CPU.AddrOut[15..0]; 
+                    RW              = CPU.RdWr ;        -- iai?aaeaiea ia?aaa?e
+    WHEN OTHERS  => AddrBus[15..0]  = GND;  -- 
+                    RW              = GND;  -- by default, Master <- Slave
+END CASE;
+
+-- When Address from Master is set on the Address Bus, ...
+-- DEVICE SELECTION - the Slave-device is identified by its Address 
+
+--1) Main RAM, Program RAM, CommandList RAM
+IF ((AddrBus[15..0] >=  MainRAM_Offset ) AND 
+	(AddrBus[15..0] <= (MainRAM_Offset + MainRAM_Size - 1))) 
+	Then  MainRAM_cs    = VCC;          -- Address belongs to MainRAM
+	Else  MainRAM_cs    = GND;
+End IF;
+IF ((AddrBus[15..0] >=  ProgRAM_Offset ) AND 
+    (AddrBus[15..0] <= (ProgRAM_Offset + ProgRAM_Size - 1))) 
+    Then  ProgRAM_cs    = VCC;          -- Address belongs to ProgRAM
+    Else  ProgRAM_cs    = GND;
+End IF;
+IF ((AddrBus[15..0] >=  CommdList_Offset ) AND 
+    (AddrBus[15..0] <= (CommdList_Offset + CommdList_Size - 1))) 
+    then  CommandRAM_cs = VCC;          -- Address belongs to CommandRAM
+    else  CommandRAM_cs = GND;
+End IF;
+
+-- 2) Registers and similar objects
+%IF (AddrBus[15..0] == CtrlStat_Offset)  -- #2048  Control-Status "Reg"
+    Then CtrlStat_cs = VCC;
+    Else CtrlStat_cs = GND ;
+End IF ;
+IF (AddrBus[15..0] == BaseAddr_Offset)  -- #2049  BaseAddr Reg
+	Then BaseAddr_cs = VCC;
+	Else BaseAddr_cs = GND ;
+End IF ;
+IF (AddrBus[15..0] == EthOpCode_Offset) -- Ethernet' OpCode Reg
+	Then EthOpCode_cs = VCC;
+	Else EthOpCode_cs = GND ;
+End IF ;
+%
+IF ((AddrBus[15..0] >= Servo_offset) AND            --\_(#[2048..(2048+7)]
+    (AddrBus[15..0] <= Servo_offset+Servo_size-1 )) --/ addr range for various Reg-s
+    Then Servo_CS    = VCC;
+    Else Servo_CS    = GND ;
+End IF ;
+IF ( AddrBus[15..0] == SelCommdList)    -- Addr of SelectedCommdList Reg
+	Then SelCommdList_cs = VCC ;
+	Else SelCommdList_cs = GND ;
+End IF ;
+
+--4) Link: InData, DataBus_in / DataBus_out
+IF ( (AddrBus[15..0] == Link_IFace_Offset)          --Addr of Link's InData Reg
+	OR (AddrBus[15..0] == (Link_IFace_Offset +1)) ) --Addr of Link's I/O port
+	Then Link_cs = VCC ;
+	Else Link_cs = GND ;
+End IF ;
+IF (AddrBus[15..0] == OpCode_Offset) 
+	Then OpCode_cs = VCC;
+	Else OpCode_cs = GND ;
+End IF ;
+
+--5) Ethernet Section RAM
+IF ((AddrBus[15..0] >= EtherRAM_Offset ) AND 
+    (AddrBus[15..0] <= (EtherRAM_Offset + EtherRAM_Size - 1)))
+    Then EtherRAM_cs    = VCC ;
+    Else EtherRAM_cs    = GND ;
+End IF ;
+
+-- 6) Data TA12
+FOR i IN 0 TO (NUM_board-1) GENERATE
+	IF ((AddrBus[15..0] >=  TA_HistRAM_Offset + TA_HistRAM_Size*i ) AND 
+		(AddrBus[15..0] <= (TA_HistRAM_Offset + TA_HistRAM_Size*(i+1) - 1))) 
+		Then TA_HistRAM_cs[i] = VCC;    -- Address belongs to HistRAM
+		Else TA_HistRAM_cs[i] = GND;
+	End IF;
+END GENERATE;
+
+-- 13) Error counter
+IF ((AddrBus[15..0] >= ErrorCounters_Offset) AND ((ErrorCounters_Offset + ErrorCounters_Size) > AddrBus[15..0]) ) 
+	THEN ErrorCounters_IFace_CS = VCC ; 
+	ELSE ErrorCounters_IFace_CS = GND ; 
+END IF ;
+%-- 7) Bunch_Crossing
+IF (AddrBus[15..0] == Bunch_Crossing_12_5_T0_Offset)  
+	THEN Bunch_Crossing_12_5_T0_CS = VCC;  
+	ELSE Bunch_Crossing_12_5_T0_CS = GND;
+END IF; 
+IF (AddrBus[15..0] == Bunch_Crossing_12_5_DS_Offset)  
+	THEN Bunch_Crossing_12_5_DS_CS = VCC;  
+	ELSE Bunch_Crossing_12_5_DS_CS = GND;
+END IF; 
+IF (AddrBus[15..0] == Bunch_Crossing_12_5_FLS_Offset)  
+	THEN Bunch_Crossing_12_5_FLS_CS = VCC;  
+	ELSE Bunch_Crossing_12_5_FLS_CS = GND;
+END IF; %
+
+-- 14) ZERO: fictive object, always replies B"0000000000000000" word
+IF ( AddrBus[15..0] == B"1111111111111111" )
+	Then ZERO_cs = VCC ;         -- Address of ZERO word
+	Else ZERO_cs = GND ;
+End IF ;
+
+DevSel[ 1].d	= MainRAM_cs ;
+DevSel[ 2].d	= ProgRAM_cs ;
+DevSel[ 3].d	= CommandRAM_cs ;
+DevSel[ 4].d	= Link_cs ;             -- Link's I/O port or InData_out
+DevSel[ 5].d	= OpCode_cs ;           -- Reg_OpCode
+--DevSel[ 6].d	= CtrlStat_cs;          -- CtrlStat "Reg", BaseAddr reg, etc.
+DevSel[ 6].d    = Servo_CS ;
+DevSel[ 7].d	= SelCommdList_cs ;     -- SelCommdList reg
+--DevSel[ 8].d	= BaseAddr_cs ;         -- Reg_BaseAddr
+DevSel[ 8].d	= Servo_CS ;            --   Reserved, moved into Servo !
+DevSel[ 9].d	= EtherRAM_cs ;         -- EtherRAM
+--DevSel[10].d	= EthOpCode_cs ;        -- Reg_EthOpCode
+DevSel[10].d	= Servo_CS ;            --   Reserved, moved into Servo !
+DevSel[11].d	= TA_HistRAM_cs0;       -- HistRAM of TA0 (Chan 0)
+DevSel[12].d	= TA_HistRAM_cs1;       -- HistRAM of TA1 (Chan 1)
+DevSel[13].d	= ErrorCounters_IFace_CS ; -- Error Counters
+DevSel[14].d	= ZERO_cs;              -- ZERO word
+
+FOR i in 1 to 14 % with ErCount must be 28 % GENERATE
+	DevSel[i].clrn = AddrSettled;   -- DevSel[] are enabled while Addr. is settled
+	DevSel[i].clk  = Clk100;
+END GENERATE; 
+
+AddrValid   = DevSel[ 1].q OR  -- MainRAM
+			  DevSel[ 2].q OR  -- ProgRAM
+			  DevSel[ 3].q OR  -- CommandRAM
+			  DevSel[ 4].q OR  -- Link's I/O port or InData_out
+              DevSel[ 5].q OR  -- Reg_OpCode
+--              DevSel[ 6].q OR  -- ControlStatus "reg"
+              DevSel[ 6].q OR  -- MUX of DataBus among various Reg-s
+              DevSel[ 7].q OR  -- SelCommdList
+--reserved      DevSel[ 8].q OR  -- Reg_BaseAddr
+              DevSel[ 9].q OR  -- EtherRAM
+--reserved      DevSel[10].q OR  -- Reg_EthOpCode
+              DevSel[11].q OR  -- HistRAM of TA0 (Chan 0)
+              DevSel[12].q OR  -- HistRAM of TA1 (Chan 1)
+			  DevSel[13].q OR
+			  DevSel[14].q;   -- Something?? :  ZERO word
+
+AddrSettled = Bus_Arbiter.AddressSettled; --In 1clock after "AccessGranted"..
+	-- ..address is expected to be set on the Addr.bus, and Arbiter produces 
+	-- "AddrSettled" signal, which enables DevSel[] triggers 
+Bus_Arbiter.AddressValid= AddrValid;    -- Address recognized, and correspondent device selected
+DataStrobe  = Bus_Arbiter.DataStrobe ;  --in 2clocks after "TargetReady"
+
+-- Multiplexer of Data Bus among "Servo" Registers
+CASE  AddrBus[2..0] is
+    When 0  => Servo_Mux[16..1] = (H"000", EtherUDPmode,EtherCMD3mode, StartMulti,StartOne);
+    When 1  => Servo_Mux[16..1] = (B"00000000", Reg_BaseAddr.q[7..0]);
+    When 4  => Servo_Mux[16..1] = (B"00000",  UDPlength_Reg[11..1].q);
+    When 5  => Servo_Mux[16..1] = (UDP_PackCt.q[15..0]);
+    When 6  => Servo_Mux[16..1] = (B"000000", EtherPauseRg[10..1].q); 
+    When 7  => Servo_Mux[16..1] = (B"00000000", Reg_EthOpCode[8..1].q);
+    When OTHERS => Servo_MUX[16..1] = H"FFFF"; -- indication of a wrong address
+END CASE;
+
+-- FINAL Multiplexer of Data Bus sources
+IF (RW == VCC) Then		-- Master will write to
+    CASE  Bus_Arbiter.BAGD[] IS         -- Data_Line MUX for Master drivers 
+        WHEN b"0001" => DataBus[] = CAMAC_IFace.DataBusOut[] ;
+        WHEN b"0010" => DataBus[] = CPU.DataOut[] ;
+    End CASE;
+Else					-- Master will read from
+    CASE DevSel[].q IS     -- DataBus' MUX for Target drivers
+		WHEN b"00000000000001" => DataBus[]		= MainRAM.q[];
+		WHEN b"00000000000010" => DataBus[]		= CPU.ProgRAM_q[];
+		WHEN b"00000000000100" => DataBus[]		= CommandRAM.q[];
+		WHEN b"00000000001000" => CASE  AddrBus[1..0] is
+			When 0 => DataBus[]= Link_IFace.InData_out[];
+			When 1 => DataBus[]= Link_IFace.DataBus_out[];
+			--When  2 => DataBus[7..0]= Link_IFace.OpCode_out[];
+            End CASE;
+        WHEN b"00000000010000" => DataBus[]     = Reg_OpCode.q[7..0];   -- Link's OpCode
+--        WHEN b"00000000100000" => DataBus[3..0] =
+--            (EtherUDPmode, EtherCMD3mode, StartMulti, StartOne);        --CtrlStat "reg" 
+        WHEN b"00001010100000" => DataBus[11..0]= Servo_Mux[12..1];     -- various Reg-s
+                -- ^^^^- DevSel[8], DevSel[10] are made SAME as DevSel[6] !
+        WHEN b"00000001000000" => DataBus[]     = SelCommdList_Reg.q[];
+--        WHEN b"00000010000000" => DataBus[7..0]	= Reg_BaseAddr.q[7..0];
+        --WHEN b"00000100000000" => DataBus[]     = TestRAM.q[];          --MainProj <- TestRAM 
+		WHEN b"00000100000000" => DataBus[]     = EtherRAM.q_b[];       --MainProj <- EtherRAM 
+--        WHEN b"00001000000000" => DataBus[7..0] = Reg_EthOpCode[8..1];  --Ether's OpCode
+        WHEN b"00010000000000" => DataBus[]     = TA_proces0.DataBusOut[] ;
+        WHEN b"00100000000000" => DataBus[]     = TA_proces1.DataBusOut[] ;
+        WHEN b"01000000000000" => DataBus[]     = ErrorCounters_IFace.DataBusOut[];  --
+        WHEN b"10000000000000" => DataBus[]     = 0; -- ZERO word temporary ?
+        WHEN OTHERS => DataBus[] = 0;
+	End CASE;
+End IF;
+
+--============================================================================
+-- 8. Testing circuitry ******************************************************
+--TestCt.(clock, clk_en)  = (LinkClk, VCC); -- Test Counter, can be used to drive LED blinking
+TestCt.(clock, clk_en)	= (FQuartz, VCC); -- Test Counter, can be used to drive LED blinking
+TestCt.cnt_en			= PowerUp0;
+TestCt.aclr				= !PowerUp0;    -- even if NO clock - Reset does occur
+
+--    TestTrg1 = SRFF(.S=DFF(.D=(TypeIP & (Ether.RxDataCt[] == 6)), .clk=Clk100), 
+--                    .R=Ether.RxEndFrame, .clk=Clk100) ;
+--    TestTrg2 = DFF(.D=(Ether.RxEndFrame # Ether.TxEndFrame), .clk=Clk100);
+--    TestTrg3 = DFF(.D=TestTrg2, .clk=Clk100);
+    TestTrg4 = DFF(.D=((Ether.RxDestAddr # Ether.RxSourAddr) 
+                    & (EtherAdrCt.q[9..0] > 8)), .clk=RxClk);
+
+Test1 = Ether.TxPreamble;   --Ether.test[1];    --Ether.TX_EN;      -- Pin236
+Test2 = Ether.IORq;         --Ether.RxWaitSFD;  --Ether.TxStFrmDel; -- Pin237
+Test3 = EthAddrLd2;         --Ether.RxDestAddr; --Ether.test[2];    -- Pin238
+Test4 = TxUDP_Rq;           --Ether.RxSourAddr; --Ether.test[3];    -- Pin239
+Test5 = InitUDP;            --Ether.RxPkLenTyp; --Ether.test[4];    -- Pin240
+Test6 = EtherBusy;          --Ether.test[4];    --Ether.test[6];    -- Pin__4
+Test7 = EtherPauseCt.eq0;   --Ether.test[5];    --Ether.test[7];    -- Pin__5
+Test8 = EthBusyEnd;         --Ether.test[6];    --Ether.test[8];    -- Pin__6
+Test9 = Ether.TxEndFrame;   --EthOpCode_saved;                      -- Pin__9
+Test10= DataStrobe;         --DataIn_TA[0][9];                      -- Pin
+
+END;
