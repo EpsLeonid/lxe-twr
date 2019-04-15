@@ -1,4 +1,8 @@
 TITLE "ETHERNET";
+-- Ver. 2  : Rx/Tx of the "Raw_Ethernet" implemented, 
+--             EthernetRx and EthernetTx are separate sub-modules. 
+-- Ver.4b  : Rx/Tx of the "Raw_Ethernet" implemented in ONE module.
+
 
 INCLUDE "lpm_counter.inc";
 INCLUDE "lpm_shiftreg.inc";
@@ -7,8 +11,8 @@ INCLUDE "lpm_shiftreg.inc";
 INCLUDE "PulseShaper.inc";
 
 --INCLUDE "EthernetRx.inc";
+--INCLUDE "EthernetTx.inc";
 INCLUDE "CRC32";
-INCLUDE "EthernetTx.inc";
 
 SUBDESIGN  ETHERNET  
 (
@@ -88,7 +92,7 @@ Test[8..1]          : output;
 )
 
 VARIABLE
-EtherTx             : EthernetTx ;  -- Ethernet Transmitter module 
+--EtherTx             : EthernetTx ;  -- Ethernet Transmitter module 
 --EtherRx             : EthernetRx ;  -- Ethernet Receiver module 
 
 ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8

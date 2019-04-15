@@ -7,12 +7,9 @@ When Target is READY for transfer, DataStrobe signal is generated to complete
 the cycle.
 %
 TITLE "Arbiter";
--- Ver3.4 (28.08.2007)
+-- Ver3.6 (14.09.2009)
 
 %
-This Asyncronouse Interface is intended for data tranfser between devices 
-with different speed of Clock.
-
 Bus access is organized in some steps:
 1. Master Device asserts "Bus Access ReQuiest".
 2. At positive transitions of CLK supplied to Arbiter "Bus Access GranteD" occuried.
@@ -25,9 +22,10 @@ If more than one requiest found, high priority device will be granted first.
 signal "Data Strobe" generated. "Data Strobe" is 1T of CLK, negative transitions
 is the end of transfer cycle.
 P.S. 
-1. If "Target Ready" not asserted while ClockMaxTimout expered, "Data Strobe" 
-will be produced to clear current cycle, "Error" signal generated.
-2. If device granted does not remove request after bus cycle completed it 
+1.  If address has not been recognized ( => AddressValid has not flipped to =1) 
+  while TimeOut expired, "Error" signal is generated, and "Data Strobe" is 
+  generated to finish the current bus access cycle.
+2.  If device granted does not remove request after bus cycle completed it 
 will be ignored for 1 clock cycle.
 This features are to be used at initial system testing, ajusting.
 %
@@ -46,22 +44,20 @@ ASSERT (TimeOut>1) and (TimeOut<60)
 	 
 Subdesign Arbiter
 (
--- HandShake Begin
--- Requestes from Master devices to bus access to 
+-- Requestes from Master devices for access to Bus
 BARQ[DeviceMaxNumber-1..0]  : INPUT = GND; 
 
--- Bus Access Granted 
+-- "Access Granted" signals to Master devices
 BAGD[DeviceMaxNumber-1..0]  : OUTPUT;
 
 --Negotiation signals
-AddressValid        : output; -- Target Address Decode
-TargetReady         : INPUT;  -- Target Device Ready when addr decoded
-DataStrobe          : OUTPUT; -- One clock HIGH when Target Ready
--- End of HandShake
+AddressSettled  : OUTPUT; -- Flag: Address is settled on Address Bus
+AddressValid    : INPUT;  -- Address is recognized as VALID one
+DataStrobe      : OUTPUT; -- 1-clock _/^^\_ when data is ready
 
-clock               : INPUT;  -- System clock
-Reset               : Input;  -- Active High
-Error               : OUTPUT; -- One clock HIGH when Strobe at Timout 
+clock           : INPUT;  -- System clock
+Reset           : INPUT;  -- Reset, Active High
+Error           : OUTPUT; -- One clock HIGH when TimeOut occured
 
 --Test1, Test2        : output; 
 )
@@ -73,11 +69,11 @@ BARQ_inBuff[DeviceMaxNumber-1..0]   : DFFE ; -- Input sampling
 BAGD_outBuff[DeviceMaxNumber-1..0]  : DFFE ; -- Output strobed (optional)
 Mask_Buff[DeviceMaxNumber-1..0]     : DFFE ; -- Register_of_Mask
 
-TimeOutCnt          : LPM_COUNTER with (LPM_WIDTH = 6, LPM_DIRECTION = "Down");
+TimeOutCnt      : LPM_COUNTER with (LPM_WIDTH = 6, LPM_DIRECTION = "Down");
 
-Trigg1              :DFF; -- Shaping of pulse on "Target Ready"
-Trigg2              :DFF;
-Trigg3              :DFF; -- Shaping of "DataStrobe"
+Trig1           : node; -- registered "AddressValid"
+Trig2           : node;
+Trig3           : node; -- Shaping of "DataStrobe"
 
 BARQ_OR                         : NODE;
 BARQ_OR_[DeviceMaxNumber..0]    : node;
@@ -90,6 +86,7 @@ wire_AND[DeviceMaxNumber-2..0]  : node;
 
 BEGIN
 
+--============================================================================
 DEFAULTS 
     wire_AND[] = VCC;  -- доопределяем явно до логической 1
 END Defaults;
@@ -132,24 +129,35 @@ FOR j in 0 to (DeviceMaxNumber-2)  GENERATE
 End GENERATE;
 
 --============================================================================
--- Output control
+--************ Bus Access Chronogram Generation ******************************
+--100MHz Clock  __/^^^\___/^^^\___/^^^\___/^^^\___/^^^\___/^^^\___/^^^\___/^^^\__
+--BARQ_in[#Mast]___/^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\___
+--  BAGD[#Mast] ___________/^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\___
+--AddressSettled___________________/^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\___
+--  DevSel[#n].D______________//////////^^^^^^ if Addr recognized, flips to =1
+--  DevSel[#n].Q___________________________/^^ if Addr recognized, flips to =1
+-- AddressValid ____________________________///^^^^if DevSel appears, flips to =1
+--        Trig1 ___________________________________/^^^^^^^^^^if AddressValid=1
+--   DataStrobe ___________________________________________________/^^^^^^^\___
+
 BAGD_OR_[0] = GND;
 FOR i in 0 to (DeviceMaxNumber-1) GENERATE
    BAGD_OR_[i+1] = BAGD_OR_[i] OR BAGD_outBuff[i];
 End GENERATE;
 BAGD_OR = BAGD_OR_[DeviceMaxNumber];
 
-AddressValid = DFF(.D=BAGD_OR, .clk=clock, .clrn=!RST); -- AddressValid is ..
+AddressSettled  = DFF(.D=BAGD_OR, .clk=clock, .clrn=!RST); -- AddressValid is ..
                                        -- .. by 1clk later than BAGD
 
 --============================================================================
 -- From "Target Ready" to "Data Strobe" control
 --		Derive 1clock wide pulse from positive edge of Target Ready
-Trigg1.(d, clk, clrn)   = (TargetReady, clock, !RST); -- reset after DataStrobe or by Reset
-Trigg2.(d, clk, clrn)   = (Trigg1.q,    clock, !RST); -- reset after DataStrobe or by Reset
-Trigg3.(d, clk, clrn)   = (Trigg2.q,    clock, !RST); -- reset after DataStrobe or by Reset
+--
+Trig1 = DFF(.D=AddressValid,.clk=clock, .clrn=!RST);-- reset after DataStrobe or by Reset
+Trig2 = DFF(.D=Trig1,  .clk=clock, .clrn=!RST); -- reset after DataStrobe or by Reset
+Trig3 = DFF(.D=Trig2,  .clk=clock, .clrn=!RST); -- reset after DataStrobe or by Reset
 
-DataStrobe = DFF(.D=((Trigg2.q AND !Trigg3.q) OR Error), .clk=clock); -- _/^\_
+DataStrobe = DFF(.D=((Trig2 & !Trig3) OR Error), .clk=clock); -- _/^\_
 
 RST     = DFF(.D=DataStrobe,            --\  when data transfer done..
               .clk=clock,               -- > .. or by external Reset ..
@@ -160,12 +168,12 @@ RST     = DFF(.D=DataStrobe,            --\  when data transfer done..
     -- => the actual value from which the CountDown begins should be (TimeOut+2) !!
 TimeOutCnt.data[]   = (TimeOut+2);      -- initial value to be loaded
 TimeOutCnt.(clock, clk_en)  = (clock, VCC);
-TimeOutCnt.cnt_en   = Trigg3.q;         -- Count enabled when Address Valid
+TimeOutCnt.cnt_en   = AddressSettled;   -- Count enabled when Address settled
 TimeOutCnt.sload    = RST ;             -- (Re)Set to initial state
 
 Error = DFF(.D=TimeOutCnt.eq0, .clk=clock); -- Error marker for external light
 
---test1   = Trigg3.q;
+--test1   = Trig3;
 --test2   = TimeOutCnt.eq0;
 
 END;

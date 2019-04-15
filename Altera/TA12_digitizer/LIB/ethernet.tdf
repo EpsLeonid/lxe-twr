@@ -1,4 +1,12 @@
 TITLE "ETHERNET";
+-- Ver. 2  : Rx/Tx of the "Raw_Ethernet" implemented, 
+--             EthernetRx and EthernetTx are separate sub-modules. 
+-- Ver.4b  : Rx/Tx of the "Raw_Ethernet" implemented in ONE module.
+-- Ver.4d  : Rx/Tx of the "Raw_Ethernet" separated more clearly ; 
+--             Rx_cycle break upon Reset is implemented.
+-- Ver.4e  : Circuit which initializes Tx_cycle improved.
+-- Ver.4f  : Synchronization of output DataWords with MainProj's Clock
+--             drastically improved :  fake IO-requests eliminated.
 
 INCLUDE "lpm_counter.inc";
 INCLUDE "lpm_shiftreg.inc";
@@ -32,12 +40,15 @@ RxDestAddr      : output;   -- flag: "DestinationAddr" is being received
 RxSourAddr      : output;   -- flag: "SourceAddr" is being received
 RxPkLenTyp      : output;   -- flag: "PkLength/Type" is being received
 RxDataBlck      : output;   -- flag: receiving of Data_Block is ongoing
-RxFrameCRC      : OUTPUT;   -- flag: "FrameCheckSequence" is being received
+RxFrameCRC      : output;   -- flag: "FrameCheckSequence" is being received
 RxEndFrame      : output;   -- flag: End-of-Received_Frame
-RxCount[11..0]  : OUTPUT;   -- Receiving_Cycle Counter's outputs
+RxStagCt[ 3..0] : output;   -- Main Receiving_Cycle Counter
+RxDataCt[11..0] : output;   -- Counter which counts the received DWords of DataBlock
 
 RxLenTyp[16..1] : output;   -- value of the "PkLength/Type" field (MSbit always =0 !)
-RxLength[12..1] : output;   -- resulting Length(Bytes) of the Data_Block
+RxLengIn[12..1] : input;    -- for other packets - total Length(bytes) of the DataBlock
+RxLength[12..1] : output;   -- resulting Length(Bytes) of the DataBlock (for "Raw" L=RxLenTyp[] )
+TypeRaw         : output;   -- flag: Type = Raw 
 
 RxError         : output;   
 
@@ -62,7 +73,7 @@ TxFrameCRC      : output;   -- flag: "FrameCheckSequence" is being transmitted
 TxEndFrame      : output;   -- flag: End-of-TxFrame
 TxCount[11..0]  : OUTPUT;   -- Cycle Counter's outputs, for test
 
---TxLenTyp[16..1] : input;    -- value of the "PkLength/Type" field
+TxLenTyp[16..1] : input ;   -- value of the "PacketLength/Type" to be transmitted
 TxLength[12..1] : input ;   -- length of the DataBlock (MSbit always =0 ! )
 
 TxError             : output;   
@@ -74,7 +85,7 @@ Clock               : input;  -- Clock Frequency MUST BE > 50MHz !!!!
 IORq                : output; -- Data_ready or Data_required	
 RdWr_out            : output; -- =1(Wr) => Data_ready / =0(Rd) => Data_required
 
-Select              : input = GND; -- Link is selected for data reading/writing
+Select              : input = GND; -- Eth is selected for data reading/writing
 RdWr_in             : input = GND; -- RdWr=0 => data will be read from Link / RdWr=1 => data will be written to Link
 DataStrobe          : input = GND; -- input data must be latched while DataStrobe=1 
 
@@ -102,8 +113,8 @@ ChkDaddr        : DFFE;
 ChkDaddr_ena    : node;
 Daddr[48..1]    : DFFE; -- "Register" for latching and storing the DestAddr
 
--- Main Receiving_Cycle Counter
-CtReceiv        : LPM_COUNTER with ( lpm_width=12, lpm_direction="up" );
+-- Main Receiving_Cycle Counter (restarted by beginning of each stage of RxCycle)
+CtReceiv        : LPM_COUNTER with ( lpm_width=4, lpm_direction="up" );
 CtReceiv_sclr   : node; -- logic node
 
 -- Triggers which represent the state of the Receiving_Cycle :
@@ -118,10 +129,15 @@ RxFrameCRC      : DFF ; -- flag:  "FrameCheckSequence" is being received
 RxEndFrame      : DFF ; -- прием фрейма завершен
 
 RxLenTyp[16..1] : DFFE; -- "register" containing the value of "PkLength/Type"
-RxLength[12..1] : DFF;  -- "register" containing the length of Data_Block
+RxLength[12..1] : DFFE; -- "register" containing the length of Data_Block
+
+--  Counter of DataBlock :  counts the received half-Bytes of DataBlock
+CtDatBlk        : LPM_COUNTER with ( lpm_width=12, lpm_direction="up" );
 
 RxCRC           : CRC32;-- CRC checking function
-R_ReceivOK      : node; -- CRC value is correct (1clk pulse, =simultaneous= with EndFrame ! )
+R_ReceivOK      : node; -- CRC value is correct (1clk pulse, =simultaneous= with RxChkCRC ! )
+ChkCRC          : node; -- logical, initiates a strobe for checking frame' CRC
+RxChkCRC        : node; -- 1clk strobe for checking frame'CRC (=simultaneous= with R_ReceivOK)
 
 -- Conversion of 4 half-Bytes into 1 16-bit Word :
 RxShifter1      : LPM_SHIFTREG with (lpm_width=3, -- contains 1st bits (LSB) of 4 consecutive half-Bytes
@@ -134,8 +150,8 @@ RxShifter4      : LPM_SHIFTREG with (lpm_width=3, -- contains 4th bits (MSB) of 
                                 lpm_direction="left"); --shift: q0 -> q[MSB]
 RxWordConv      : node; -- enables half-Bytes to Words conversion
 RxWord, 
-RxWord1,RxWord2 : node; -- derive strobe for latching RxData word
-RxWord_en       : node; -- enable for Reg_RxData
+RxW[2..1]       : node; --\_derive 1*Clock _/^^\_ strobe for latching RxData word..
+RxWord_en       : node; --/ .. in Reg_RxData,  and for setting IOrq signal
 -- Reg: holds a 16-bit Data word, for outputting it to the DataBus 
 Reg_RxWord      : LPM_SHIFTREG with (lpm_width=16, lpm_direction="left"); 
 
@@ -145,11 +161,12 @@ R_Error         : PulseShaper with (DurationCode=4);--flag: Error occured during
 ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
 --************  ETHERNET TRANSMITTER  ******************************************
 TX_EN_FF        : DFF;
---TXD_FF[3..0]    : DFF;
 TxD_Reg[4..1]   : DFF;
 
-Tx_init         : node;  -- garanteedly initiates a Transmit operation
 enTransmit      : node; -- enable Transmission 
+TxCycle0        : node; -- to guarantee simultaneous oper-n of TxCycle and TxInit
+TxCycle         : node; -- flag: Transmission is in progress (aligned to TX_CLK)
+TxInit          : node; -- strobe for loading initial values 
 
 -- Main Transmit_Cycle Counter
 CtTransm        : LPM_COUNTER with (LPM_WIDTH=12, LPM_DIRECTION="up");
@@ -166,10 +183,13 @@ TxDataBlck      : DFF;
 TxFrameCRC      : DFF; 
 TxEndFrame      : DFF;      
 
-TxLenTyp[16..1] : node; -- value of the "PkLength/Type" field for TxFrame
-
-TxPkLng_Reg     : LPM_SHIFTREG with (lpm_width=12, -- latches the DataPacket Length (in Bytes)
+--TxLenTyp[16..1] : node; -- value of the "PkLength/Type" field for TxFrame
+--Register which latches the "PacketLength/Type" and converts it into half-Bytes
+TxLenTyp_Reg[4..1]  : LPM_SHIFTREG with (lpm_width=12, 
                                 lpm_direction="left"); --shift: q0 -> q[MSB]
+TxLenTyp_ld     : node; -- strobe for loading PkLenTyp value into TxLngTyp_Reg
+
+TxLength_Reg[12..1] : DFFE; --"register" which latches the length of DataBlock
 
 TxCRC           : CRC32;-- function which calculates the CRC of the TxFrame
 
@@ -234,8 +254,8 @@ TxCRC_Reg4      : LPM_SHIFTREG with (lpm_width= 8, -- contains 4th bits (LSB) of
 TxCRC_ld        : node;     -- strobe for loading TxCRC_Reg-s
 
 TxWord, 
-TxWord1,TxWord2 : node; -- derive strobe for latching RxData word
-TxWord_rq       : node; -- to set IORq / to clear Reg_TxWord
+TxW[2..1]       : node; --\_derive 1*Clock _/^^\_ strobe ..
+TxWord_rq       : node; --/ .. to set IORq / to clear Reg_TxWord
 TxWord_ld       : node; -- enables Reg_TxWord to load data
 TxShift_ld1     : node; -- strobe at the =last moment= before loading the TxShifters 
 -- Reg: holds a 16-bit Data word just inputted from the DataBus 
@@ -256,15 +276,16 @@ RdWr_Error      : node; -- error during Read/Write operation
 BEGIN
 ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
 DEFAULTS
-RxLineIdle.D = GND; RxChkPream.D = GND; RxWaitSFD.D = GND;  
+RxLineIdle.D = GND; RxChkPream.D = GND; RxWaitSFD.D  = GND;  
 RxDestAddr.D = GND; RxSourAddr.D = GND; RxPkLenTyp.D = GND; RxDataBlck.D = GND; 
 RxFrameCRC.D = GND; RxEndFrame.D = GND;
 
-CtReceiv_sclr = GND;    ChkDaddr_ena = GND;     RxCRC.sclr    = GND;
+CtReceiv_sclr= GND; ChkDaddr_ena = GND; RxCRC.sclr   = GND;
+
+TypeRaw= GND; 
 
 R_Err = GND;    TxError = GND;  --Error = GND;
 RxWord  = GND;  TxWord  = GND; 
-
 
 TxLineIdle.D  = GND;
 CtTransm_sclr = GND;    TxCRC.clk_en = GND;
@@ -277,7 +298,7 @@ END DEFAULTS;
 --==============================================================================
 ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
 --******** RECEIVING Cycle proceeding control  *********************************
-(RX_DV_FF, RxD_Reg[], COL_FF, CRS_FF ).clk = RX_CLK;
+(RX_DV_FF, RxD_Reg[], COL_FF,  ).clk = RX_CLK;
 RX_DV_FF.d  = RX_DV;
 RxD_Reg[4..1].d = RXD[3..0]; 
 COL_FF.d    = COL;
@@ -285,8 +306,9 @@ CRS_FF.d    = CRS;
 
 -- Triggers which represent the state of the Receiving_Cycle :
 ( RxLineIdle, RxChkPream, RxWaitSFD, 
-  RxDestAddr, RxSourAddr, RxPkLenTyp, RxDataBlck, 
-  RxFrameCRC, RxEndFrame).clk = RX_CLK; 
+  RxDestAddr, RxSourAddr, RxPkLenTyp, 
+  RxDataBlck, RxFrameCRC, RxEndFrame).clk = RX_CLK; 
+( RxDataBlck, RxFrameCRC).clrn  =!RESET;-- STOP receiving before End of real Ethernet frame
 
 RxLineIdle.D    = !RX_DV_FF & !RxCycle; -- RxLineIdle.D is also asserted in "RxCycle' State Handling"
 
@@ -294,16 +316,16 @@ RxLineIdle.D    = !RX_DV_FF & !RxCycle; -- RxLineIdle.D is also asserted in "RxC
 RxCycle.(R,clk) = (!RX_DV_FF, RX_CLK); 
 
 -- Main Cycle Counter :
-CtReceiv.clock  = RX_CLK;
+CtReceiv.(clock,clk_en, cnt_en) = (RX_CLK, VCC, VCC);
 CtReceiv.sclr   = CtReceiv_sclr;    -- defined in the StateMachine
-RxCount[11..0]   = CtReceiv.q[11..0];
+RxStagCt[ 3..0] = CtReceiv.q[ 3..0];
 
 -- "Frame Check Sequence" handling and CRC check : 
 RxCRC.d[]   = RxD_Reg[];
 RxCRC.clk   = RX_CLK;
 RxCRC.clk_en= VCC;              -- no?aiii !
 --RxCRC.sclr  = defined in the State Machine
-R_ReceivOK  = RxCRC.crc_ok;   -- 1clk pulse, =simultaneous= with EndFrame !
+R_ReceivOK  = RxCRC.crc_ok;   -- 1*RX_CLK pulse, =simultaneous= with RxChkCRC !
 	
 ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
 --********  RxCycle' State Handling  *******************************************
@@ -350,18 +372,18 @@ End IF;
 
 IF  RxDestAddr  Then    -- receiving "DestinationAddr" (6 Bytes) :
     -- DestAddr is to be compared with ThisDevice' address !
-                    -- RxDestAddr =1,  CtReceiv = 0, RxD_Reg = DestAddr[43..40]
-                    -- RxDestAddr =1,  CtReceiv = 1, RxD_Reg = DestAddr[47..44]
-                    -- RxDestAddr =1,  CtReceiv = 2, RxD_Reg = DestAddr[35..32]
-                    -- RxDestAddr =1,  CtReceiv = 3, RxD_Reg = DestAddr[39..36]
+                    -- RxDestAddr =1,  CtReceiv = 0, RxD_Reg = DestAddr[44..41]
+                    -- RxDestAddr =1,  CtReceiv = 1, RxD_Reg = DestAddr[48..45]
+                    -- RxDestAddr =1,  CtReceiv = 2, RxD_Reg = DestAddr[36..33]
+                    -- RxDestAddr =1,  CtReceiv = 3, RxD_Reg = DestAddr[40..37]
                     -- RxDestAddr =1,    .  .  .  .  .  .  .  .  .
-                    -- RxDestAddr =1,  CtReceiv =11, RxD_Reg[]=DestAddr[ 7.. 4]
+                    -- RxDestAddr =1,  CtReceiv =11, RxD_Reg = DestAddr[ 8.. 5]
     IF (RX_DV_FF & (CtReceiv.q[3..0]==11))  -- IF 12th half-Byte received, .. 
         Then  RxDestAddr.D  = GND;  --\_.. Then  jump (by next _/RX_CLK) ..
               RxSourAddr.D  = VCC;  --/ .. to receive SourAddr
               CtReceiv_sclr = VCC;  -- CtReceiv will flip to =00 by next _/RX_CLK
-    ELSIF (RX_DV_FF == VCC)         -- IF receiving is ongoing, ..
-        Then  RxDestAddr.D  = VCC;  -- .. continue receiving the DestAddr
+    ELSIF (RX_DV_FF == VCC)         -- IF receiving is going OK, ..
+        Then  RxDestAddr.D  = VCC;  -- .. just continue receiving the DestAddr
     ELSE
               RxDestAddr.D  = GND;  --\_.. return (by next _/RX_CLK) .. 
               RxLineIdle.D  = VCC;  --/ .. to the initial state 
@@ -370,72 +392,118 @@ End IF;
 
 IF  RxSourAddr  Then    -- receiving "SourceAddr" (6 Bytes) :
     -- SourceAddr is to be stored so that to be used as DestAddr in the reply packet !
-                    -- RxSourAddr =1,  CtReceiv = 0, RxD_Reg = SourAddr[43..40]
-                    -- RxSourAddr =1,  CtReceiv = 1, RxD_Reg = SourAddr[47..44]
-                    -- RxSourAddr =1,  CtReceiv = 2, RxD_Reg = SourAddr[35..32]
-                    -- RxSourAddr =1,  CtReceiv = 3, RxD_Reg = SourAddr[39..36]
+                    -- RxSourAddr =1,  CtReceiv = 0, RxD_Reg = SourAddr[44..41]
+                    -- RxSourAddr =1,  CtReceiv = 1, RxD_Reg = SourAddr[48..45]
+                    -- RxSourAddr =1,  CtReceiv = 2, RxD_Reg = SourAddr[36..33]
+                    -- RxSourAddr =1,  CtReceiv = 3, RxD_Reg = SourAddr[40..37]
                     -- RxSourAddr =1,    .  .  .  .  .  .  .  .  .
-                    -- RxSourAddr =1,  CtReceiv =11,  RxD_Reg[]=DestAddr[ 7.. 4]
+                    -- RxSourAddr =1,  CtReceiv =11, RxD_Reg = DestAddr[ 8.. 5]
     IF (RX_DV_FF AND ChkDaddr   -- IF ThisFrame is addressed to ThisDevice, ..
       AND (CtReceiv.q[3..0]==11))   --.. and 12th half-Byte received, .. 
-        Then  RxDestAddr.D  = GND;  --\_.. Then  jump (by next _/RX_CLK) ..
-              RxPkLenTyp.D  = VCC;  --/ .. to receive "PkLength/Type"
-              CtReceiv_sclr = VCC;  -- CtReceiv will flip to =00 by next _/RX_CLK
-    ELSIF (RX_DV_FF & ChkDaddr) -- IF ThisFrame is addressed to ThisDevice, ..
-                                --.. and receiving is ongoing, ..
-        Then  RxSourAddr.D  = VCC;  -- .. continue receiving the SourAddr
+      Then  RxDestAddr.D  = GND;    --\_.. Then  jump (by next _/RX_CLK) ..
+            RxPkLenTyp.D  = VCC;    --/ .. to receive "PkLength/Type"
+            CtReceiv_sclr = VCC;    -- CtReceiv will flip to =00 by next _/RX_CLK
+    ELSIF (RX_DV_FF & ChkDaddr)     -- IF receiving is going OK, ..
+                                    --.. and ThisFrame is addressed to ThisDevice, ..
+      Then  RxSourAddr.D  = VCC;    -- .. just continue receiving the SourAddr
     ELSE
-              RxSourAddr.D  = GND;  --\_.. return (by next _/RX_CLK) .. 
-              RxLineIdle.D  = VCC;  --/ .. to the initial state 
+            RxSourAddr.D  = GND;    --\_.. return (by next _/RX_CLK) .. 
+            RxLineIdle.D  = VCC;    --/ .. to the initial state 
     End IF;
 End IF;		
 
+--NOTE:  Receiving of packet will be continued beyond this point 
+--       ONLY if ( Daddr=ThisDeviceAddr  OR  Daddr=Broadcast ) !
+
 IF  RxPkLenTyp  Then    -- receiving "PacketLength/Type" (2 Bytes) :
-                    -- RxPkLength =1,  CtReceiv = 0, RxD_Reg = Length[11.. 8]
-                    -- RxPkLength =1,  CtReceiv = 1, RxD_Reg = Length[15..12]
-                    -- RxPkLength =1,  CtReceiv = 2, RxD_Reg = Length[ 3.. 0]
-                    -- RxPkLength =1,  CtReceiv = 3, RxD_Reg = Length[ 7.. 4]
+                    -- RxPkLenTyp =1,  CtReceiv = 0, RxD_Reg = LenTyp[12.. 9]
+                    -- RxPkLenTyp =1,  CtReceiv = 1, RxD_Reg = Length[16..13]
+                    -- RxPkLenTyp =1,  CtReceiv = 2, RxD_Reg = Length[ 4.. 1]
+                    -- RxPkLenTyp =1,  CtReceiv = 3, RxD_Reg = Length[ 8.. 5]
     IF (RX_DV_FF AND (CtReceiv.q[1..0]==3))  --IF 4th half-Byte received, .. 
-        Then  RxPkLenTyp.D  = GND;  --\_.. Then  jump (by next _/RX_CLK) ..
-              RxDataBlck.D  = VCC;  --/ .. to receive Data Block
-              CtReceiv_sclr = VCC;  -- CtReceiv will flip to =00 by next _/RX_CLK
-    ELSIF (RX_DV_FF == VCC)         -- IF receiving is ongoing, ..
-        Then  RxPkLenTyp.D  = VCC;  -- .. continue receiving the PacketLength
+      Then  RxPkLenTyp.D  = GND;    --\_.. Then  jump (by next _/RX_CLK) ..
+            RxDataBlck.D  = VCC;    --/ .. to receive Data Block
+            CtReceiv_sclr = VCC;    -- CtReceiv will flip to =00 by next _/RX_CLK
+            CtDatBlk.sload= VCC;    -- CtDatBlk will flip to =01 by next _/RX_CLK
+    ELSIF (RX_DV_FF == VCC)         -- IF receiving is going OK, ..
+      Then  RxPkLenTyp.D  = VCC;    -- .. just continue receiving the PacketLength
     ELSE
-              RxPkLenTyp.D  = GND;  --\_.. return (by next _/RX_CLK) .. 
-              RxLineIdle.D  = VCC;  --/ .. to the initial state 
+            RxPkLenTyp.D  = GND;    --\_.. return (by next _/RX_CLK) .. 
+            RxLineIdle.D  = VCC;    --/ .. to the initial state 
     End IF;
 End IF;
-		    
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--************ LENGTH/TYPE  RECOGNITION :  *************************************
+-- RxLenTyp[] != 0  ONLY if ( Daddr = ThisDeviceAddr  OR  Daddr = Broadcast ) (see below)
+
+IF  (RxLenTyp[] <= 1500)    Then        -- IF  this is LENGTH, ..
+    TypeRaw       = VCC;                -- .. flag: Type = Raw
+    RxLength[].d  = RxLenTyp[12..1];    -- .. length => Reg, MSbit always =0 !
+ELSE                                    -- IF  this is a code of Type, ..
+    RxLength[].d  = RxLengIn[];         -- .. length must be provided by MainProj
+End IF;
+
+RxLength[12.. 1].clk= RX_Clk;               --\ latches in 2 Rx_clk after the moment 
+RxLength[12.. 1].ena= ChkDaddr AND          -- >  when receiving of IP-Length is completed
+        RxDataBlck &(CtDatBlk.q[11..0]==10);--/   (also suitable for "CMD3" and "Raw")
+RxLength[12..7].clrn=!(RxEndFrame # RESET); --\ "register" RxLength 
+RxLength[ 6].prn    =!(RxEndFrame # RESET); -- \ is pre-setted 
+RxLength[ 5].clrn   =!(RxEndFrame # RESET); --  >to a MIN value =46 
+RxLength[4..2].prn  =!(RxEndFrame # RESET); -- / (B"0000 0010 1110")
+RxLength[ 1].clrn   =!(RxEndFrame # RESET); --/  at the beginning of Frame
+
+----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
+--Now, regardless of the packet' Type, the DataBlock is to be received.   
+--The number of half-Bytes received is counted by CtDatBlk. 
+
+--********  Receiving the DataBlock, then receiving the FrameCRC  **************
+
+--  Counter of DataBlock :  counts the received half-Bytes of DataBlock
+CtDatBlk.(clock,clk_en) = (RX_CLK, VCC);
+CtDatBlk.cnt_en = RxDataBlck;   -- counts when DataBlock is being received
+CtDatBlk.sclr   = RxWaitSFD;    -- reset to =0 at the beg-g of Frame
+--CtDatBlk.sload  =       --defined in "PkLenTyp" section of the StateMachine
+CtDatBlk.data[] = H"001";       -- loads H"001" by sload => counts: 1,2, ... 
+RxDataCt[11..0] = CtDatBlk.q[11..0];
+
 IF  RxDataBlck  Then    -- receiving DataBlock ( "RxLength" Bytes) :
-                    -- RxDataBlck =1,  CtReceiv = 0, RxD_Reg=DByte01[3..0]=DWord01[11.. 8]
-                    -- RxDataBlck =1,  CtReceiv = 1, RxD_Reg=DByte01[7..4]=DWord01[15..12]
-                    -- RxDataBlck =1,  CtReceiv = 2, RxD_Reg=DByte02[3..0]=DWord01[ 3.. 0]
-                    -- RxDataBlck =1,  CtReceiv = 3, RxD_Reg=DByte02[7..4]=DWord01[ 7.. 4]
-    IF RX_DV_FF & (CtReceiv.q[] == ((RxLength[11..1],GND) - 1)) -- -1!
+                    -- RxDataBlck =1,  CtReceiv = 1, RxD_Reg=DByte01[3..0]=DWord01[11.. 8]
+                    -- RxDataBlck =1,  CtReceiv = 2, RxD_Reg=DByte01[7..4]=DWord01[15..12]
+                    -- RxDataBlck =1,  CtReceiv = 3, RxD_Reg=DByte02[3..0]=DWord01[ 3.. 0]
+                    -- RxDataBlck =1,  CtReceiv = 4, RxD_Reg=DByte02[7..4]=DWord01[ 7.. 4]
+    IF  (RX_DV_FF & (CtDatBlk.q[]==(RxLength[11..1],GND)) ) --IF entire DataBlck received, ..
         Then  RxDataBlck.D  = GND;  --\_.. Then  jump (by next _/RX_CLK) ..
               RxFrameCRC.D  = VCC;  --/ .. to receive Data Block
               CtReceiv_sclr = VCC;  -- CtReceiv will flip to =00 by next _/RX_CLK
-    ELSIF (RX_DV_FF == VCC)         -- IF receiving is ongoing, ..
-        Then  RxDataBlck.D  = VCC;  -- .. continue receiving the Data Block
-    ELSE
+    ELSIF (RX_DV_FF == VCC)         -- IF receiving is going OK, ..
+        Then  RxDataBlck.D  = VCC;  -- .. just continue receiving the Data Block
+    ELSE    --IF =unexpected= End-of-Frame has occur (receiving has crashed, ..
+            --.. wrong Length of DataBlock is taken, etc.), then ..
+              R_Err = VCC;          --.. set ERROR flag
               RxDataBlck.D  = GND;  --\_.. return (by next _/RX_CLK) .. 
               RxLineIdle.D  = VCC;  --/ .. to the initial state 
     End IF;
 End IF;
-		
+
 IF  RxFrameCRC  Then    -- receiving Frame' CRC (4 Bytes) :
     IF (RX_DV_FF & (CtReceiv.q[2..0]== 7))  -- IF 8th half-Byte received, ..
         Then  RxFrameCRC.D  = GND;  --\_.. Then  jump (by next _/RX_CLK) ..
               RxLineIdle.D  = VCC;  --/ .. to the initial state
-              RxEndFrame.d  = VCC;  -- .. RxEndFrame will flip to =1 by next _/RX_CLK
+              ChkCRC        = VCC;  -- initiates a strobe for checking frame' CRC
     ELSIF (RX_DV_FF == VCC)         -- IF receiving is ongoing, ..
         Then  RxFrameCRC.D  = VCC;  -- .. continue receiving the Frame' CRC
-    ELSE
+    ELSE    --IF =unexpected= End-of-Frame has occur (receiving has crashed, ..
+            --.. wrong Length of DataBlock is taken, etc.), then ..
+              R_Err = VCC;          --.. set ERROR flag
               RxFrameCRC.D  = GND;  --\_.. return (by next _/RX_CLK) .. 
               RxLineIdle.D  = VCC;  --/ .. to the initial state 
     End IF;
 End IF;
+--Strobe for checking frame'CRC, =simultaneous with R_ReceivOK :
+RxChkCRC    = DFF(.D=ChkCRC, .clk=RX_CLK);  -- 1*RX_CLK _/^^^^\_
+
+RxEndFrame.d= (!RX_DV_FF & RxCycle);        -- 1*RX_CLK _/^^^^\_ 
 
 ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
 --****  Conversion of 4 consecutive half-Bytes into 1 16-bit Word :  ***********
@@ -449,7 +517,7 @@ RxShifter3.(clock, enable, load) = (RX_Clk, RxWordConv, GND);
 RxShifter3.shiftin = RxD_Reg3.q; 
 RxShifter4.(clock, enable, load) = (RX_Clk, RxWordConv, GND); 
 RxShifter4.shiftin = RxD_Reg4.q; 
--- When CtReceiv.q[1..0]==3, the bits od a DWord are arranged : 
+-- When CtReceiv.q[1..0]==3, the bits of a DWord are arranged : 
 --                           RxShifter4  RxShifter3  RxShifter2  RxShifter1 
 --          RxShifter* .q2   [  11          10           9           8    ]
 --          RxShifter* .q1   [  15          14          13          12    ]
@@ -457,114 +525,93 @@ RxShifter4.shiftin = RxD_Reg4.q;
 --          RxD_Reg[4..1].q  [   7           6           5           4    ]
 
 ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
--- CHECK-UP of the DestAddr :  
--- for BROADCAST frame :    DestAddr must be = 1111 1111 FF FF FF
--- for MULTICAST frame :    DestAddr must be = nnnn nn01 NN NN NN => the 1st & 2nd bits SENT =01 !
--- for UNICAST frame :      DestAddr must be = nnnn nn00 NN NN NN => the 1st & 2nd bits SENT =00 !
+--********  CHECK-UP of the DestAddr :  ****************************************
+-- for BROADCAST frame :    DestAddr must be = 1111 1111 FF FF FF FF FF
+-- for MULTICAST frame :    DestAddr must be = ???? ??01 ?? ?? ?? ?? ?? => the 1st & 2nd bits SENT =01 !
+-- for UNICAST frame :      DestAddr must be = nnnn nn00 NN NN NN NN NN => the 1st & 2nd bits SENT =00 !
 
 ChkDaddr.clk  = RX_CLK;
 --ChkDaddr.ena  =  connected below in the CASE statement
 ChkDaddr.ena = ChkDaddr_ena;
-ChkDaddr.clrn = !RxWaitSFD;     -- reset to =0 at the beg-g of Frame
+ChkDaddr.clrn = !RxEndFrame;     -- reset to =0 at the End of Frame
 
--- Compare the received DestAddr' Bytes with the correspondent Bytes of ThisDevAddr :
+-- Compare the received DestAddr' Bytes with the correspondent Bytes of ThisDeviceAddr :
 -- If at least ONCE  the incoming_Byte NOTequal to Saddr[] then ChkDaddr will be =0 at the end 
 IF  RxDestAddr  Then   
     CASE  CtReceiv.q[3..0]  IS
         WHEN  1 =>  ChkDaddr.d = 
             ((RxD_Reg[4..1].q, RxShifter[4..1].q0) == Saddr[48..41]) 
           OR((RxD_Reg[4..1].q, RxShifter[4..1].q0) == H"FF") ;
-            --ChkDaddr.ena = VCC;
             ChkDaddr_ena = VCC;
         WHEN  3 =>  ChkDaddr.d =
           ( ((RxD_Reg[4..1].q, RxShifter[4..1].q0) == Saddr[40..33]) 
           OR((RxD_Reg[4..1].q, RxShifter[4..1].q0) == H"FF")) AND ChkDaddr;
-            --ChkDaddr.ena = VCC;
             ChkDaddr_ena = VCC;
         WHEN  5 =>  ChkDaddr.d =
           ( ((RxD_Reg[4..1].q, RxShifter[4..1].q0) == Saddr[32..25]) 
           OR((RxD_Reg[4..1].q, RxShifter[4..1].q0) == H"FF")) AND ChkDaddr;
-            --ChkDaddr.ena = VCC;
             ChkDaddr_ena = VCC;
         WHEN  7 =>  ChkDaddr.d =
           ( ((RxD_Reg[4..1].q, RxShifter[4..1].q0) == Saddr[24..17]) 
           OR((RxD_Reg[4..1].q, RxShifter[4..1].q0) == H"FF")) AND ChkDaddr;
-            --ChkDaddr.ena = VCC;
             ChkDaddr_ena = VCC;
         WHEN  9 =>  ChkDaddr.d =
           ( ((RxD_Reg[4..1].q, RxShifter[4..1].q0) == Saddr[16.. 9]) 
           OR((RxD_Reg[4..1].q, RxShifter[4..1].q0) == H"FF")) AND ChkDaddr;
-            --ChkDaddr.ena = VCC;
             ChkDaddr_ena = VCC;
         WHEN 11 =>  ChkDaddr.d =
           ( ((RxD_Reg[4..1].q, RxShifter[4..1].q0) == Saddr[ 8.. 1]) 
           OR((RxD_Reg[4..1].q, RxShifter[4..1].q0) == H"FF")) AND ChkDaddr;
-            --ChkDaddr.ena = VCC;
             ChkDaddr_ena = VCC;
     End CASE;
 End IF;
 
 ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
 -- IF the received (DestinationAddr==This_Device' addr) <=> ChkDaddr=1, then ..
--- .. restore 48-bit SourceAddr and latch it, 
+-- .. reconstruct the 48-bit SourceAddr and latch it, 
 -- .. so that to use it as DestinationAddr at the reply packet :  
 Daddr[48.. 1].clk = RX_CLK ; 
 
 Daddr[44..41].d = RxShifter[4..1].q2;   --\ interconnections 
-Daddr[48..45].d = RxShifter[4..1].q1;   -- \for restoring 
+Daddr[48..45].d = RxShifter[4..1].q1;   -- \for reconstruction 
 Daddr[36..33].d = RxShifter[4..1].q0;   -- /of the 1st(MSByte) and 2nd Bytes 
 Daddr[40..37].d = RxD_Reg[4..1].q;      --/ of the DestinationAddr
 Daddr[48..33].ena = ChkDaddr & RxSourAddr & (CtReceiv.q[3..0] == 3);
 
 Daddr[28..25].d = RxShifter[4..1].q2;   --\ interconnections 
-Daddr[32..29].d = RxShifter[4..1].q1;   -- \for restoring 
+Daddr[32..29].d = RxShifter[4..1].q1;   -- \for reconstruction 
 Daddr[20..17].d = RxShifter[4..1].q0;   -- /of the 3rd and 4th Bytes 
 Daddr[24..21].d = RxD_Reg[4..1].q;      --/ of the DestinationAddr
 Daddr[32..17].ena = ChkDaddr & RxSourAddr & (CtReceiv.q[3..0] == 7);
 
 Daddr[12.. 9].d = RxShifter[4..1].q2;   --\ interconnections 
-Daddr[16..13].d = RxShifter[4..1].q1;   -- \for restoring 
+Daddr[16..13].d = RxShifter[4..1].q1;   -- \for reconstruction 
 Daddr[ 4.. 1].d = RxShifter[4..1].q0;   -- /of the 5th and 6th(LSByte) Bytes 
 Daddr[ 8.. 5].d = RxD_Reg[4..1].q;      --/ of the DestinationAddr
 Daddr[16.. 1].ena = ChkDaddr & RxSourAddr & (CtReceiv.q[3..0] ==11);
 
 ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
--- Restore 16-bit word of PacketLength/Type and latch it for further use :
-RxLenTyp[16.. 1].clk= RX_CLK ; 
-RxLenTyp[16.. 1].ena= ChkDaddr & RxPkLenTyp & (CtReceiv.q[3..0] == 3);
-RxLenTyp[12.. 9].d  = RxShifter[4..1].q2;   --\ interconnections 
-RxLenTyp[16..13].d  = RxShifter[4..1].q1;   -- \for restoring 
-RxLenTyp[ 4.. 1].d  = RxShifter[4..1].q0;   -- /of the 1st(MSByte) and 2nd Bytes 
-RxLenTyp[ 8.. 5].d  = RxD_Reg[4..1].q;      --/ of the "PkLength/Type"
+-- Reconstruct 16-bit word of PacketLength/Type and latch it for further use :
+RxLenTyp[16.. 1].clk = !RX_CLK;             --\ latches in 1/2 Rx_clk 
+RxLenTyp[16.. 1].ena = ChkDaddr AND         -- >  after (CtReceiv.q[3..0] == 3), 
+        RxPkLenTyp & (CtReceiv.q[2..0]==3); --/   just ONCE in RxCycle.
+RxLenTyp[16].prn     =!(RxEndFrame # RESET);  --\_reset to a non-standard value..
+RxLenTyp[15.. 1].clrn=!(RxEndFrame # RESET);  --/ .. at the End of Frame
+        --NOTE: if ChkAddr=0 => RxLenTyp[] remains =0
 
-----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
---************ LENGTH/TYPE  RECOGNITION :  *************************************
---IF (RxLenTyp[] >= 1536) Then 
-    --CASE RxLenTyp[] IS 
-    --    WHEN  H"CDCC" =>    CMD3-type
-    --    WHEN  H"????" =>    UDP    -- Length is to be defined according to the Type
-    --    WHEN  H"0800" =>    IP     -- Length is to be defined according to the Type
-    --End CASE;
-IF  (RxLenTyp[] == H"CDCC") Then        -- IF  CMD3-type, ..
-    RxLength[].d = H"040";              -- .. length = 64Bytes
-ELSIF (RxLenTyp[] <= 1500)  Then        -- IF  this is LENGTH, ..
-    RxLength[].d = RxLenTyp[12..1];     -- .. length => Reg, MSbit always =0 !
-ELSE                                    -- IF  an incorrect value, ..
-    RxLength[].d = H"040";              -- .. set length == 64Bytes
-    IF  RxDataBlck 
-      Then  R_Err    = VCC;             -- set ERROR flag 
-    End IF;
-End IF;
-RxLength[].clk  = RX_Clk; 
-RxLength[].clrn = !RxEndFrame;
+RxLenTyp[12.. 9].d  = RxShifter[4..1].q2;   --\ interconnections 
+RxLenTyp[16..13].d  = RxShifter[4..1].q1;   -- \for reconstruction
+RxLenTyp[ 4.. 1].d  = RxShifter[4..1].q0;   -- /of the 1st(MSByte) and 2nd(LSByte)
+RxLenTyp[ 8.. 5].d  = RxD_Reg[4..1].q;      --/ Bytes of the "PkLength/Type"
 
 ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
 -- Delivering the DataWords to the MainProject : 
 --     restoring of a DWord is synchronized with the Main Clock. 
 RxWord  = RxWordConv AND (CtReceiv.q[1..0]==3);  -- 
-RxWord1 = DFF(.D=RxWord,  .clk=Clock); -- aligned to MainProjects' Clock
-RxWord2 = DFF(.D=RxWord1, .clk=Clock); -- aligned to MainProjects' Clock
-RxWord_en = RxWord1 & !RxWord2 ;        -- enabled for 1clk, to load 1 DWord 
+RxW1    = DFF(.D=RxWord, .clk=!Clock);          --\ Flips to =1 when ..
+RxW2    = DFFE(.D=RxW1,  .clk= Clock,           -- >..(CtReceiv.q[1..0]==3) =garanteedly=, 
+    .ena=(!(RxWord $ RxW1) & (RxW1 $ RxW2)) );  --/ ena: ((RxW1==RxWord) & (RxW2 != RxW1))
+RxWord_en = RxW2 & !DFF(.D=RxW2, .clk=Clock);   --/ 1*Clock _/^^\_
 
 -- Reg_RxWord catches each 16-bit DWord and holds it while the next 4 half-Bytes..
 -- ..are being received.  This DWord must be read out during this time. 
@@ -573,11 +620,11 @@ Reg_RxWord.data[15..0] = (RxShifter4.q1,RxShifter3.q1,RxShifter2.q1,RxShifter1.q
                           RxD_Reg[4],   RxD_Reg[3],   RxD_Reg[2],   RxD_Reg[1], 
                           RxShifter4.q0,RxShifter3.q0,RxShifter2.q0,RxShifter1.q0);
 Reg_RxWord.(clock, enable, load) = (Clock, RxWord_en, VCC); 
-Reg_RxWord.(aclr, sclr)         = (Reset, RxEndFrame );
+Reg_RxWord.aclr        = (RxEndFrame # RESET);
 
 DataBus_out[15..0] = Reg_RxWord.q[15..0];   -- Data received => user project
 
-R_Error.(D, clk, reset) = (((RxEndFrame & !R_ReceivOK) OR R_Err), Clock, Reset);--PulseShaper 
+R_Error.(D, clk, reset) = (((RxChkCRC & !R_ReceivOK) OR R_Err), Clock, Reset);--PulseShaper 
 RxError = R_Error.q;
 
 --==============================================================================
@@ -590,47 +637,52 @@ TXD[3..0]       = TxD_Reg[4..1];       -- registered Data   -> Eth_controller
 --TxD_Reg[].d     = defined in the "TxCycle' State Handling" sub-section
 TxD_Reg[].clk   = TX_CLK;
 
-TX_EN_FF.d      = enTransmit & !TxEndFrame;	
+TX_EN_FF.d      = TxCycle & !TxEndFrame;	
 TX_EN_FF.clk    = TX_CLK;
 TX_EN   = TX_EN_FF.q;   -- TX_EN signal -> Output
     
--- CONDUCTING the TRANSMIT OF A PACKET 
+--******** HANDLING the TRANSMIT OF A FRAME ************************************
 -- enTransmit flips to =1 by 1st _/ clock after StTransmit has flipped to =1
 enTransmit = SRFF(.S=(StTransmit & !enTransmit),-- flip to =1 by StTransmit
-                .R=(TxEndFrame &  enTransmit),  -- flip to =0 by End of Transmit
-                .clk=TX_CLK, .clrn=!Reset);
+                  .R=TxEndFrame,                -- flip to =0 by End of Transmit
+                .clk=Clock, .clrn=!Reset);
+TxCycle0= DFF(.D=(enTransmit & !TxEndFrame),.clk=!TX_CLK);  -- to guarantee.. 
+                                --..simultaneous oper-n of TxCycle and TxInit
+TxCycle = DFF(.D=(TxCycle0   & !TxEndFrame),.clk= TX_Clk);  -- flag: Tx_cycle 
+TxInit  = DFF(.D=(TxCycle0 & !TxCycle),     .clk= TX_CLK);  -- 1*TX_CLK _/^^^^\_
 
--- Triggers which represent the state of the Transmit_Cycle :
-( TxLineIdle, TxPreamble, TxStFrmDel,
-  TxDestAddr, TxSourAddr, TxPkLenTyp, TxDataBlck,
-  TxFrameCRC, TxEndFrame).clk = TX_CLK; 
-
-TxLineIdle.D    = !enTransmit;  -- TxLineIdle.D is also asserted in "TxCycle' State Handling"
-
---TxEndFrame.D    =   connected in "TxCycle' State Handling", 
-TxEndFrame.clk  = TX_CLK;       --\_1-clk pulse by the End_of_Transmit
-TxEndFrame.clrn = enTransmit;   --/ 
-	
 -- Main TxCycle_Counter : 
 CtTransm.data[] = 0; 
 CtTransm.(clock,clk_en) = (TX_CLK, VCC);
-CtTransm.cnt_en = enTransmit;
+CtTransm.cnt_en = TX_EN_FF.q;
 CtTransm.sclr   = CtTransm_sclr;        -- defined in "TxCycle proceeding control" 
 --CtTransm.aclr   = !enTransmit;          -- counts only while enTransmit = 1
 TxCount[]       = CtTransm.q[];
 
 -- This register latches and holds the DataPacket Length (in Bytes) 
-TxPkLng_Reg.data[11..0]  = TxLenTyp[12..1];
-TxPkLng_Reg.(clock, enable, load) = (TX_CLK, TxLng_ld, VCC); -- loads by the beg-g of "TxPkLenTyp" transmitting
---    = TxPkLng_Reg.q[11.1];            -- connected in "TxCycle' State Handling" section
+TxLength_Reg[].D    = TxLength[12..1];
+TxLength_Reg[].(clk, ena) = (TX_CLK, TxInit);   --loads at the beg-g of Tx cycle
+--    = TxLength_Reg.[11..1];    -- connected in "TxCycle' State Handling" section
 
 ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
 --********  TxCycle' State Handling  *******************************************
+
+-- Triggers which represent the state of the Transmit_Cycle :
+( TxLineIdle, TxPreamble, TxStFrmDel,
+  TxDestAddr, TxSourAddr, TxPkLenTyp, TxDataBlck,
+  TxFrameCRC, %TxEndFrame%).clk = TX_CLK; 
+
+TxLineIdle.D    = !TxCycle;     -- TxLineIdle.D is also asserted below in this sub-Section
+
+--TxEndFrame.D    =   connected in "TxCycle' State Handling", 
+TxEndFrame.clk  = TX_CLK;       --\_1*TX_CLK pulse by the End_of_Transmit
+--TxEndFrame.clrn = enTransmit;   --/ 
+TxEndFrame.clrn = TxCycle;      --/ 
+
 IF  TxLineIdle  Then    -- INITIAL STATE :  CtTransm= 0,  TXD_FF=H"0"
     CtTransm_sclr   = VCC;      -- CtTransm is kept =00
     TxCRC.clk_en    = GND;
-    --IF  (StTransmit & !enTransmit) Then
-    IF  (StTransmit & !TxPreamble) Then
+    IF  (TxInit & !TxPreamble) Then
         TxPreamble.d= VCC;      -- TxPreamble will flip to =1 by the next _/TX_CLK
     End IF;
 End IF;
@@ -707,7 +759,7 @@ IF  TxSourAddr  Then    -- "SourceAddr" (6 Bytes) is being transmitted
         TxSourAddr.d= GND;      --\_.. Then  jump (by next _/TX_CLK) ..
         TxPkLenTyp.d= VCC;      --/ .. to transmit the "PlLength/Type"
         CtTransm_sclr = VCC;    -- CtTransm will flip to =00 by next _/TX_CLK
-        TxLng_ld    = VCC;      -- TxLng_Reg-s will load by next _/TX_CLK
+--        TxLenTyp_ld = VCC;      -- TxLenTyp_Reg[] will load by next _/TX_CLK
     ELSE        -- SourAddr=1, TxPkLength=0 until CtTransm=11
         TxSourAddr.d= VCC;      --\_.. Then  continue ..
         TxPkLenTyp.d= GND;      --/ .. to transmit the "DestinationAddr"
@@ -719,8 +771,8 @@ IF  TxPkLenTyp  Then    -- "PacketLength/Type" (2 Bytes) is being transmitted
     -- TxPkLength=1;  CtTransm=01,  TXD_FF.d=TxLength[15..12], TXD_FF=TxLength[11.. 8]
     -- TxPkLength=1;  CtTransm=02,  TXD_FF.d=TxLength[ 3.. 0], TXD_FF=TxLength[15..12]
     -- TxPkLength=1;  CtTransm=03,  TXD_FF.d=TxLength[ 7.. 4], TXD_FF=TxLength[ 3.. 0]
-    TxD_Reg[4..1].d = (TxLng_Reg[4..1].q3);
-    TxCRC.d[3..0]   = (TxLng_Reg[4..1].q3);
+    TxD_Reg[4..1].d = (TxLenTyp_Reg[4..1].q3);
+    TxCRC.d[3..0]   = (TxLenTyp_Reg[4..1].q3);
     TxCRC.clk_en    = VCC;
     IF  (CtTransm.q[1..0] == 3) Then
         TxPkLenTyp.d= GND;      --\_.. Then  jump (by next _/TX_CLK) ..
@@ -743,7 +795,7 @@ IF  TxDataBlck  Then    -- "Data" ( LL="Length" Bytes ) is being transmitted
     TxD_Reg[4..1].d = TxShifter[4..1].q3;
     TxCRC.d[3..0]   = TxShifter[4..1].q3;
     TxCRC.clk_en    = VCC;
-    IF (CtTransm.q[] == ((TxLength[11..1],GND) - 1)) Then
+    IF (CtTransm.q[] == ((TxLength_Reg[11..1],GND) - 1)) Then
         TxDataBlck.d= GND;      --\_.. Then  jump (by next _/TX_CLK) ..
         TxFrameCRC.d= VCC;      --/ .. to transmit the "FrameCheckSequence"
         CtTransm_sclr = VCC;    -- CtTransm will flip to =00 by next _/TX_CLK
@@ -802,7 +854,7 @@ Daddr_Reg[4..1].data2  = Daddr[16..13];
 Daddr_Reg[4..1].data1  = Daddr[ 4.. 1];
 Daddr_Reg[4..1].data0  = Daddr[ 8.. 5];
 --Daddr_Reg is loaded immediately before sending of the 1st half-Byte of Daddr 
-Daddr_Reg[4..1].(clock, enable, load) = (TX_CLK, enTransmit, Daddr_ld);
+Daddr_Reg[4..1].(clock, enable, load) = (TX_CLK, TxCycle, Daddr_ld);
 
 --************  Conversion of 48-bit SourAddr into 12 half-Bytes  ************
 -- SourAddr is sent in the following order :    Saddr[41..44],[45..48]
@@ -822,27 +874,29 @@ Saddr_Reg[4..1].data2  = Saddr[16..13];
 Saddr_Reg[4..1].data1  = Saddr[ 4.. 1];
 Saddr_Reg[4..1].data0  = Saddr[ 8.. 5];
 --Saddr_Reg is loaded immediately before sending of the 1st half-Byte of Saddr 
-Saddr_Reg[4..1].(clock, enable, load) = (TX_CLK, enTransmit, Saddr_ld);
+Saddr_Reg[4..1].(clock, enable, load) = (TX_CLK, TxCycle, Saddr_ld);
 
 --************  Conversion of 16-bit PkLenTyp into 4 half-Bytes  ***************
-TxLenTyp[]  = RxLenTyp[]; -- For the moment, TxLenTyp is the same as RxLenTyp
+--TxLenTyp[]  = RxLenTyp[]; -- For the moment, TxLenTyp is the same as RxLenTyp
 
 -- PkLenTyp is sent in the following order :    PkLenTyp[ 9..12],[13..16]
 --                                              PkLenTyp[ 1.. 4],[ 5.. 8]
-TxLng_Reg[4..1].data3  = TxLenTyp[12.. 9];
-TxLng_Reg[4..1].data2  = TxLenTyp[16..13];
-TxLng_Reg[4..1].data1  = TxLenTyp[ 4.. 1];
-TxLng_Reg[4..1].data0  = TxLenTyp[ 8.. 5];
-TxLng_Reg[4..1].(clock, enable, load) = (TX_CLK, enTransmit, TxLng_ld);
+TxLenTyp_Reg[4..1].data3   = TxLenTyp[12.. 9];
+TxLenTyp_Reg[4..1].data2   = TxLenTyp[16..13];
+TxLenTyp_Reg[4..1].data1   = TxLenTyp[ 4.. 1];
+TxLenTyp_Reg[4..1].data0   = TxLenTyp[ 8.. 5];
+TxLenTyp_Reg[4..1].(clock, enable, load) =      --\_load "PkLenTyp" value at the beg-g of Tx cycle
+        (TX_CLK, (TxInit # TxPkLenTyp), TxInit);--/ output half-Bytes of "PkLenTyp" when it is being transmitted
 
 --************  Conversion of 16-bit Data Word into 4 half-Bytes :  *************
 -- The 1st DataWord to be sent must be read from the MainProject =before= 
 -- the transmission of the Data Block has begun ! 
 -- The 1st IORq is to be set while "PacketLength" is being transmitted. 
 TxWord  = (TxPkLenTyp # TxDataBlck) & (CtTransm.q[1..0]==0);  -- 
-TxWord1 = DFF(.D=TxWord,  .clk=Clock); -- aligned to MainProjects' Clock
-TxWord2 = DFF(.D=TxWord1, .clk=Clock); -- aligned to MainProjects' Clock
-TxWord_rq = TxWord1 & !TxWord2 ;        -- enabled for 1clk 
+TxW1    = DFF(.D=TxWord, .clk=!Clock);          --\ Flips to =1 when ..
+TxW2    = DFFE(.D=TxW1,  .clk= Clock,           -- >..(CtReceiv.q[1..0]==0) =garanteedly=, 
+    .ena=(!(TxWord $ TxW1) & (TxW1 $ TxW2)) );  --/ ena: ((TxW1==TxWord) & (TxW2 != TxW1))
+TxWord_rq = TxW2 & !DFF(.D=TxW2, .clk=Clock);   --/ 1*Clock _/^^\_
 
 -- Reg_TxWord loads each 16-bit DataWord and holds it (at least) until it is loaded 
 -- into the TxShifters.  After that moment the IORq is set.  The next DWord must be 
@@ -926,13 +980,13 @@ IORq_rst= (IORq_r1 & !IORq_r2)              -- \_1clk _/^\_ just before a new re
 IORq    =SRFF(.S=IORq_set, .clk=Clock,      -- Request for "Write" or "Read"
             .R=((Select & DataStrobe)       -- Reset when data transfer done ..
             OR IORq_rst),                   -- .. OR just before a new request
-            .clrn=!(TxEndFrame # RxEndFrame # Reset)) ;
+            .clrn=!(TxEndFrame # RxEndFrame # RESET)) ;
 
 RdWr_out=SRFF(.S=RxWord_en,                 --"Write": Link -> user project
             .R=((Select & DataStrobe)       -- Reset when data transfer done
             OR IORq_rst),                   -- .. OR just before a new request
             .clk=Clock,
-            .clrn=!(TxEndFrame # RxEndFrame # Reset)) ;
+            .clrn=!(TxEndFrame # RxEndFrame # RESET)) ;
 
 -- IF a DataWord has NOT been supplied by the MainProject in time :
 TxShift_ld1 = DFF(.D=TxShift_ld, .clk=Clock); -- strobe at the =last moment= before loading the TxShifters 
@@ -953,13 +1007,13 @@ End IF;
 --Error = TxWord_Error # RdWr_Error;
 
 --============================================================================
-Test1 = enTransmit;     --RX_DV_FF;       --enTransmit;
-Test2 = CtTransm_sclr;  --RxChkPream;     --Daddr_ld;     
-Test3 = Daddr_ld;       --CtReceiv_sclr;  --Saddr_ld;
-Test4 = Saddr_ld;       --ChkDaddr_ena;   --TxLng_ld;
-Test5 = TxLng_ld;       --ChkDaddr.q;     --TxWord_ld;
-Test6 = TxWord_ld;      --RxWordConv;     --TxShift_ld;
-Test7 = TxShift_ld;     --RxWord_en;      --TxCRC_ld;
-Test8 = TxCRC_ld;       --R_Error.q;      --TxEndFrame.q;
+Test1 = enTransmit;     --RX_DV_FF;         --enTransmit;
+Test2 = TxCycle;        --RxLineIdle;       --Daddr_ld;     
+Test3 = TxInit;         --RxChkPream;       --Saddr_ld;
+Test4 = TxShift_ld;     --CtReceiv_sclr;    --TxLng_ld;
+Test5 = RxD_Reg[1];     --ChkDaddr_ena;     --TxWord_ld;      --RxD_Reg[1];
+Test6 = RxD_Reg[2];     --ChkDaddr.q;       --TxShift_ld;     --RxD_Reg[2];
+Test7 = RxD_Reg[3];     --RxWordConv;       --TxCRC_ld;       --RxD_Reg[3];
+Test8 = RxD_Reg[4];     --RxWord_en;        --TxEndFrame.q;   --RxD_Reg[4];
 
 END;

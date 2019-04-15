@@ -5,6 +5,7 @@ TITLE  "Processor2i" ;    -- Multifunctional Processor Unit
 -- ver.2i   : minor error (concerning ProgRAM) fixed; 
 --              but ProgRAM.enable_a is made back = VCC, otherwise Processor 
 --              operates improperly !
+-- ver.2j   : Number of passes can be loaded into PassCt from external object
 
 INCLUDE "RAMprog.inc" ;
 
@@ -78,6 +79,7 @@ ProgCt_count        : node; -- sets ProgCt into count mode
 ProgCt              : LPM_COUNTER with ( lpm_width=9, lpm_direction="up" ) ;
 -- PassCt - counts number of passes of a program loop
 PassCt_ld,
+PassCt_LdEn,
 PassCt_load         : node; -- makes PassCt to load Initial_number_of_passes 
 PassCt_count        : node; -- makes PassCt to count down 1 unity
 PassCt              : LPM_COUNTER with ( lpm_width=6, lpm_direction="down" ) ;
@@ -388,10 +390,11 @@ CASE  OpCode[16..13]    is
             --WHEN b"010" =>  Rg2_ld = DataStrobe & AccessGranted;-- load into Reg2
             --WHEN b"011" =>  Rg3_ld = DataStrobe & AccessGranted;-- load into Reg3
             --WHEN b"100" =>  Rg4_ld = DataStrobe & AccessGranted;-- load into Reg4
-            WHEN b"001" =>  Rg1_LdEn = VCC;  -- load into Reg1
-            WHEN b"010" =>  Rg2_LdEn = VCC;  -- load into Reg2
-            WHEN b"011" =>  Rg3_LdEn = VCC;  -- load into Reg3
-            WHEN b"100" =>  Rg4_LdEn = VCC;  -- load into Reg4
+            WHEN b"001" =>  Rg1_LdEn = VCC; -- load into Reg1
+            WHEN b"010" =>  Rg2_LdEn = VCC; -- load into Reg2
+            WHEN b"011" =>  Rg3_LdEn = VCC; -- load into Reg3
+            WHEN b"100" =>  Rg4_LdEn = VCC; -- load into Reg4
+            WHEN b"111" =>  PassCt_LdEn =VCC; -- load into PassCt
         END CASE;
         AcsReq  = !LastStage; 
         RW      = GND;  -- Processor will Read (from external Object) 
@@ -411,8 +414,6 @@ CASE  OpCode[16..13]    is
         LastStg = Delay;        -- set LastStage in next Oper.Period
 END CASE;
 
-PassCt_load = DFF(.D=(PassCt_ld &(ClkTrig2 # ClkTrig6)), .clk=Clock);
-
 -- These Triggers get and hold the Control Signals' states
 DataMUX_addr[1] = DFFE(.d=Data_Src[1], .clk=Clock, .ena=MUXaddr_Cen, .clrn=!Reset);
 DataMUX_addr[2] = DFFE(.d=Data_Src[2], .clk=Clock, .ena=MUXaddr_Cen, .clrn=!Reset);
@@ -421,6 +422,9 @@ DataMUX_addr[3] = DFFE(.d=Data_Src[3], .clk=Clock, .ena=MUXaddr_Cen, .clrn=!Rese
 AddrMUX_addr[1] = DFFE(.d=Addr_Src[1], .clk=Clock, .ena=MUXaddr_Cen, .clrn=!Reset);
 AddrMUX_addr[2] = DFFE(.d=Addr_Src[2], .clk=Clock, .ena=MUXaddr_Cen, .clrn=!Reset);
 AddrMUX_addr[3] = DFFE(.d=Addr_Src[3], .clk=Clock, .ena=MUXaddr_Cen, .clrn=!Reset);
+
+PassCt_load = DFF(.D=(PassCt_ld &(ClkTrig2 # ClkTrig6)), .clk=Clock)
+            OR( DFF(.D=PassCt_LdEn, .clk=Clock)&(DataStrobe & AccessGranted) ); --set by 0.5clock before Regs' clk_/
 
 Reg1_load   = DFF(.D=(Rg1_ld &(ClkTrig2 # ClkTrig6)), .clk=Clock) 
             OR( DFF(.D=Rg1_LdEn, .clk=Clock)&(DataStrobe & AccessGranted) ); --set by 0.5clock before Regs' clk_/

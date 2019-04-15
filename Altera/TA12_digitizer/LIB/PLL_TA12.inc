@@ -13,7 +13,7 @@
 --applicable agreement for further details.
 
 
-FUNCTION PLL_TA6 
+FUNCTION PLL_TA12 
 (
 	inclk0
 )

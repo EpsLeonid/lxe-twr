@@ -1,17 +1,19 @@
-TITLE "UpLink  v.2e" ;
+TITLE "UpLink  v.2g" ;
 -- Файл содержит унифицированную реализацию медленного линка КМД-3 - 
 -- модуль "UpLink", работающий на "нижестоящем" по иерархии узле ССД.
 -- Данный модуль должен встраиваться в платы сбора данных и обеспечивать 
--- связь с "вышестоящим" по иерархии блоком - БППД.
+-- связь с "вышестоящим" по иерархии блоком - ППД.
 % Данная версия расширена узлами :
 "Пресэмплер" - автоматическая подстройка фазы, компенсирующая
-возможную разность задержки фазы и данных в БППД (селивановской коробке).
+возможную разность задержки фазы и данных в ППД (селивановской коробке).
 %
 -- Ver. 2e :  new feature added: During Data_Transmisson, after latching 
 --            a Data_Word from buffer register "Reg_TxData" into "TxShifter"
 --            the "Reg_TxData" is cleared, so if a new Data_Word is not 
 --            supplied upon IORequest, the next word transmitted is ZERO.  
-   
+-- Ver. 2g :  Real Parity_check of the [StBit,OpCode] bits is implemented 
+--            instead of 8-bit pattern comparation of [StBit,OpCode,+P,-P]
+--            few minor code improvements are made   
 
 Include "CMD3_DAQ_LINK.inc";
 Include "PulseShaper.inc";
@@ -69,7 +71,7 @@ RdWr_out            : output; -- направление передачи данных, на внутреннюю шину
 AddrBusOut[15..0]   : output; -- адрес при операциях доступа ко внутренним ресурсам Оцифровщика (чтения/записи по Командному Листу).
 %
 -- Slave Mode Signals	-- используется при работе данного Модуля в режиме Slave
---AddrBus_In[15..0]   : input;  -- адрес при операциях доступа чтения/записи Командного Листа с КАМАК-а
+--AddrBus_In[15..0]   : input;  -- адрес при чтении/(записи) регистров Линка
 	
 -- От Пользователя требуется только обеспечить реакцию на запрос модуля Линка
 -- (забрать или предоставить данные), не превышающую 18..16 тактов линка. 
@@ -81,16 +83,16 @@ Test[8..1]          : output ; -- to be conected to test output of main Project
 
 VARIABLE
 --******** Automatic Phase Ajustment ********
-Prescaler			:	LPM_COUNTER with ( lpm_width=4, lpm_direction="up" );
-Prescaler_Desabler	:	SRFF; -- Flag of Phase-Dependent enable 
-PrescalerOut		:	node ;  -- enable of action
+Prescaler			: LPM_COUNTER with ( lpm_width=4, lpm_direction="up" );
+Prescaler_En        : SRFF; -- Flag of Phase-Dependent enable 
+PrescalerOut        : node ;  -- enable of action
 Presampler          : DFF	; -- Sampling input data at high clock rate
 SampleEnable        : node ; -- One FPGA Clock pulse which enables all data moving
 
 --******** Flow Control ********
 LinkBitCounter      : LPM_COUNTER with ( lpm_width=WORD_WIDTH, lpm_direction="up" ); -- счетчик числа принятых/переданных бит из/в линк
-LinkActive          : node; -- флаг начала цикла приема/передачи данных из/в линк
-StartLinkCycle      : node; -- сигнал начала цикла приема/передачи данных из/в линк
+LinkCycle           : node; -- Flag: Link_Cycle is in progress
+LinkActive          : node; -- Flag: Link_Cycle is in progress
 EndLinkCycle        : node; -- флаг окончания цикла приема/передачи из/в линк
 ChangeDirect        : node; -- сигнал о преключении направления передачи
 
@@ -113,8 +115,9 @@ Reg_OpCode      : LPM_SHIFTREG with (lpm_width=(CommandSize + Pause), -- contain
                                 lpm_direction="left"); -- not important
 Reg_InData      : LPM_SHIFTREG with (lpm_width=WordSize, lpm_direction="left");  -- регистр номера события (первое слово после OpCode, влючая биты паузы )
 Reg_RxData      : LPM_SHIFTREG with (lpm_width=WordSize, lpm_direction="left");  -- регистр номера события (первое слово после OpCode, влючая биты паузы )
+Parity          : node; -- trigger which counts the parity of [StBit,OpCode]
 HeaderErr       : node; --  
-Header_Error    : node; -- Flag to desable data movement, not TIMING of Link
+HeaderError     : node; -- Flag to desable data movement, not TIMING of Link
 DeadTimePulse   : PulseShaper with (
             Duration = FLOOR( (DeadTime*RefClock)/ 1000 ) ); -- Формирователь мертвого времени - защитного промежутка
 
@@ -166,53 +169,46 @@ END DEFAULTS;
 -- Input signal from DataLine is being sampled at HIGH rate: Fsampl = Fclk
 Presampler.(d, clk) = (LinkData_in, Clock) ;  -- Data is sampled at HIGH rate
 
-			Prescaler_Desabler.clk	=	Clock;
-			Prescaler_Desabler.R	=	Presampler.q ; 
-			-- Когда Стартовый Бит засэмплируется , то вот здесь-то и отпускаем предделитель,
-			-- чтобы его выход стробировал продвижение данных по шифтеру Rx
-			--Prescaler_Desabler.S	=	EndLinkCycle OR HeaderError OR Reset;  -- 
-			Prescaler_Desabler.S	=	EndLinkCycle OR Reset;
+    Prescaler_En.clk= Clock;
+    Prescaler_En.S  = Presampler.q ; 
+			-- Когда Стартовый Бит засэмплируется , то вот здесь-то и запускаем предделитель,
+			-- чтобы его выход стробировал продвижение данных по RxShifter
+			--Prescaler_En.R  = EndLinkCycle OR HeaderError OR Reset;  -- 
+    Prescaler_En.R  = EndLinkCycle OR Reset;
 
--- Define the proper Bit Detection Frequency: Fbit = Fclk / PrescalerModule 
-    IF (Prescaler.q[] == (PrescalerModule-1) ) 	
-        THEN PrescalerOut = VCC;
-        ELSE PrescalerOut = GND;
-    End IF;
-Prescaler.clock	=	Clock;
-Prescaler.sclr	=	PrescalerOut OR Prescaler_Desabler.q ;
--- Определяем относительную фазу сэмплирования:
+Prescaler.clock = Clock;
+Prescaler.sclr  = Prescaler.eq[PrescalerModule-1] --Bit_Frequency = Fclk / PrescalerModule 
+            OR !Prescaler_En.q; -- Определяем относительную фазу сэмплирования:
     -- Предделитель остановлен в состоянии НОЛЬ, пока не придет Стартовый Бит
-    -- первый SampleEnable возникает, когда счетчик еще стоит в нуле, а 
-    -- стартовый бит уже всосался в Prescaler_Desabler, таким образом 
+    -- первый SampleEnable возникает, когда счетчик Prescaler еще стоит в нуле, 
+    -- а стартовый бит уже всосался в Prescaler_En, таким образом 
     -- защелкивание стартового бита в шифтер произойдет на следующем клоке
-    IF (Prescaler.q[] == b"0000" AND !Prescaler_Desabler.q ) 
-        Then  SampleEnable = VCC; -- Main Syncro Pulse
-        Else  SampleEnable = GND;
-    End IF;
+    SampleEnable= Prescaler.eq[0] AND Prescaler_En.q ;
+    --SampleEnable= DFF(.D=(Prescaler.eq[0] AND Prescaler_En.q), .clk=Clock) ;
 
 -- RxShifter: catches serial data, and collects a portion of data 
 --            to be transformed to a parallel Data_Word
 RxShifter.shiftin   = Presampler.q;                 -- Data are catched..
-RxShifter.(clock, enable) = (Clock, SampleEnable);  --.. and shifted at NORMAL rate, 
+RxShifter.(clock, enable) = (Clock, SampleEnable);  --.. and shifted at NORMAL rate
     -- Момент защелкивания БИТА данных определяется выходной фазой предделителя.
     -- Первый PrescalerOut позволяет защелкнуть стартовый бит в сдвигатель, 
-    -- data is shifted q[0] -> q[CommandSize+Pause -1]
-RxShifter.aclr	=	Prescaler_Desabler.q ;-- Нет синхронизма - > нет данных
-RxShifter.sclr	=	TxRx OR Header_Error ;
+    -- data is shifted  shiftin -> q[0] -> q[CommandSize+Pause-1]
+RxShifter.aclr	=	!Prescaler_En.q ;-- Нечего ловить -> нет данных
+RxShifter.sclr	=	TxRx OR HeaderError ;
 
 --============================================================================
 --************ Link Cycle operation Control ************
 
-StartLinkCycle  = RxShifter.q[CommandSize+Pause-1];-- Starting in any case when StartBit enters
-LinkActive  = SRFF(.s=StartLinkCycle, .r=(EndLinkCycle OR Reset), .clk=Clock);
-
-CASE RxShifter.q[COMMAND_SIZE+PAUSE-1..0] IS
---    WHEN  CMDL_Cfg_Read     => HeaderErr = GND;   -- Чтение памати редиректора
---    WHEN  CMDL_Cfg_Write    => HeaderErr = GND;	-- Запись в память редиректора
-    WHEN  Read1             => HeaderErr = GND;	-- Read  1 word from Object
-    WHEN  Write1            => HeaderErr = GND;	-- Write 1 word  to Object
+LinkCycle   = SRFF(.S=RxShifter.q[CommandSize+Pause-1], --Starting in any case..
+                    -- .. when StartBit has reached the q[MSB] of the RxShifter
+                .clrn=!(EndLinkCycle # Reset), .clk=Clock);
+LinkActive  = DFF (.D=LinkCycle, .clrn=!(EndLinkCycle # Reset), .clk=Clock);
+%
+CASE RxShifter.q[(CommandSize+Pause-1)..0] IS
     WHEN  Read              => HeaderErr = GND;	-- Read 62 words from Object(s)
     WHEN  Write             => HeaderErr = GND;	-- Write 8 words  to Object(s)
+    WHEN  Read_AD           => HeaderErr = GND;	-- Read  =<4 words from Object
+    WHEN  Write_AD          => HeaderErr = GND;	-- Write =<4 words  to Object
     WHEN  StartRegul        => HeaderErr = GND;	-- Start_Regul (Чтение 0)
     WHEN  StartAlter        => HeaderErr = GND;	-- Start_Alter (Чтение 1)
     WHEN  CommdLst_Rd100    => HeaderErr = GND;	-- Чтение 2
@@ -223,12 +219,25 @@ CASE RxShifter.q[COMMAND_SIZE+PAUSE-1..0] IS
     WHEN  CommdLst_Wr111=> HeaderErr = GND;	-- Запись 3
     WHEN OTHERS             => HeaderErr = VCC;
 End CASE;
+%
+Parity  = TFFE(.T=RxShifter.q[Pause+1], -- counts "1"s in [StBit,OpCode]
+            .ena=SampleEnable,  -- flips when "1" is shifted into the bit next to +P_bit
+            .clk=Clock, .clrn=Prescaler_En.q );
+    -- Before StBit detected, Parity ==0; Parity считает единицы только в поле 
+    -- [StBit,OpCode], т.е. биты чётности не учитываются - они будут использованы
+    -- для проверки правильной чётности принятого OpCode.    
 
-Header_Error  = DFFE(.d=HeaderErr, .clk=Clock,  -- check validity...
-                       .ena=(StartLinkCycle AND !LinkMessage), --when whole Command entered RxShifter
-                       .clrn=!EndLinkCycle);    --reset at the End of Cycle
+IF (   ( Parity == RxShifter.q[Pause+1])-- if actual  Parity = +P_bit..
+    AND(!Parity == RxShifter.q[Pause]) )--   .. and  !Parity = -P_bit 
+        Then  HeaderErr = GND;  -- No Error in Header
+        Else  HeaderErr = VCC;  --  Error in Header
+    End IF;
 
-Error	=	Header_Error OR RdWr_Error ;-- OR Marker_Error_Flag.q ;
+HeaderError = DFFE(.d=HeaderErr, .clk=Clock,    -- check validity...
+                .ena=(LinkCycle & !LinkActive), --when whole Command entered RxShifter
+                .clrn=!(EndLinkCycle # Reset)); --reset at the End of Cycle
+
+Error	=	HeaderError OR RdWr_Error ;-- OR Marker_Error_Flag.q ;
 
 -- Управление защелкиванием Reg_OpCode
 RxOpCode_ld  = !LinkActive ;
@@ -309,8 +318,8 @@ DeadTimePulse.(Clk, Reset)= (Clock, Reset); -- _/^^^^\_
 
 EndLinkCycle= DeadTimePulse.q ; 
 
-LinkMessage = DFF(.d=LinkActive, .clk=Clock) OR EndLinkCycle ; -- Connection to User Interface, one clock later,
---	 when OpCode locked. Duration extended with DeadTime.
+LinkMessage = DFF(.D=(LinkActive & !HeaderError), .clk=Clock)--Flag: VALID command is being executed
+       %OR EndLinkCycle%;               -- Duration extended with DeadTime.
 
 --============================================================================
 --************ Registers and Bus Connections ************
@@ -322,12 +331,6 @@ Reg_OpCode.data[(CommandSize+Pause-1)..0]= RxShifter.q[(CommandSize+Pause-1)..0]
 Reg_OpCode.(clock, enable, load)= (Clock, RxOpCode_ld, VCC); -- catch data when RxOpCodeReload=1 
 Reg_OpCode.(aclr, sclr)         = (Reset, EndLinkCycle );
 
---IF (Header_Error == GND)      -- 
---    THEN  Command[]	= Reg_OpCode.q[];   -- If OpCode valid - send it to user project
---          First_Word[]= Reg_InData.q[];
---    ELSE  Command[]   = CMDL_Cfg_Read ;   -- Substitution if Error found
---          First_Word[]= 512; -- Addreses of Pedestals
---END IF;
 OpCode_out[]    = Reg_OpCode.q[];           -- OpCode => user project
 
 -- Reg_InData catches and holds the InData_word
@@ -437,12 +440,10 @@ CRC_Out[]   = CRC_Checker.CRC_Parallel_Out[];
 Test1 = SampleEnable;
 Test2 = LinkActive ;--SampleEnable ;
 Test3 = RxOpCode_ld OR RxInData_ld OR RxWord_ld;
-Test4 = TxInData_ld OR TxWord_ld ;--TxInData_ld ;
-Test5 = RxShifter.q[0];
-Test6 = RxShifter.q[1];
+Test4 = TxOpCode_ld OR TxInData_ld ;
+Test5 = TxWord_ld;--TxInData_ld ;
+Test6 = Prescaler_En.q ;--TxWord_ld;
 Test7 = RxShifter.q[2]; 
---Test7 = CRC_Checker.Test1;
-Test8 = LinkBitCounter.q0 ;
---Test8 = CRC_Checker.CRC_Serial_Out;
+Test8 = Parity;     --LinkBitCounter.q0;    --CRC_Checker.CRC_Serial_Out;
 
 END;

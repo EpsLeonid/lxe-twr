@@ -2533,44 +2533,47 @@ IF ( AddrBus[15..0] == B"1111111111111111" )
 	Else ZERO_cs = GND ;
 End IF ;
 
-DevSel[ 1].d	= MainRAM_cs ;
-DevSel[ 2].d	= ProgRAM_cs ;
-DevSel[ 3].d	= CommandRAM_cs ;
-DevSel[ 4].d	= Link_cs ;             -- Link's I/O port or InData_out
-DevSel[ 5].d	= OpCode_cs ;           -- Reg_OpCode
---DevSel[ 6].d	= CtrlStat_cs;          -- CtrlStat "Reg", BaseAddr reg, etc.
-DevSel[ 6].d    = Servo_CS ;
-DevSel[ 7].d	= SelCommdList_cs ;     -- SelCommdList reg
---DevSel[ 8].d	= BaseAddr_cs ;         -- Reg_BaseAddr
-DevSel[ 8].d	= Servo_CS ;            --   Reserved, moved into Servo !
-DevSel[ 9].d	= EtherRAM_cs ;         -- EtherRAM
---DevSel[10].d	= EthOpCode_cs ;        -- Reg_EthOpCode
-DevSel[10].d	= Servo_CS ;            --   Reserved, moved into Servo !
-DevSel[11].d	= TA_HistRAM_cs0;       -- HistRAM of TA0 (Chan 0)
-DevSel[12].d	= TA_HistRAM_cs1;       -- HistRAM of TA1 (Chan 1)
-DevSel[13].d	= ErrorCounters_IFace_CS ; -- Error Counters
-DevSel[14].d	= ZERO_cs;              -- ZERO word
+DevSel[ 1].d	= MainRAM_cs;
+DevSel[ 2].d	= ProgRAM_cs;
+DevSel[ 3].d	= CommandRAM_cs;
+DevSel[ 4].d	= Link_cs;					-- Link's I/O port or InData_out
+DevSel[ 5].d	= OpCode_cs;				-- Reg_OpCode
+--DevSel[ 6].d	= CtrlStat_cs;				-- CtrlStat "Reg", BaseAddr reg, etc.
+DevSel[ 6].d	= Servo_CS ;
+DevSel[ 7].d	= SelCommdList_cs;			-- SelCommdList reg
+--DevSel[ 8].d	= BaseAddr_cs;				-- Reg_BaseAddr
+DevSel[ 8].d	= Servo_CS;					-- Reserved, moved into Servo !
+DevSel[ 9].d	= EtherRAM_cs;				-- EtherRAM
+--DevSel[10].d	= EthOpCode_cs;				-- Reg_EthOpCode
+DevSel[10].d	= Servo_CS;					-- Reserved, moved into Servo !
+FOR i IN 0 TO (NUM_CH-1) GENERATE
+	DevSel[11+i].d  = TA12Channel_cs[i];	-- ADC channel data
+END GENERATE;
+DevSel[23].d	= ErrorCounters_IFace_CS;	-- Error Counters
+DevSel[24].d	= TestRAM_cs;				-- Test RAM
+DevSel[25].d	= ZERO_cs;					-- ZERO word
 
-FOR i in 1 to 14 % with ErCount must be 28 % GENERATE
+FOR i in 1 to 24 % with ErCount must be 28 % GENERATE
 	DevSel[i].clrn = AddrSettled;   -- DevSel[] are enabled while Addr. is settled
 	DevSel[i].clk  = Clk100;
 END GENERATE; 
 
-AddrValid   = DevSel[ 1].q OR  -- MainRAM
-			  DevSel[ 2].q OR  -- ProgRAM
-			  DevSel[ 3].q OR  -- CommandRAM
-			  DevSel[ 4].q OR  -- Link's I/O port or InData_out
-              DevSel[ 5].q OR  -- Reg_OpCode
---              DevSel[ 6].q OR  -- ControlStatus "reg"
-              DevSel[ 6].q OR  -- MUX of DataBus among various Reg-s
-              DevSel[ 7].q OR  -- SelCommdList
---reserved      DevSel[ 8].q OR  -- Reg_BaseAddr
-              DevSel[ 9].q OR  -- EtherRAM
---reserved      DevSel[10].q OR  -- Reg_EthOpCode
-              DevSel[11].q OR  -- HistRAM of TA0 (Chan 0)
-              DevSel[12].q OR  -- HistRAM of TA1 (Chan 1)
-			  DevSel[13].q OR
-			  DevSel[14].q;   -- Something?? :  ZERO word
+AddrValid = DevSel[ 1].q OR  -- MainRAM
+			DevSel[ 2].q OR  -- ProgRAM
+			DevSel[ 3].q OR  -- CommandRAM
+			DevSel[ 4].q OR  -- Link's I/O port or InData_out
+			DevSel[ 5].q OR  -- Reg_OpCode
+--			DevSel[ 6].q OR  -- ControlStatus "reg"
+			DevSel[ 6].q OR  -- MUX of DataBus among various Reg-s
+			DevSel[ 7].q OR  -- SelCommdList
+--reserved	DevSel[ 8].q OR  -- Reg_BaseAddr
+			DevSel[ 9].q OR  -- EtherRAM
+--reserved	DevSel[10].q OR  -- Reg_EthOpCode
+			DevSel[11].q OR DevSel[12].q OR DevSel[13].q OR DevSel[14].q OR DevSel[15].q OR DevSel[16].q OR --\ [1-6] ADC channels
+			DevSel[17].q OR DevSel[18].q OR DevSel[19].q OR DevSel[20].q OR DevSel[21].q OR DevSel[22].q OR --/ [7-12] ADC channels
+			DevSel[23].q OR
+			DevSel[24].q OR
+			DevSel[25].q;   -- Something?? :  ZERO word
 
 AddrSettled = Bus_Arbiter.AddressSettled; --In 1clock after "AccessGranted"..
 	-- ..address is expected to be set on the Addr.bus, and Arbiter produces 
@@ -2594,28 +2597,38 @@ IF (RW == VCC) Then		-- Master will write to
 	DataBus[] = CPU.DataOut[] ;
 Else					-- Master will read from
 	CASE DevSel[].q IS     -- DataBus' MUX for Target drivers
-		WHEN b"00000000000001" => DataBus[]		= MainRAM.q[];
-		WHEN b"00000000000010" => DataBus[]		= CPU.ProgRAM_q[];
-		WHEN b"00000000000100" => DataBus[]		= CommandRAM.q[];
-		WHEN b"00000000001000" => CASE  AddrBus[1..0] is
+		WHEN b"0000000000000000000000001" => DataBus[]		= MainRAM.q[];
+		WHEN b"0000000000000000000000010" => DataBus[]		= CPU.ProgRAM_q[];
+		WHEN b"0000000000000000000000100" => DataBus[]		= CommandRAM.q[];
+		WHEN b"0000000000000000000001000" => CASE  AddrBus[1..0] is
 			When 0 => DataBus[]= Link_IFace.InData_out[];
 			When 1 => DataBus[]= Link_IFace.DataBus_out[];
 			--When  2 => DataBus[7..0]= Link_IFace.OpCode_out[];
 			End CASE;
-		WHEN b"00000000010000" => DataBus[]     = Reg_OpCode.q[7..0];   -- Link's OpCode
---		WHEN b"00000000100000" => DataBus[3..0] =
---            (EtherUDPmode, EtherCMD3mode, StartMulti, StartOne);        --CtrlStat "reg" 
-		WHEN b"00001010100000" => DataBus[11..0]= Servo_Mux[12..1];     -- various Reg-s
+		WHEN b"0000000000000000000010000" => DataBus[]		= Reg_OpCode.q[7..0];				-- Link's OpCode
+--		WHEN b"0000000000000000000100000" => DataBus[3..0] =
+--            (EtherUDPmode, EtherCMD3mode, StartMulti, StartOne);								--CtrlStat "reg" 
+		WHEN b"0000000000000001010100000" => DataBus[11..0]	= Servo_Mux[12..1];					-- various Reg-s
                 -- ^^^^- DevSel[8], DevSel[10] are made SAME as DevSel[6] !
-		WHEN b"00000001000000" => DataBus[]     = SelCommdList_Reg.q[];
---		WHEN b"00000010000000" => DataBus[7..0]	= Reg_BaseAddr.q[7..0];
---		WHEN b"00000100000000" => DataBus[]     = TestRAM.q[];          --MainProj <- TestRAM 
-		WHEN b"00000100000000" => DataBus[]     = EtherRAM.q_b[];       --MainProj <- EtherRAM 
---		WHEN b"00001000000000" => DataBus[7..0] = Reg_EthOpCode[8..1];  --Ether's OpCode
-		WHEN b"00010000000000" => DataBus[]     = TA_proces0.DataBusOut[] ;
-		WHEN b"00100000000000" => DataBus[]     = TA_proces1.DataBusOut[] ;
-		WHEN b"01000000000000" => DataBus[]     = ErrorCounters_IFace.DataBusOut[];  --
-		WHEN b"10000000000000" => DataBus[]     = 0; -- ZERO word temporary ?
+		WHEN b"0000000000000000001000000" => DataBus[]		= SelCommdList_Reg.q[];
+--		WHEN b"0000000000000000010000000" => DataBus[7..0]	= Reg_BaseAddr.q[7..0];
+		WHEN b"0000000000000000100000000" => DataBus[]		= EtherRAM.q_b[];					--MainProj <- EtherRAM 
+--		WHEN b"0000000000000001000000000" => DataBus[7..0]	= Reg_EthOpCode[8..1];				--Ether's OpCode
+		WHEN b"0000000000000010000000000" => DataBus[]		= TA12Channel[0].DataBusOut[];
+		WHEN b"0000000000000100000000000" => DataBus[]		= TA12Channel[1].DataBusOut[];
+		WHEN b"0000000000001000000000000" => DataBus[]		= TA12Channel[2].DataBusOut[];
+		WHEN b"0000000000010000000000000" => DataBus[]		= TA12Channel[3].DataBusOut[];
+		WHEN b"0000000000100000000000000" => DataBus[]		= TA12Channel[4].DataBusOut[];
+		WHEN b"0000000001000000000000000" => DataBus[]		= TA12Channel[5].DataBusOut[];
+		WHEN b"0000000010000000000000000" => DataBus[]		= TA12Channel[6].DataBusOut[];
+		WHEN b"0000000100000000000000000" => DataBus[]		= TA12Channel[7].DataBusOut[];
+		WHEN b"0000001000000000000000000" => DataBus[]		= TA12Channel[8].DataBusOut[];
+		WHEN b"0000010000000000000000000" => DataBus[]		= TA12Channel[9].DataBusOut[];
+		WHEN b"0000100000000000000000000" => DataBus[]		= TA12Channel[10].DataBusOut[];
+		WHEN b"0001000000000000000000000" => DataBus[]		= TA12Channel[11].DataBusOut[];
+		WHEN b"0010000000000000000000000" => DataBus[]		= ErrorCounters_IFace.DataBusOut[];	--
+		WHEN b"0100000000000000000000000" => DataBus[]		= TestRAM.q[];						-- MainProj <- TestRAM 
+		WHEN b"1000000000000000000000000" => DataBus[]		= 0; 								-- ZERO word temporary ?
 		WHEN OTHERS => DataBus[] = 0;
 	End CASE;
 End IF;

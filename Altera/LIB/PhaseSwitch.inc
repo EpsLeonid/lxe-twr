@@ -17,4 +17,5 @@ RETURNS
 (
     Phase25, 
     LinkClk_Selected
+    , Test[4..1]
 );

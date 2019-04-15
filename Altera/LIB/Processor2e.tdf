@@ -1,4 +1,6 @@
 TITLE  "Processor" ;    -- Multifunctional Processor Unit
+-- ver.2e   : first fully functional version
+
 
 INCLUDE "RAMprog.inc" ;
 

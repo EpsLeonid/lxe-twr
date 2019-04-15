@@ -302,14 +302,13 @@ CONTENT  BEGIN
 -- Load initial address of Wr001_DataPage (#4032) => Reg1
 -- Load initial address of Wr001_AddrPage (#3520) => Reg2
 118         : 0001000000000000; -- NOP
-120         : 1001001000000000; -- Load16:(Ddst=Reg1)              \ Init-l Addr of
-121         : 0000111111000000; --#(3072+512+448)            \      >"Wr111_DataPage" =>
+119         : 1001001000000000; -- Load16:(Ddst=Reg1)              \ Init-l Addr of
+120         : 0000111111000000; --#(3072+512+448)            \      >"Wr111_DataPage" =>
             --  ^^^^^^ "CommdLst111_offset" + DataPage_offset/     /   => Reg1
-122         : 1001010000000000; -- Load16:(Ddst=Reg2)              \ Init-l Addr of
-123         : 0000110111000000; --#(3072+  0+448)            \      >"Wr111_AddrPage" =>
+121         : 1001010000000000; -- Load16:(Ddst=Reg2)              \ Init-l Addr of
+122         : 0000110111000000; --#(3072+  0+448)            \      >"Wr111_AddrPage" =>
             --  ^^^^^^ "CommdLst111_offset" + AddrPage_offset/     /   => Reg2
---No need to jump - just go on  124         : 0100000001111100; -- Jump:(to @#124 - "Treatment of CommandSequence" subroutine)
-
+123         : 0001000000000000; -- No need to jump - just go on (to @#124 - "Treatment of CommandSequence" subroutine)
 
 --************  Treatment of the Command_Sequence:                ************
 --************    Copy "InData" to MainRAM, ignore 8 DataWords    ************
