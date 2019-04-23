@@ -34,7 +34,7 @@ set_global_assignment -name SEARCH_PATH LIB/
 set_global_assignment -name ENABLE_ADVANCED_IO_TIMING ON
 set_global_assignment -name ORIGINAL_QUARTUS_VERSION 8.1
 set_global_assignment -name PROJECT_CREATION_TIME_DATE "09:41:27  MAY 19, 2016"
-set_global_assignment -name LAST_QUARTUS_VERSION 8.1
+set_global_assignment -name LAST_QUARTUS_VERSION "9.1 SP2"
 set_global_assignment -name USE_GENERATED_PHYSICAL_CONSTRAINTS OFF -section_id eda_blast_fpga
 set_global_assignment -name MIN_CORE_JUNCTION_TEMP 0
 set_global_assignment -name MAX_CORE_JUNCTION_TEMP 85
@@ -156,3 +156,5 @@ set_location_assignment PIN_164 -to DeSerClk
 
 set_global_assignment -name MISC_FILE "D:/USERS/YURA/ALTERA/LXeTwr/IPT_LXe/IPT_LXe.dpf"
 set_global_assignment -name STRATIX_DEVICE_IO_STANDARD "2.5 V"
+
+set_global_assignment -name AHDL_FILE TA12_Digitizer.tdf

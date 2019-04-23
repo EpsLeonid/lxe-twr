@@ -490,6 +490,7 @@ EthOpCode_saved	: node; -- =1 when Ethernet' OpCode is saved, till the End of Fr
 
 Delay_St_Ether_Link		: SRFF;
 EtherLinkMessage		: SRFF;
+EmptyMess				: node;
 EtherLinkTimeCt			: lpm_counter with (lpm_width = 11, lpm_direction="up");
 
 EndEtherTx		: node;
@@ -2176,7 +2177,7 @@ END IF;
 
 -- "RxEndFrame" appears ONLY in case that the received Frame is addressed to ThisDevice. 
 -- Ethernet' Transmitting START is delayed after the Ethernet' Receiving Cycle :
-Delay_StEthTx.(D,clk,reset) = ((St_EthTx_Ether & Ether.RxEndFrame),Clk100,RESET);  -- Delay of Compulsive START
+Delay_StEthTx.(D,clk,reset) = ((Ether_TxUDPcycle & Ether.RxEndFrame),Clk100,RESET);  -- Delay of Compulsive START
 --StartEthTx_Ether.(D, clk,reset) =(Delay_StEthTx.q, Clk100, RESET);--PulseShaper
 
 EtherLinkMessage.(S,clk,R,clrn) = (St_Ether_Link, Clk100, RESET, !(EndEtherTx OR EtherLinkTimeCt.cout));
@@ -2238,13 +2239,13 @@ IF EtherBank_1.q == VCC Then
 END IF; 
 %
 --StartEthTx_Link.(D, clk, reset) = ((!Link_IFace.LinkMessage & Delay_LinkMessage.q) AND Delay_St_Ether_Link.q, Clk100, RESET);
-StartEthTx_Link.(D, clk, reset) = ((EtherBank_1.q OR EtherBank_2.q OR EtherBank_3.q % EtherBank_4.q OR EtherBank_5.q OR EtherBank_6.q%) AND St_Ether_Link, Clk100, RESET);
+StartEthTx_Link.(D, clk, reset) = ((EtherBank_1.q OR EtherBank_2.q OR EtherBank_3.q % EtherBank_4.q OR EtherBank_5.q OR EtherBank_6.q%) AND Ether_TxUDPcycle, Clk100, RESET);
 
-StartEthTx  = ((StartEthTx_Link.q OR Delay_StEthTx.q) AND !Ether.TX_EN ); 
+--StartEthTx  = ((StartEthTx_Link.q OR Delay_StEthTx.q) AND !Ether.TX_EN ); 
 
-StartEthTx_Cnt.(clock, clk_en, cnt_en) = (Clk25%StartEthTx%, VCC, StartEthTx);
+StartEthTx_Cnt.(clock, clk_en, cnt_en) = (Clk25%StartEthTx%, VCC, Ether_TxUDPcycle);
 
-StatusPack.(clock, enable, load) = (Clk25, StartEthTx, VCC);
+StatusPack.(clock, enable, load) = (Clk25, Ether_TxUDPcycle, VCC);
 StatusPack.data[] = (StartEthTx_Cnt.q[], b"00000", EtherBank_3.q,EtherBank_2.q,EtherBank_1.q); 
 
 IF ((EtherPause3.q == VCC) AND (EtherBankDelay.cout == VCC))
@@ -2259,7 +2260,7 @@ EthAddrCt.data[]= Eth_InitAddr[];
 --EthAddrCt.sclr  = EdgeSensing(.D=(Ether.RxDataBlck  -- before receiving 1st DWord of Data Block
 EthAddrCt.sclr	= EdgeSensing(.D=Ether.RxDestAddr,  -- before receiving 1st DWord of RxFrame
 						.clk=Clk100, .reset=RESET) OR RESET;
-EthAddrCt.sload	= EdgeSensing(.D=StartEthTx, -- at the beginning of Transmit Cycle
+EthAddrCt.sload	= EdgeSensing(.D=Ether_TxUDPcycle, -- at the beginning of Transmit Cycle
 						.clk=Clk100, .reset=RESET);
 
 --When ETHERNET' "WRITE" command => EtherWRITE=1 => write to TestRAM enabled 
