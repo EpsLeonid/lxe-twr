@@ -253,6 +253,8 @@ DEFAULTS
 	ENDCycle 			= GND;
 --	Start_read 			= GND;
 
+	Error				= GND;
+
 END DEFAULTS;
 
 --============================================================================

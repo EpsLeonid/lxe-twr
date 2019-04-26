@@ -15,12 +15,14 @@
 
 FUNCTION EtherRAM2P 
 (
-	address_a[8..0],
-	address_b[8..0],
+	address_a[9..0],
+	address_b[9..0],
 	clock_a,
 	clock_b,
 	data_a[15..0],
 	data_b[15..0],
+	enable_a,
+	enable_b,
 	wren_a,
 	wren_b
 )
