@@ -362,7 +362,7 @@ AddrSettled		: node; -- Arbiter asserts this signal at next clock after Request 
 AddrValid		: node; -- OR'ed Address Comparator's output, dff-strobed
 DataStrobe		: node; --Strobe: latch data into the destination object, and finish the Bus Oper-n
 --  signals of Address Comparators
-DevSel[25..1]	: DFF ; -- Registered Addr_Comparator outputs for Selection
+DevSel[17..1]	: DFF ; -- Registered Addr_Comparator outputs for Selection
 
 MainRAM_cs		: node; -- select for Rd/Wr from/to MainRAM
 ProgRAM_cs		: node; -- ProgRAM is declared in Processor module 
@@ -1464,14 +1464,6 @@ FOR i IN 0 TO (NUM_CH-1) GENERATE
 	TA12Channel[i].RegInit			= PwrUpSet1;
 	TA12Channel[i].Reset			= RESET; -- reset by MainRESET
 
---	if (i<3) then 
---		i_ch = 0;
---	elsif (i<7) then 
---		i_ch = 1;
---	else 
---		i_ch = 2;
---	end if;
-
 	FOR j in 0 to 1 GENERATE
 
 		DDR_InLVDS[i][j].(datain, inclock, aclr) = (ADC_In_Data[i][j], ADC_DataClk[0], Reset);
@@ -1487,9 +1479,9 @@ FOR i IN 0 TO (NUM_CH-1) GENERATE
 									DDR_Reg_pos[i][1].q[0],DDR_Reg_neg[i][1].q[0],DDR_Reg_pos[i][0].q[0],DDR_Reg_neg[i][0].q[0]);
 	InData_Reg[i].(clock, enable, load) = (Clk100, VCC, VCC);
 -- Cauaeeeaaiea aeoia a ii?aaaeaiiie iineaaiaaoaeuiinoe.
-	InData_Reg[i].data[11..0] = (InData_RegMix[i].q[5],InData_RegMix[i].q[2],InData_RegMix[i].q[3],InData_RegMix[i].q[0],
-								InData_RegMix[i].q[5],InData_RegMix[i].q[2],InData_RegMix[i].q[3],InData_RegMix[i].q[0],
-								InData_RegMix[i].q[1],InData_RegMix[i].q[6],InData_RegMix[i].q[7],InData_RegMix[i].q[4]);
+	InData_Reg[i].data[11..0] = (InData_RegMix[i].q[0],InData_RegMix[i].q[1],InData_RegMix[i].q[2],InData_RegMix[i].q[3],
+								InData_RegMix[i].q[4],InData_RegMix[i].q[5],InData_RegMix[i].q[6],InData_RegMix[i].q[7],
+								InData_RegMix[i].q[8],InData_RegMix[i].q[9],InData_RegMix[i].q[10],InData_RegMix[i].q[11]);
 
 	TA12Channel[i].ADCdata[]		 = InData_Reg[i].q[];
 	TA12Channel[i].DataBus_In[15..0] = DataBus[15..0];
@@ -1507,12 +1499,12 @@ END GENERATE;
 
 --******** 6a. Ethernet WF_HIST Tx to DAQ *************************************
 
---CASE Eth_Reg_LinkOpCode.q[7..0] is -- recognizing the particular Operation :
---	WHEN StartRegul		 =>     -- #193-"START_Regular"        (+?oyoo Lst0)
---		 StartWFTx_Eth	 = VCC;	--Start up Ethernet transmition with waveforms
---	WHEN Others => 	
---		 StartWFTx_Eth	 = GND;	--Start up Ethernet transmition with waveforms
---End CASE;
+CASE Eth_Reg_LinkOpCode.q[7..0] is -- recognizing the particular Operation :
+	WHEN StartRegul		 =>     -- #193-"START_Regular"        (+?oyoo Lst0)
+		 StartWFTx_Eth	 = VCC;	--Start up Ethernet transmition with waveforms
+	WHEN Others => 	
+		 StartWFTx_Eth	 = GND;	--Start up Ethernet transmition without waveforms
+End CASE;
 --
 --DelayWriteWFhist_Eth.(D,clk,reset) = (StartWFTx_Eth, Clk100, Reset);
 --Delay_EthMessage.(D,clk) = (DelayWriteWFhist_Eth.q, Clk100);
@@ -1614,7 +1606,7 @@ DataCnt.(clock, clk_en, cnt_en) = (Clk100, VCC, WriteEn.q);
 ChannelCnt.(clock, clk_en, cnt_en) = (Clk100, VCC, DataCnt.cout);
 
 If ((DataCnt.cout == VCC) and (ChannelCnt.q[] == b"11")) then StopWrite = VCC;
-														   else StopWrite = GND;
+														 else StopWrite = GND;
 End if;
 
 WriteDATA.(clock, enable, load) = (Clk100, VCC, VCC);
@@ -1652,10 +1644,10 @@ END Case;
 
 Addr_Ram.clock = Clk100;
 Addr_Ram.(wren, wraddress[], data[15..0]) = ((DelayWorkTime0.q AND WriteEn.q), WrAddrCnt.q[], Write_ExtRamCt.q[15..0]);
-Addr_Ram.(rden, rdaddress[]) = ((DelayWorkTime1.q AND !DelayWorkTime0.q AND !ReadExtMem), ReadAddrCnt.q[]);
+Addr_Ram.(rden, rdaddress[]) = ((Read_time.q AND !ReadExtMem), ReadAddrCnt.q[]);
 
 WrAddrCnt.(clock, clk_en, cnt_en) = (Clk100, VCC, (DelayWorkTime0.q AND !WriteEn.q));
-ReadAddrCnt.(clock, clk_en, cnt_en) = (Clk100, VCC, (DelayWorkTime1.q AND !DelayWorkTime0.q AND !ReadExtMem));
+ReadAddrCnt.(clock, clk_en, cnt_en) = (Clk100, VCC, (Read_time.q AND ReadExtMem));
 
 DelayWorkTime[1..0].(clk) = Clk100;
 DelayWorkTime0.d = WriteEn.q;
@@ -1699,21 +1691,25 @@ End generate;
 
 Read_time.(S, clk, R) = ((!DelayWorkTime0.q AND DelayWorkTime1.q), Clk100, StopCnt);
 
-Read_Ram.data[15..0]	= ExtRAM_Data[15..0];
-Read_Ram.(address[], wren, clock) = (Write_IntRamCt.q[], Read_time.q and !EtherLinkMessage.q, Clk100);
+--Read_Ram.data[15..0]	= ExtRAM_Data[15..0];
+--Read_Ram.(address[], wren, clock) = (Write_IntRamCt.q[], Read_time.q and !EtherLinkMessage.q, Clk100);
+EtherRAM.data_b[15..0]	= ExtRAM_Data[15..0];
+EtherRAM.(address_b[], wren_b, clock_b) = (Write_IntRamCt.q[], Read_time.q and !EtherBusy, Clk100);
 
 Read_ExtRamCt.clock = Clk100;
 Read_ExtRamCt.clk_en  = VCC;
 Read_ExtRamCt.cnt_en = Read_time.q and !EtherLinkMessage.q;
 
 IF (Read_ExtRamCt.q[] == Addr_Ram.q[15..0]) Then StopCnt = VCC;
+												 ReadExtMem = GND;
 											Else StopCnt = GND;
+												 ReadExtMem = VCC;
 END IF;
 
-Write_IntRamCt.clock = Clk100;
-Write_IntRamCt.clk_en  = VCC;
-Write_IntRamCt.cnt_en = !(WriteEn.q AND Read_ExtRamCt.cout);
-Write_IntRamCt.sclr = WriteEn.q;
+--Write_IntRamCt.clock = Clk100;
+--Write_IntRamCt.clk_en  = VCC;
+--Write_IntRamCt.cnt_en = !(WriteEn.q AND Read_ExtRamCt.cout AND );
+--Write_IntRamCt.sclr = WriteEn.q;
 
 --============================================================================
 --******** 7. Fust LINK's Interface *******************************************
@@ -2060,11 +2056,11 @@ End IF;
 
 Eth_Reg_LinkOpCode.data[(CommandSize+Pause-1)..0]= Link_IFace.OpCode_out[(CommandSize+Pause-1)..0];
 Eth_Reg_LinkOpCode.(clock, enable, load)= (Clk100, OpCode_load, VCC); -- catch data when RxOpCodeReload=1 
-Eth_Reg_LinkOpCode.(aclr, sclr)			= (RESET OR EndEtherTx OR EtherLinkTimeCt.cout OR Reg_Block.q[0], GND);
+Eth_Reg_LinkOpCode.(aclr, sclr)			= (RESET OR EndEtherTx OR EtherLinkTimeCt.cout, GND);
 
 Eth_Reg_LinkEvNumber.data[] = Link_IFace.InData_out[];
 Eth_Reg_LinkEvNumber.(clock, enable, load)= (Clk100, Link_IFace.IORq, VCC); -- catch data when RxOpCodeReload=1 
-Eth_Reg_LinkEvNumber.(aclr, sclr)		  = (RESET OR EndEtherTx OR EtherLinkTimeCt.cout OR Reg_Block.q[0], GND);
+Eth_Reg_LinkEvNumber.(aclr, sclr)		  = (RESET OR EndEtherTx OR EtherLinkTimeCt.cout, GND);
 
 CASE Eth_Reg_LinkOpCode.q[7..0] is -- recognizing the particular Operation :
 	WHEN StartRegul		 =>     -- #193-"START_Regular"        (+?oyoo Lst0)
@@ -2755,7 +2751,7 @@ DevSel[15].d	= ErrorCounters_IFace_CS;	-- Error Counters
 DevSel[16].d	= TestRAM_cs;				-- Test RAM
 DevSel[17].d	= ZERO_cs;					-- ZERO word
 
-FOR i in 1 to 24 % with ErCount must be 28 % GENERATE
+FOR i in 1 to 17 % with ErCount must be 28 % GENERATE
 	DevSel[i].clrn = AddrSettled;   -- DevSel[] are enabled while Addr. is settled
 	DevSel[i].clk  = Clk100;
 END GENERATE; 
@@ -2799,30 +2795,30 @@ IF (RW == VCC) Then		-- Master will write to
 	DataBus[] = CPU.DataOut[] ;
 Else					-- Master will read from
 	CASE DevSel[].q IS     -- DataBus' MUX for Target drivers
-		WHEN b"0000000000000000000000001" => DataBus[]		= MainRAM.q[];
-		WHEN b"0000000000000000000000010" => DataBus[]		= CPU.ProgRAM_q[];
-		WHEN b"0000000000000000000000100" => DataBus[]		= CommandRAM.q[];
-		WHEN b"0000000000000000000001000" => CASE  AddrBus[1..0] is
+		WHEN b"00000000000000001" => DataBus[]		= MainRAM.q[];
+		WHEN b"00000000000000010" => DataBus[]		= CPU.ProgRAM_q[];
+		WHEN b"00000000000000100" => DataBus[]		= CommandRAM.q[];
+		WHEN b"00000000000001000" => CASE  AddrBus[1..0] is
 			When 0 => DataBus[]= Link_IFace.InData_out[];
 			When 1 => DataBus[]= Link_IFace.DataBus_out[];
 			--When  2 => DataBus[7..0]= Link_IFace.OpCode_out[];
 			End CASE;
-		WHEN b"0000000000000000000010000" => DataBus[]		= Reg_OpCode.q[7..0];				-- Link's OpCode
+		WHEN b"00000000000010000" => DataBus[]		= Reg_OpCode.q[7..0];				-- Link's OpCode
 --		WHEN b"0000000000000000000100000" => DataBus[3..0] =
 --            (EtherUDPmode, EtherCMD3mode, B"00");												--CtrlStat "reg" 
-		WHEN b"0000000000000001010100000" => DataBus[11..0]	= Servo_Mux[12..1];					-- various Reg-s
+		WHEN b"00000001010100000" => DataBus[11..0]	= Servo_Mux[12..1];					-- various Reg-s
                 -- ^^^^- DevSel[8], DevSel[10] are made SAME as DevSel[6] !
-		WHEN b"0000000000000000001000000" => DataBus[]		= SelCommdList_Reg.q[];
+		WHEN b"00000000001000000" => DataBus[]		= SelCommdList_Reg.q[];
 --		WHEN b"0000000000000000010000000" => DataBus[7..0]	= Reg_BaseAddr.q[7..0];
-		WHEN b"0000000000000000100000000" => DataBus[]		= EtherRAM.q_b[];					--MainProj <- EtherRAM 
+		WHEN b"00000000100000000" => DataBus[]		= EtherRAM.q_b[];					--MainProj <- EtherRAM 
 --		WHEN b"0000000000000001000000000" => DataBus[7..0]	= Reg_EthOpCode[8..1];				--Ether's OpCode
-		WHEN b"0000000000000010000000000" => DataBus[]		= TA12Channel[0].DataBusOut[];
-		WHEN b"0000000000000100000000000" => DataBus[]		= TA12Channel[1].DataBusOut[];
-		WHEN b"0000000000001000000000000" => DataBus[]		= TA12Channel[2].DataBusOut[];
-		WHEN b"0000000000010000000000000" => DataBus[]		= TA12Channel[3].DataBusOut[];
-		WHEN b"0000000000100000000000000" => DataBus[]		= ErrorCounters_IFace.DataBusOut[];
-		WHEN b"0000000001000000000000000" => DataBus[]		= TestRAM.q[];						-- MainProj <- TestRAM 
-		WHEN b"0000000010000000000000000" => DataBus[]		= 0; 								-- ZERO word temporary ?
+		WHEN b"00000010000000000" => DataBus[]		= TA12Channel[0].DataBusOut[];
+		WHEN b"00000100000000000" => DataBus[]		= TA12Channel[1].DataBusOut[];
+		WHEN b"00001000000000000" => DataBus[]		= TA12Channel[2].DataBusOut[];
+		WHEN b"00010000000000000" => DataBus[]		= TA12Channel[3].DataBusOut[];
+		WHEN b"00100000000000000" => DataBus[]		= ErrorCounters_IFace.DataBusOut[];
+		WHEN b"01000000000000000" => DataBus[]		= TestRAM.q[];						-- MainProj <- TestRAM 
+		WHEN b"10000000000000000" => DataBus[]		= 0; 								-- ZERO word temporary ?
 --		WHEN b"0000000000100000000000000" => DataBus[]		= TA12Channel[4].DataBusOut[];
 --		WHEN b"0000000001000000000000000" => DataBus[]		= TA12Channel[5].DataBusOut[];
 --		WHEN b"0000000010000000000000000" => DataBus[]		= TA12Channel[6].DataBusOut[];
@@ -2844,6 +2840,9 @@ End IF;
 TestCt.(clock, clk_en)	= (FQuartz, VCC); -- Test Counter, can be used to drive LED blinking
 TestCt.cnt_en			= PowerUp0;
 TestCt.aclr				= !PowerUp0;    -- even if NO clock - Reset does occur
+
+TestRAM.(address[7..0], data[],    clock,    wren                     ) =
+        (AddrBus[7..0], DataBus[], Clk100,(DataStrobe & DevSel[16] & RW)); 
 
 --    TestTrg1 = SRFF(.S=DFF(.D=(TypeIP & (Ether.RxDataCt[] == 6)), .clk=Clk100), 
 --                    .R=Ether.RxEndFrame, .clk=Clk100) ;
