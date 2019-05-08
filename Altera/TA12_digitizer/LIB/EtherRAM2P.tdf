@@ -38,19 +38,18 @@ INCLUDE "altsyncram.inc";
 
 SUBDESIGN EtherRAM2P
 (
-	data_a[15..0]	: INPUT;
-	address_a[9..0]	: INPUT;
-	wren_a			: INPUT = GND;
-	clock_a			: INPUT = VCC;
-	enable_a		: INPUT = VCC;
-	q_a[15..0]		: OUTPUT;
-
-	data_b[15..0]	: INPUT;
-	address_b[9..0]	: INPUT;
-	wren_b			: INPUT = GND;
-	clock_b			: INPUT;
-	enable_b		: INPUT = VCC;
-	q_b[15..0]		: OUTPUT;
+	address_a[9..0]	 : INPUT;
+	address_b[9..0]	 : INPUT;
+	clock_a	 : INPUT = VCC;
+	clock_b	 : INPUT;
+	data_a[15..0]	 : INPUT;
+	data_b[15..0]	 : INPUT;
+	enable_a	 : INPUT = VCC;
+	enable_b	 : INPUT = VCC;
+	wren_a	 : INPUT = GND;
+	wren_b	 : INPUT = GND;
+	q_a[15..0]	 : OUTPUT;
+	q_b[15..0]	 : OUTPUT;
 )
 
 VARIABLE
@@ -136,9 +135,9 @@ END;
 -- Retrieval info: PRIVATE: JTAG_ENABLED NUMERIC "0"
 -- Retrieval info: PRIVATE: JTAG_ID STRING "NONE"
 -- Retrieval info: PRIVATE: MAXIMUM_DEPTH NUMERIC "0"
--- Retrieval info: PRIVATE: MEMSIZE NUMERIC "8192"
+-- Retrieval info: PRIVATE: MEMSIZE NUMERIC "16384"
 -- Retrieval info: PRIVATE: MEM_IN_BITS NUMERIC "0"
--- Retrieval info: PRIVATE: MIFfilename STRING "RAMprog.mif"
+-- Retrieval info: PRIVATE: MIFfilename STRING "RAMether.mif"
 -- Retrieval info: PRIVATE: OPERATION_MODE NUMERIC "3"
 -- Retrieval info: PRIVATE: OUTDATA_ACLR_B NUMERIC "0"
 -- Retrieval info: PRIVATE: OUTDATA_REG_B NUMERIC "1"
@@ -171,7 +170,7 @@ END;
 -- Retrieval info: CONSTANT: CLOCK_ENABLE_OUTPUT_A STRING "NORMAL"
 -- Retrieval info: CONSTANT: CLOCK_ENABLE_OUTPUT_B STRING "NORMAL"
 -- Retrieval info: CONSTANT: INDATA_REG_B STRING "CLOCK1"
--- Retrieval info: CONSTANT: INIT_FILE STRING "RAMprog.mif"
+-- Retrieval info: CONSTANT: INIT_FILE STRING "RAMether.mif"
 -- Retrieval info: CONSTANT: INTENDED_DEVICE_FAMILY STRING "Cyclone IV E"
 -- Retrieval info: CONSTANT: LPM_TYPE STRING "altsyncram"
 -- Retrieval info: CONSTANT: NUMWORDS_A NUMERIC "1024"
@@ -199,16 +198,16 @@ END;
 -- Retrieval info: USED_PORT: data_b 0 0 16 0 INPUT NODEFVAL data_b[15..0]
 -- Retrieval info: USED_PORT: enable_a 0 0 0 0 INPUT VCC enable_a
 -- Retrieval info: USED_PORT: enable_b 0 0 0 0 INPUT VCC enable_b
--- Retrieval info: USED_PORT: q_a 0 0 8 0 OUTPUT NODEFVAL q_a[15..0]
--- Retrieval info: USED_PORT: q_b 0 0 8 0 OUTPUT NODEFVAL q_b[15..0]
+-- Retrieval info: USED_PORT: q_a 0 0 16 0 OUTPUT NODEFVAL q_a[15..0]
+-- Retrieval info: USED_PORT: q_b 0 0 16 0 OUTPUT NODEFVAL q_b[15..0]
 -- Retrieval info: USED_PORT: wren_a 0 0 0 0 INPUT GND wren_a
 -- Retrieval info: USED_PORT: wren_b 0 0 0 0 INPUT GND wren_b
--- Retrieval info: CONNECT: @data_a 0 0 8 0 data_a 0 0 16 0
+-- Retrieval info: CONNECT: @data_a 0 0 16 0 data_a 0 0 16 0
 -- Retrieval info: CONNECT: @wren_a 0 0 0 0 wren_a 0 0 0 0
--- Retrieval info: CONNECT: q_a 0 0 8 0 @q_a 0 0 16 0
--- Retrieval info: CONNECT: q_b 0 0 8 0 @q_b 0 0 16 0
+-- Retrieval info: CONNECT: q_a 0 0 16 0 @q_a 0 0 16 0
+-- Retrieval info: CONNECT: q_b 0 0 16 0 @q_b 0 0 16 0
 -- Retrieval info: CONNECT: @address_a 0 0 10 0 address_a 0 0 10 0
--- Retrieval info: CONNECT: @data_b 0 0 8 0 data_b 0 0 16 0
+-- Retrieval info: CONNECT: @data_b 0 0 16 0 data_b 0 0 16 0
 -- Retrieval info: CONNECT: @address_b 0 0 10 0 address_b 0 0 10 0
 -- Retrieval info: CONNECT: @wren_b 0 0 0 0 wren_b 0 0 0 0
 -- Retrieval info: CONNECT: @clock0 0 0 0 0 clock_a 0 0 0 0
