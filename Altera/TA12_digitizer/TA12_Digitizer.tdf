@@ -398,13 +398,21 @@ Data_Strobe		: node; -- Strobe: latch data into the destination object, and fini
 
 --============================================================================
 --******** 7. Digitizing data / Processing ******************************************************
-ADCtest_bit_count	: lpm_counter with (lpm_width=6, lpm_direction="up" );
+ADCtest_bit_count	: lpm_counter with (lpm_width=7, lpm_direction="up" );
 ADCtest_Bit_write	: node;
 ADCtest_CSB_trig	: DFFE;
 ADCtest_SDIO_trig	: DFFE;
-ADCtest_reg			: lpm_shiftreg with (lpm_width=50,
-					  lpm_svalue = b"01000000000011101010001100010000000000111100110000",lpm_DIRECTION="left"); -- 
---									"set	addr		data	set		addr	 data "
+ADCtest_reg			: lpm_shiftreg with (lpm_width=102,
+					  lpm_svalue = b"010000000000011000000001000100000000000110000000100011000000000001100010001000110000000000101100100010",lpm_DIRECTION="left"); -- 
+--					  						reg H"0A" 01000100(1&2ch) 	reg H"0B" 01000100(3&4ch) = Digital ramp: data increment by 1 LSB every clock cycle from code 0 to 4095.
+--									 01 00000000000101 00000000 00 01 00000000000110 00000010 00 01 00000000001010 01010101 00 01 00000000001011 01100110
+--									 01 00000000001010 01010101 00 01 00000000001011 01100110 00 01 00000000001110 10100011 00 01 00000000001111 00110000
+--									"set	addr		data		set		addr	 data		 set	addr		data		set		addr	 data"
+--									 2bit	14bit		8bit		2bit	14bit	 8bit		 2bit	14bit		8bit		2bit	14bit	 8bit
+ADCsetup_reg		: lpm_shiftreg with (lpm_width=50,
+					  lpm_svalue = b"01000000000001010000000100010000000000011000000010",lpm_DIRECTION="left"); -- 
+--											reg H"05" 00000001			reg H"06" 00000010 Output data are transmitted on 1/2-wires 	TEST PATTERN EN
+--									"set	addr		data	set		addr	 data"
 --									 2bit	14bit		8bit	2bit	14bit	 8bit
 
 TA12Channel[NUM_CH-1..0]			: Digitizer_TA6;
@@ -1432,24 +1440,27 @@ CMD3command     = SRFF(.S=CMD3OpCode_save,
 	
 	ADC_Reset		= PwrUpReset;
 	
-	ADCtest_bit_count.sclr = PwrUpReset;
+	ADCtest_bit_count.sclr = !PowerUp2;
 	ADCtest_bit_count.(clock, cnt_en, clk_en) = (Clk12_5, ADCtest_Bit_write, VCC);
 	
-	IF ADCtest_bit_count.q[] < b"110100" Then ADCtest_Bit_write = VCC;
-										 Else ADCtest_Bit_write = GND;
+	IF ADCtest_bit_count.q[] < b"1101000" Then ADCtest_Bit_write = VCC;
+										  Else ADCtest_Bit_write = GND;
 	END IF;
 	
 	ADCtest_reg.(clock,enable) = (Clk12_5, VCC);
 	--ADCreset_reg.(clock,enable) = (Clk12_5, VCC);
-	IF ((ADCtest_bit_count.q[] >= b"000001") AND (ADCtest_bit_count.q[] < b"110100")) Then ADCtest_reg.sset = GND;
+	IF ((ADCtest_bit_count.q[] >= b"0000001") AND (ADCtest_bit_count.q[] < b"1101000")) Then ADCtest_reg.sset = GND;
 																						   ADC_SDATA[0] = ADCtest_SDIO_trig.q;
 																					  Else ADCtest_reg.sset = VCC;
 																						   ADC_SDATA[0] = GND;
 	END IF;
-	IF (((ADCtest_bit_count.q[] >= b"000001") AND (ADCtest_bit_count.q[] < b"011001")) OR ((ADCtest_bit_count.q[] >= b"011011") AND (ADCtest_bit_count.q[] < b"110011")))Then 
+	IF (((ADCtest_bit_count.q[] >= b"0000001") AND (ADCtest_bit_count.q[] < b"0011001")) OR ((ADCtest_bit_count.q[] >= b"0011011") AND (ADCtest_bit_count.q[] < b"0110011")) OR
+		((ADCtest_bit_count.q[] >= b"0110101") AND (ADCtest_bit_count.q[] < b"1001101")) OR ((ADCtest_bit_count.q[] >= b"1001111") AND (ADCtest_bit_count.q[] < b"1100111"))) Then 
 		ADCtest_CSB_trig.d = GND;
+		ADC_SCLK = !Clk12_5;
 	ELSE 
 		ADCtest_CSB_trig.d = VCC;
+		ADC_SCLK = GND;
 	END IF;
 	ADCtest_CSB_trig.clk = Clk12_5;
 	ADCtest_SDIO_trig.clk = Clk12_5;
@@ -1457,7 +1468,6 @@ CMD3command     = SRFF(.S=CMD3OpCode_save,
 	--ADCtest_SDIO_trig.d = ADCreset_reg.shiftout;
 
 	ADC_SEN[2..0] = ADCtest_CSB_trig.q;
-	ADC_SCLK = Clk12_5;
 
 --============================================================================
 
@@ -1473,19 +1483,19 @@ FOR i IN 0 TO (NUM_CH-1) GENERATE
 
 	FOR j in 0 to 1 GENERATE
 
-		DDR_InLVDS[i][j].(datain, inclock, aclr) = (ADC_In_Data[i][j], ADC_DataClk[0], Reset);
+		DDR_InLVDS[i][j].(datain, inclock%, aclr%) = (ADC_In_Data[i][j], ADC_DataClk[0]%, RESET%);
 		DDR_Reg_pos[i][j].(shiftin, clock, enable, load) = (DDR_InLVDS[i][j].dataout_h, ADC_DataClk[0], VCC, GND);
 		DDR_Reg_neg[i][j].(shiftin, clock, enable, load) = (DDR_InLVDS[i][j].dataout_l, ADC_DataClk[0], VCC, GND);
 
 	END GENERATE;
 
 	InData_RegMix[i].(clock, enable, load) = (ADC_FrameClk[0], VCC, VCC);
--- Cauaeeeaaiea aeoia a ii?aaaeaiiie iineaaiaaoaeuiinoe.
-	InData_RegMix[i].data[11..0] = (DDR_Reg_pos[i][1].q[2],DDR_Reg_neg[i][1].q[2],DDR_Reg_pos[i][0].q[2],DDR_Reg_neg[i][0].q[2],
-									DDR_Reg_pos[i][1].q[1],DDR_Reg_neg[i][1].q[1],DDR_Reg_pos[i][0].q[1],DDR_Reg_neg[i][0].q[1],
-									DDR_Reg_pos[i][1].q[0],DDR_Reg_neg[i][1].q[0],DDR_Reg_pos[i][0].q[0],DDR_Reg_neg[i][0].q[0]);
+-- Защелкивание битов в определенной последовательности.
+	InData_RegMix[i].data[11..0] = (DDR_Reg_pos[i][1].q[2],DDR_Reg_neg[i][1].q[2],DDR_Reg_pos[i][1].q[1],DDR_Reg_pos[i][1].q[1],
+									DDR_Reg_pos[i][1].q[0],DDR_Reg_neg[i][1].q[0],DDR_Reg_neg[i][0].q[2],DDR_Reg_pos[i][0].q[2],
+									DDR_Reg_neg[i][0].q[1],DDR_Reg_pos[i][0].q[1],DDR_Reg_neg[i][0].q[0],DDR_Reg_pos[i][0].q[0]);
 	InData_Reg[i].(clock, enable, load) = (Clk100, VCC, VCC);
--- Cauaeeeaaiea aeoia a ii?aaaeaiiie iineaaiaaoaeuiinoe.
+-- Защелкивание битов в определенной последовательности.
 	InData_Reg[i].data[11..0] = (InData_RegMix[i].q[0],InData_RegMix[i].q[1],InData_RegMix[i].q[2],InData_RegMix[i].q[3],
 								InData_RegMix[i].q[4],InData_RegMix[i].q[5],InData_RegMix[i].q[6],InData_RegMix[i].q[7],
 								InData_RegMix[i].q[8],InData_RegMix[i].q[9],InData_RegMix[i].q[10],InData_RegMix[i].q[11]);
@@ -1710,10 +1720,10 @@ Read_ExtRamCt.clock = Clk100;
 Read_ExtRamCt.clk_en  = VCC;
 Read_ExtRamCt.cnt_en = Read_time.q and !EtherLinkMessage.q;
 
-IF (Read_ExtRamCt.q[] == Addr_Ram.q[15..0]) Then StopCnt = VCC;
-												 ReadExtMem = GND;
-											Else StopCnt = GND;
-												 ReadExtMem = VCC;
+IF ((Read_ExtRamCt.q[] == Addr_Ram.q[15..0]) %AND !%) Then StopCnt = VCC;
+														  ReadExtMem = GND;
+													 Else StopCnt = GND;
+														  ReadExtMem = VCC;
 END IF;
 
 Write_IntRamCt.clock = Clk100;
@@ -2664,14 +2674,14 @@ TestRAM.(address[7..0], data[],    clock,    wren                     ) =
                     & (EtherAdrCt.q[9..0] > 8)), .clk=RxClk);
 
 --Test1 = Ether.TxPreamble;   --Ether.test[1];    --Ether.TX_EN;      -- Pin236
-Test2 = Ether.IORq;         --Ether.RxWaitSFD;  --Ether.TxStFrmDel; -- Pin237
-Test3 = EthAddrLd2;         --Ether.RxDestAddr; --Ether.test[2];    -- Pin238
-Test4 = TxUDP_Rq;           --Ether.RxSourAddr; --Ether.test[3];    -- Pin239
-Test5 = InitUDP;            --Ether.RxPkLenTyp; --Ether.test[4];    -- Pin240
-Test6 = EtherBusy;          --Ether.test[4];    --Ether.test[6];    -- Pin__4
-Test7 = EtherPauseCt.eq0;   --Ether.test[5];    --Ether.test[7];    -- Pin__5
-Test8 = EthBusyEnd;         --Ether.test[6];    --Ether.test[8];    -- Pin__6
-Test9 = Ether.TxEndFrame;   --EthOpCode_saved;                      -- Pin__9
-Test10= DataStrobe;         --DataIn_TA[0][9];                      -- Pin
+Test2 = InData_RegMix[0].q[4];--Ether.IORq;         --Ether.RxWaitSFD;  --Ether.TxStFrmDel; -- Pin237
+Test3 = InData_RegMix[0].q[5];--EthAddrLd2;         --Ether.RxDestAddr; --Ether.test[2];    -- Pin238
+Test4 = InData_RegMix[0].q[6];--TxUDP_Rq;           --Ether.RxSourAddr; --Ether.test[3];    -- Pin239
+Test5 = InData_RegMix[0].q[7];--InitUDP;            --Ether.RxPkLenTyp; --Ether.test[4];    -- Pin240
+Test6 = InData_RegMix[0].q[8];--EtherBusy;          --Ether.test[4];    --Ether.test[6];    -- Pin__4
+Test7 = InData_RegMix[0].q[9];--EtherPauseCt.eq0;   --Ether.test[5];    --Ether.test[7];    -- Pin__5
+Test8 = InData_RegMix[0].q[10];--EthBusyEnd;         --Ether.test[6];    --Ether.test[8];    -- Pin__6
+Test9 = InData_RegMix[0].q[11];--Ether.TxEndFrame;   --EthOpCode_saved;                      -- Pin__9
+Test10= ADC_FrameClk[0];--DataStrobe;         --DataIn_TA[0][9];                      -- Pin
 
 END;
