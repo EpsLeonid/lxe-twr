@@ -23,8 +23,8 @@ CONSTANT	DelayTime= 30;	-- Время задержки в разностном сигнале
 --CONSTANT	PopravDelTime = 52; -- Время задержки = DelayTime - 22 (момент вычитывания значения амплитуды для поиска поправки)
 								-- **нужно протестировать на симуляторе и подобрать время задержки!!!
 -- Only test --
-Constant	Piedistal_def = 120;
-Constant	Threshold_def = 200;
+Constant	Piedistal_def = 2000;
+Constant	Threshold_def = 500;
 ---------------
 
 SUBDESIGN Digitizer_TA6
@@ -228,6 +228,7 @@ VARIABLE
 	AllReset			:	SRFF; -- общий сброс
 	TimeOutSch			:	node;
 	ENDCycle			:	node; -- флаг окончание работы цикла
+	DelayReg[9..0]		:	DFF;
 	
 	LinkMessage_reset	:	DFFE;
 	Reset_def			:	node;
@@ -536,7 +537,7 @@ End IF;
 
 -- Общий сброс
 -- максимальное время в течении которого ищем пороги и затем стоят флаги найденных порогов
-	NSampleCt.(clock,cnt_en,clk_en,sclr) = (ADC_Clock, Thr_Trig.q AND !LinkMessage, VCC, WriteRAM); --счетчик тактов от момента пересечения порога
+	NSampleCt.(clock,cnt_en,clk_en,sclr) = (ADC_Clock, Thr_Trig.q AND !LinkMessage, VCC, AllReset.q%WriteRAM%); --счетчик тактов от момента пересечения порога
 
 IF(( NSampleCt.q[] >= MaxTime) AND (Max_Trig.q == VCC) AND (Zero_Trig.q == VCC)) THEN TimeOutSch = VCC; 
 																				 ELSE TimeOutSch = GND; 
@@ -555,8 +556,19 @@ END IF;
 
 	AllReset.S = TimeOutSch %OR DigitEnd %OR Reset OR EdgeSensing(.D=!WriteRAM, .clk=ADC_Clock, .reset=RESET);
 	AllReset.clk = ADC_Clock;
-	AllReset.R = (ENDthrFound AND AllReset.q) OR !Working; -- работа разрешается после пересечения малого порога при уменьшении сигнала
+	AllReset.R = (ENDthrFound AND DelayReg[1].q) OR !Working; -- работа разрешается после пересечения малого порога при уменьшении сигнала
 
+DelayReg[0].(d, clk) = (AllReset.q, ADC_Clock);
+DelayReg[1].(d, clk) = (DelayReg[0].q, ADC_Clock);
+%DelayReg[2].(d, clk) = (DelayReg[1].q, ADC_Clock);
+DelayReg[3].(d, clk) = (DelayReg[2].q, ADC_Clock);
+DelayReg[4].(d, clk) = (DelayReg[3].q, ADC_Clock);
+DelayReg[5].(d, clk) = (DelayReg[4].q, ADC_Clock);
+DelayReg[6].(d, clk) = (DelayReg[5].q, ADC_Clock);
+DelayReg[7].(d, clk) = (DelayReg[6].q, ADC_Clock);
+DelayReg[8].(d, clk) = (DelayReg[7].q, ADC_Clock);
+DelayReg[9].(d, clk) = (DelayReg[8].q, ADC_Clock);
+%
 -----------------------------------------------------------
 -- Память истории, данных с АЦП
 
@@ -724,10 +736,10 @@ TestLinkCt.aclr				= GND;    -- even if NO clock - Reset does occur
 		Sample[] = GND;--(GND,GND,Div1.result[13..2]);--(GND,GND,GND,GND,Max_Reg.q[]);--
 		Subtr[] = SUB.result[13..0];--Popravka.result[];--(GND,GND,GND,GND,RegSum[13].q[]);--SUB.result[13..0];
 		Zero[] = RegZero[1].q[13..0];--Zero_div1.quotient[];
-	test4[] = (GND,GND,GND,RegSum[0].q[]);--SUMMATOR.result[13..0]);--(Zero_div1.remain[11..0],B"00");--RegZero[ 0].q[13..0];
-	test5 = StopWrite_trig.q;--Zero_div2.quotient[];--(GND,GND,GND,GND,Div1.result[13..4]);
+	test4[] = (GND,SUMMATOR.result[13..0]);--(GND,GND,GND,RegSum[0].q[]);--(Zero_div1.remain[11..0],B"00");--RegZero[ 0].q[13..0];
+	test5 = Max_Trig.q;--StopWrite_trig.q;--Zero_div2.quotient[];--(GND,GND,GND,GND,Div1.result[13..4]);
 	test6[] = GND;--(Add_Popravka1.result[11..0],B"00");--(GND,GND,SampleRAM.q_b[13..2]);--
-	test7[] = RegZero[3].q[13..0];--(B"000000",SampleRAM_AddrCnt1.q[]);
+	test7[] = (GND,GND,SUB_Ped.result[11..0]);--RegZero[3].q[13..0];--(B"000000",SampleRAM_AddrCnt1.q[]);
 	test8[] = (GND,GND,SampleRAM_AddrCnt2.q[]);--(GND,GND,Popravka_AddrCnt.q[]);--NSampleCt.q[];
 
 --=========================================================================================
