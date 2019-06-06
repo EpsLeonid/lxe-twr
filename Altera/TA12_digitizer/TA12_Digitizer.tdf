@@ -416,6 +416,7 @@ ADCsetup_reg		: lpm_shiftreg with (lpm_width=50,
 --									 2bit	14bit		8bit	2bit	14bit	 8bit
 
 TA12Channel[NUM_CH-1..0]			: Digitizer_TA6;
+ADC_clk								: node;
 DDR_InLVDS[NUM_CH-1..0][1..0]		: DDR_In;
 DDR_Reg_pos[NUM_CH-1..0][1..0]		: lpm_shiftreg with (lpm_width=3,lpm_DIRECTION="left");
 DDR_Reg_neg[NUM_CH-1..0][1..0]		: lpm_shiftreg with (lpm_width=3,lpm_DIRECTION="left");
@@ -1471,6 +1472,8 @@ CMD3command     = SRFF(.S=CMD3OpCode_save,
 %
 --============================================================================
 
+--ADC_clk = LATCH()
+
 FOR i IN 0 TO (NUM_CH-1) GENERATE
 
 	TA12Channel[i].Bus_Clock		= Clk100; -- Clock 100MHz
@@ -1485,18 +1488,18 @@ FOR i IN 0 TO (NUM_CH-1) GENERATE
 
 		DDR_InLVDS[i][j].(datain, inclock%, aclr%) = (ADC_In_Data[i][j], ADC_DataClk[0]%, RESET%);
 		DDR_Reg_pos[i][j].(shiftin, clock, enable, load) = (DDR_InLVDS[i][j].dataout_h, ADC_DataClk[0], VCC, GND);
-		DDR_Reg_neg[i][j].(shiftin, clock, enable, load) = (DDR_InLVDS[i][j].dataout_l, ADC_DataClk[0], VCC, GND);
+		DDR_Reg_neg[i][j].(shiftin, clock, enable, load) = (DDR_InLVDS[i][j].dataout_l, !ADC_DataClk[0], VCC, GND);
 
 	END GENERATE;
 
 	InData_RegMix[i].(clock, enable, load) = (!ADC_FrameClk[0], VCC, VCC);
 -- Защелкивание битов в определенной последовательности.
-	InData_RegMix[i].data[11..0] = (DDR_Reg_pos[i][1].q[0],DDR_Reg_neg[i][1].q[0],DDR_Reg_pos[i][1].q[1],DDR_Reg_neg[i][1].q[1],DDR_Reg_pos[i][1].q[2],DDR_Reg_neg[i][1].q[2],
+	InData_RegMix[i].data[11..0] = (DDR_Reg_neg[i][1].q[2],DDR_Reg_pos[i][1].q[2],DDR_Reg_neg[i][1].q[1],DDR_Reg_pos[i][1].q[1],DDR_Reg_neg[i][1].q[0],DDR_Reg_pos[i][1].q[0],
 									DDR_Reg_neg[i][0].q[2],DDR_Reg_pos[i][0].q[2],DDR_Reg_neg[i][0].q[1],DDR_Reg_pos[i][0].q[1],DDR_Reg_neg[i][0].q[0],DDR_Reg_pos[i][0].q[0]);
 	InData_Reg[i].(clock, enable, load) = (Clk100, VCC, VCC);
 -- Защелкивание битов в определенной последовательности.
-	InData_Reg[i].data[11..0] = (InData_RegMix[i].q[9],InData_RegMix[i].q[8],InData_RegMix[i].q[7],InData_RegMix[i].q[6],
-								InData_RegMix[i].q[11],InData_RegMix[i].q[10],InData_RegMix[i].q[1],InData_RegMix[i].q[2],
+	InData_Reg[i].data[11..0] = (!InData_RegMix[i].q[7],InData_RegMix[i].q[8],InData_RegMix[i].q[9],InData_RegMix[i].q[10],
+								InData_RegMix[i].q[11],InData_RegMix[i].q[6],InData_RegMix[i].q[1],InData_RegMix[i].q[2],
 								InData_RegMix[i].q[3],InData_RegMix[i].q[4],InData_RegMix[i].q[5],InData_RegMix[i].q[0]);
 
 	TA12Channel[i].ADCdata[]		 = InData_Reg[i].q[];
@@ -1506,7 +1509,7 @@ FOR i IN 0 TO (NUM_CH-1) GENERATE
 	TA12Channel[i].DataBusStrobe		= DataStrobe ;
 	TA12Channel[i].DirectIn			= RW;
 	TA12Channel[i].Select			= DevSel[11+i].q ;
-	TA12Channel[i].LinkMessage		= Link_IFace.LinkMessage;
+	TA12Channel[i].LinkMessage		= Test_in;--Link_IFace.LinkMessage;
 	TA12Channel[i].WriteRAM			= VCC;--SelCommdList_Trig.q;--SelCommdList_Count.q;
 
 END GENERATE;
@@ -2673,10 +2676,10 @@ TestRAM.(address[7..0], data[],    clock,    wren                     ) =
                     & (EtherAdrCt.q[9..0] > 8)), .clk=RxClk);
 
 --Test1 = Ether.TxPreamble;   --Ether.test[1];    --Ether.TX_EN;      -- Pin236
-Test2 = InData_Reg[1].q[4];--Ether.IORq;         --Ether.RxWaitSFD;  --Ether.TxStFrmDel; -- Pin237
-Test3 = InData_Reg[1].q[5];--EthAddrLd2;         --Ether.RxDestAddr; --Ether.test[2];    -- Pin238
-Test4 = InData_Reg[1].q[6];--TxUDP_Rq;           --Ether.RxSourAddr; --Ether.test[3];    -- Pin239
-Test5 = InData_Reg[1].q[7];--InitUDP;            --Ether.RxPkLenTyp; --Ether.test[4];    -- Pin240
+Test2 = TA12Channel[1].test1;--DDR_InLVDS[1][1].dataout_h;--Ether.IORq;         --Ether.RxWaitSFD;  --Ether.TxStFrmDel; -- Pin237
+Test3 = TA12Channel[1].test5;--DDR_InLVDS[1][1].dataout_l;--EthAddrLd2;         --Ether.RxDestAddr; --Ether.test[2];    -- Pin238
+Test4 = TA12Channel[1].test2;--InData_Reg[1].q[6];--TxUDP_Rq;           --Ether.RxSourAddr; --Ether.test[3];    -- Pin239
+Test5 = TA12Channel[1].test3;--InData_Reg[1].q[7];--InitUDP;            --Ether.RxPkLenTyp; --Ether.test[4];    -- Pin240
 Test6 = InData_Reg[1].q[8];--EtherBusy;          --Ether.test[4];    --Ether.test[6];    -- Pin__4
 Test7 = InData_Reg[1].q[9];--EtherPauseCt.eq0;   --Ether.test[5];    --Ether.test[7];    -- Pin__5
 Test8 = InData_Reg[1].q[10];--EthBusyEnd;         --Ether.test[6];    --Ether.test[8];    -- Pin__6

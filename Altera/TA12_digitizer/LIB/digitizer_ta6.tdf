@@ -16,15 +16,15 @@ INCLUDE "EdgeSensing.inc";
 INCLUDE "DelayLine.inc" ;
 
 CONSTANT	ADC_WIDTH = 12;	-- Кол-во битов АЦП
-CONSTANT	REG_SUM = 4;	-- Кол-во регистров для суммирования
+CONSTANT	REG_SUM = 8;	-- Кол-во регистров для суммирования
 CONSTANT	MaxTime = 250;  -- Maximal Valid time (2.5mks)
-CONSTANT	TimeRead = 300;  -- Maximal Valid time (3mks)
+CONSTANT	TimeRead = 100;  -- Maximal Valid time (3mks)
 CONSTANT	DelayTime= 30;	-- Время задержки в разностном сигнале
 --CONSTANT	PopravDelTime = 52; -- Время задержки = DelayTime - 22 (момент вычитывания значения амплитуды для поиска поправки)
 								-- **нужно протестировать на симуляторе и подобрать время задержки!!!
 -- Only test --
-Constant	Piedistal_def = 2000;
-Constant	Threshold_def = 500;
+Constant	Piedistal_def = 200;
+Constant	Threshold_def = 350;
 ---------------
 
 SUBDESIGN Digitizer_TA6
@@ -140,7 +140,6 @@ VARIABLE
 	Piedistal_Reg		:	lpm_shiftreg with (LPM_WIDTH = ADC_WIDTH, LPM_DIRECTION="unused",LPM_SVALUE = Piedistal_def); -- регистр уровня порога
 	SavePReg			:	node;
 
---	Sum_ped[13..0]		:	node;
 	Sub_Ped				:	lpm_add_sub with (lpm_width = ADC_WIDTH, lpm_direction="sub", LPM_REPRESENTATION = "UNSIGNED",
 												  Lpm_pipeline = 1 );
 
@@ -152,7 +151,12 @@ VARIABLE
 --	Average_Reg			:	lpm_shiftreg with (LPM_WIDTH = ADC_WIDTH, LPM_DIRECTION="unused"); -- регистр усредненных значений
 --	Aver_Reg			:	lpm_shiftreg with (LPM_WIDTH = REG_SUM, LPM_DIRECTION="unused"); -- регистр усредненных значений деленных на 4
 
-    SampleRAM           :   RAM_digit;      -- память имитирующая линию задержки сэмплов
+	SumPed				:	lpm_add_sub with (lpm_width = ADC_WIDTH, lpm_direction="add", LPM_REPRESENTATION = "UNSIGNED",
+											  Lpm_pipeline = 1 );
+	DelayData			:	lpm_add_sub with (lpm_width = 14, lpm_direction="sub", LPM_REPRESENTATION = "UNSIGNED",
+											  Lpm_pipeline = 1 ); -- сумматор выполняющий фунцию вычитателя сигналов
+
+	SampleRAM           :   RAM_digit;      -- память имитирующая линию задержки сэмплов
 	SampleRAM_AddrCnt1	:	LPM_COUNTER with (lpm_width = 8, lpm_direction="up" ); -- счетчик 
 	SampleRAM_AddrCnt2	:	LPM_COUNTER with (lpm_width = 8, lpm_direction="up" ); -- счетчик "отстающий" на Delay
 --	Delay_AddrCt2		:	LPM_COUNTER with (lpm_width = 8, lpm_direction="up" ); -- счетчик 
@@ -161,7 +165,7 @@ VARIABLE
 -- 2clk are added to DelayTime by reading_out of SampleRAM       / => Actual Delay = DelayTime + 1
 	DelayTime_Reg		:	lpm_shiftreg with (LPM_WIDTH = 8, LPM_DIRECTION="unused", LPM_SVALUE = DelayTime); -- регистр значения задержки
 
-    SUB					:	lpm_add_sub with (lpm_width = 14, lpm_direction="sub", LPM_REPRESENTATION = "UNSIGNED",
+	SUB					:	lpm_add_sub with (lpm_width = 14, lpm_direction="sub", LPM_REPRESENTATION = "UNSIGNED",
 											  Lpm_pipeline = 1 ); -- сумматор выполняющий фунцию вычитателя сигналов
 
 	DigitZero,DigitZero1,
@@ -203,7 +207,7 @@ VARIABLE
 
 	ZeroSum				:	lpm_add_sub with (lpm_width = 10, lpm_direction="add", Lpm_pipeline = 1 );
 %
-	DelayAver_Reg		:	lpm_shiftreg with (LPM_WIDTH = 14, LPM_DIRECTION="unused"); -- регистр данных с усредненными задержанными на 1 такт сэмплами  
+	DelayAver_Reg[7..0]	:	lpm_shiftreg with (LPM_WIDTH = 14, LPM_DIRECTION="unused"); -- регистр данных с усредненными задержанными на 1 такт сэмплами  
 
 --	SUMPed[REG_SUM-5..0]:	node;
 
@@ -357,8 +361,8 @@ end generate;
 	SUMMATOR.clock = ADC_Clock;
 	SUMMATOR.aclr = AllReset.q;--!Working;
 --	Summator.clken = Sum_clken;
-	SUMMATOR.(data0x[], data1x[], data2x[], data3x[]
-%			  data4x[], data5x[], data6x[], data7x[],
+	SUMMATOR.(data0x[], data1x[], data2x[], data3x[]%,
+			  data4x[], data5x[], data6x[], data7x[],
 			  data8x[], data9x[], data10x[],data11x[],
 			  data12x[],data13x[],data14x[],data15x[]%) = 
 			 (RegSum[ 0].q[],RegSum[ 1].q[],RegSum[ 2].q[],RegSum[ 3].q[]%,
@@ -366,7 +370,7 @@ end generate;
 			  RegSum[ 8].q[],RegSum[ 9].q[],RegSum[10].q[],RegSum[11].q[],
 			  RegSum[12].q[],RegSum[13].q[],RegSum[14].q[],RegSum[15].q[]%);
 
-	SUMM[] = SUMMATOR.result[13..0]; -- 14-битовое усредненное слово
+	SUMM[] = (GND,GND,SUMMATOR.result[13..2]); -- 14-битовое усредненное слово
 
 
 IF((SUMM[13..0] > Threshold_Reg.q[13..0]) AND (SUMM[13] == GND) AND (Thr_Trig.q == GND)) THEN Value_Th = VCC; -- сигнал о превышении порога
@@ -403,8 +407,17 @@ END IF;
 
 --=====Поиск пересечения нуля=====--
 
+-- Вычитание 3/4 пьедистала из задержанного сигнала.
+
+	SumPed.(dataa[], datab[]) = ((GND,Piedistal_Reg.q[11..1]),(GND,GND,Piedistal_Reg.q[11..2])); -- 3/4 пьедистала
+	SumPed.(clock, clken) = (ADC_Clock, RegInit OR SavePReg);
+
+	DelayData.(dataa[], datab[]) = (SampleRAM.q_b[13..0], (GND,GND,SumPed.result[11..0]));
+	DelayData.aclr = AllReset.q;--!Working;--InitSet OR Reset;
+	DelayData.(clock, clken) = (ADC_Clock, Thr_Trig.q AND !(ZeroFound OR Zero_Trig.q));
+
 --  (Незадержанный сигнал / 4) - Задержанный сигнал 
-	SUB.(dataa[], datab[]) = ((GND, GND, SUMM[13..2]), SampleRAM.q_b[13..0]);
+	SUB.(dataa[], datab[]) = ((GND, GND, SUMM[13..2]), DelayData.result[13..0]);
 	SUB.aclr = AllReset.q;--!Working;--InitSet OR Reset;
 	SUB.(clock, clken) = (ADC_Clock, Thr_Trig.q AND !(ZeroFound OR Zero_Trig.q));
 	
@@ -509,14 +522,23 @@ END IF;%
 --=====Поиск Амплитуды=====--
 -- определяем максимум
 
-	DelayAver_Reg.data[] = SUMM[13..0];
-	DelayAver_Reg.(clock,enable,load,sclr)= (ADC_Clock, Thr_Trig.q, VCC, Reset);
+	DelayAver_Reg[0].data[] = SUMM[13..0];
+	DelayAver_Reg[1].data[] = DelayAver_Reg[0].q[];
+	DelayAver_Reg[2].data[] = DelayAver_Reg[1].q[];
+	DelayAver_Reg[3].data[] = DelayAver_Reg[2].q[];
+	DelayAver_Reg[4].data[] = DelayAver_Reg[3].q[];
+	DelayAver_Reg[5].data[] = DelayAver_Reg[4].q[];
+	DelayAver_Reg[6].data[] = DelayAver_Reg[5].q[];
+	DelayAver_Reg[7].data[] = DelayAver_Reg[6].q[];
+	DelayAver_Reg[7..0].(clock,enable,load,sclr)= (ADC_Clock, Thr_Trig.q, VCC, Reset);
 
-IF((SUMM[13..0] < DelayAver_Reg.q[]) AND (Thr_Trig.q == VCC) AND (Max_Trig.q == GND)) THEN  Value_Max_Done = VCC;
-																					  ELSE  Value_Max_Done = GND;
+IF(((SUMM[13..0] < DelayAver_Reg[0].q[]) AND (SUMM[13..0] < DelayAver_Reg[1].q[]) AND (SUMM[13..0] < DelayAver_Reg[2].q[]) AND (SUMM[13..0] < DelayAver_Reg[3].q[]) AND
+	(SUMM[13..0] < DelayAver_Reg[4].q[]) AND (SUMM[13..0] < DelayAver_Reg[5].q[]) AND (SUMM[13..0] < DelayAver_Reg[6].q[]) AND (SUMM[13..0] < DelayAver_Reg[7].q[])) AND 
+										(Thr_Trig.q == VCC) AND (Max_Trig.q == GND)) THEN  Value_Max_Done = VCC;
+																					 ELSE  Value_Max_Done = GND;
 END IF;
 	Max_Trig.(S,clk,R,clrn) = (Value_Max_Done, ADC_Clock, Reset,!AllReset.q); -- флаг определения максимума
-	Max_Reg.(data[],clock,enable,load,sclr) = (DelayAver_Reg.q[],ADC_Clock,!Max_Trig.q AND Thr_Trig.q,VCC,!Working);
+	Max_Reg.(data[],clock,enable,load,aclr) = (DelayAver_Reg[7].q[],ADC_Clock,!Max_Trig.q AND Thr_Trig.q,VCC, !Thr_Trig.q);
 
 IF ((Value_Th == VCC) AND (Value_Max_Done == VCC) AND (ZeroFound == VCC))
 		THEN EventFound = VCC;
@@ -627,7 +649,7 @@ END IF;
 
 	WFhist_Eth.data[11..0] = RegSum[0].q[11..0];--ADCdata[9..0];--TestLinkCt.q[11..0];--
 --	WFhist_Eth.data[11..0] = GND;
-	WFhist_Eth.(wraddress[], wrclock, wren) = (WFhist_ADCCt_Eth.q[8..0], ADC_clock, WriteWFhist_Eth);--AND SaveRam));
+	WFhist_Eth.(wraddress[], wrclock, wren) = (WFhist_ADCCt_Eth.q[8..0], ADC_clock, WriteWFhist_Eth AND !DigitEnd);--AND SaveRam));
 --	WFhist_Eth.(wraddress[], wrclock, wren) = (WFhist_ADCCt_Eth.q[8..0], ADC_clock, GND);--AND SaveRam));
 --	WFhist.(rdaddress[], rdclock, rden) = (DAQAddrBus_In[7..0], Flink_clock, ReadWFhist);--AND SaveRam));
 	WFhist_Eth.(rdaddress[], rdclock, rden) = (WFhist_RAMAddr_Eth[8..0], Bus_clock, ReadWFhist_Eth);--AND SaveRam));

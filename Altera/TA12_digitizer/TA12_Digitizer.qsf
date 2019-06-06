@@ -34,7 +34,7 @@
 #    and any changes you make may be lost or overwritten.
 #
 # -------------------------------------------------------------------------- #
-
+## Project information
 
 set_global_assignment -name FAMILY "Cyclone IV E"
 set_global_assignment -name DEVICE EP4CE40F23C7
@@ -54,6 +54,10 @@ set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
 set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
 set_global_assignment -name LL_ROOT_REGION ON -section_id "Root Region"
 set_global_assignment -name LL_MEMBER_STATE LOCKED -section_id "Root Region"
+
+# -------------------------------------------------------------------------- #
+## Pins planner
+
 set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[0][0]
 set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[0][1]
 set_instance_assignment -name IO_STANDARD LVDS -to ADC_In_Data[10][0]
@@ -266,6 +270,297 @@ set_location_assignment PIN_AB8 -to TXD[2]
 set_location_assignment PIN_AA9 -to TXD[1]
 set_location_assignment PIN_AB9 -to TXD[0]
 set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
+
+# -------------------------------------------------------------------------- #
+## Chip Planner 
+
+## Ch[0]
+# In[0]
+set_location_assignment FF_X39_Y1_N1 -to "DDR_in:DDR_InLVDS[0][0]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_h[0]"
+set_location_assignment FF_X39_Y1_N3 -to "lpm_shiftreg:DDR_Reg_pos[0][0]|dffs[0]"
+set_location_assignment FF_X39_Y1_N5 -to "lpm_shiftreg:DDR_Reg_pos[0][0]|dffs[1]"
+set_location_assignment FF_X39_Y1_N7 -to "lpm_shiftreg:DDR_Reg_pos[0][0]|dffs[2]"
+set_location_assignment FF_X39_Y1_N9 -to "DDR_in:DDR_InLVDS[0][0]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_l[0]"
+set_location_assignment FF_X39_Y1_N11 -to "DDR_in:DDR_InLVDS[0][0]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_latch_l[0]"
+set_location_assignment FF_X39_Y1_N13 -to "lpm_shiftreg:DDR_Reg_neg[0][0]|dffs[0]"
+set_location_assignment FF_X39_Y1_N15 -to "lpm_shiftreg:DDR_Reg_neg[0][0]|dffs[1]"
+set_location_assignment FF_X39_Y1_N17 -to "lpm_shiftreg:DDR_Reg_neg[0][0]|dffs[2]"
+# In[1]
+set_location_assignment FF_X37_Y1_N1 -to "DDR_in:DDR_InLVDS[0][1]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_h[0]"
+set_location_assignment FF_X37_Y1_N3 -to "lpm_shiftreg:DDR_Reg_pos[0][1]|dffs[0]"
+set_location_assignment FF_X37_Y1_N5 -to "lpm_shiftreg:DDR_Reg_pos[0][1]|dffs[1]"
+set_location_assignment FF_X37_Y1_N7 -to "lpm_shiftreg:DDR_Reg_pos[0][1]|dffs[2]"
+set_location_assignment FF_X37_Y1_N9 -to "DDR_in:DDR_InLVDS[0][1]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_l[0]"
+set_location_assignment FF_X37_Y1_N11 -to "DDR_in:DDR_InLVDS[0][1]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_latch_l[0]"
+set_location_assignment FF_X37_Y1_N13 -to "lpm_shiftreg:DDR_Reg_neg[0][1]|dffs[0]"
+set_location_assignment FF_X37_Y1_N15 -to "lpm_shiftreg:DDR_Reg_neg[0][1]|dffs[1]"
+set_location_assignment FF_X37_Y1_N17 -to "lpm_shiftreg:DDR_Reg_neg[0][1]|dffs[2]"
+# MixReg
+set_location_assignment FF_X38_Y1_N1 -to "lpm_shiftreg:InData_RegMix[0]|dffs[0]"
+set_location_assignment FF_X38_Y1_N3 -to "lpm_shiftreg:InData_RegMix[0]|dffs[1]"
+set_location_assignment FF_X38_Y1_N5 -to "lpm_shiftreg:InData_RegMix[0]|dffs[2]"
+set_location_assignment FF_X38_Y1_N7 -to "lpm_shiftreg:InData_RegMix[0]|dffs[3]"
+set_location_assignment FF_X38_Y1_N9 -to "lpm_shiftreg:InData_RegMix[0]|dffs[4]"
+set_location_assignment FF_X38_Y1_N11 -to "lpm_shiftreg:InData_RegMix[0]|dffs[5]"
+set_location_assignment FF_X38_Y1_N13 -to "lpm_shiftreg:InData_RegMix[0]|dffs[6]"
+set_location_assignment FF_X38_Y1_N15 -to "lpm_shiftreg:InData_RegMix[0]|dffs[7]"
+set_location_assignment FF_X38_Y1_N17 -to "lpm_shiftreg:InData_RegMix[0]|dffs[8]"
+set_location_assignment FF_X38_Y1_N19 -to "lpm_shiftreg:InData_RegMix[0]|dffs[9]"
+set_location_assignment FF_X38_Y1_N21 -to "lpm_shiftreg:InData_RegMix[0]|dffs[10]"
+set_location_assignment FF_X38_Y1_N23 -to "lpm_shiftreg:InData_RegMix[0]|dffs[11]"
+# InReg
+set_location_assignment FF_X38_Y2_N1 -to "lpm_shiftreg:InData_Reg[0]|dffs[0]"
+set_location_assignment FF_X38_Y2_N3 -to "lpm_shiftreg:InData_Reg[0]|dffs[1]"
+set_location_assignment FF_X38_Y2_N5 -to "lpm_shiftreg:InData_Reg[0]|dffs[2]"
+set_location_assignment FF_X38_Y2_N7 -to "lpm_shiftreg:InData_Reg[0]|dffs[3]"
+set_location_assignment FF_X38_Y2_N9 -to "lpm_shiftreg:InData_Reg[0]|dffs[4]"
+set_location_assignment FF_X38_Y2_N11 -to "lpm_shiftreg:InData_Reg[0]|dffs[5]"
+set_location_assignment FF_X38_Y2_N13 -to "lpm_shiftreg:InData_Reg[0]|dffs[6]"
+set_location_assignment FF_X38_Y2_N15 -to "lpm_shiftreg:InData_Reg[0]|dffs[7]"
+set_location_assignment FF_X38_Y2_N17 -to "lpm_shiftreg:InData_Reg[0]|dffs[8]"
+set_location_assignment FF_X38_Y2_N19 -to "lpm_shiftreg:InData_Reg[0]|dffs[9]"
+set_location_assignment FF_X38_Y2_N21 -to "lpm_shiftreg:InData_Reg[0]|dffs[10]"
+set_location_assignment FF_X38_Y2_N23 -to "lpm_shiftreg:InData_Reg[0]|dffs[11]"
+##----------------------------------------------
+## Ch[1]
+# In[0]
+set_location_assignment FF_X43_Y1_N1 -to "DDR_in:DDR_InLVDS[1][0]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_h[0]"
+set_location_assignment FF_X43_Y1_N3 -to "lpm_shiftreg:DDR_Reg_pos[1][0]|dffs[0]"
+set_location_assignment FF_X43_Y1_N5 -to "lpm_shiftreg:DDR_Reg_pos[1][0]|dffs[1]"
+set_location_assignment FF_X43_Y1_N7 -to "lpm_shiftreg:DDR_Reg_pos[1][0]|dffs[2]"
+set_location_assignment FF_X43_Y1_N9 -to "DDR_in:DDR_InLVDS[1][0]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_l[0]"
+set_location_assignment FF_X43_Y1_N11 -to "DDR_in:DDR_InLVDS[1][0]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_latch_l[0]"
+set_location_assignment FF_X43_Y1_N13 -to "lpm_shiftreg:DDR_Reg_neg[1][0]|dffs[0]"
+set_location_assignment FF_X43_Y1_N15 -to "lpm_shiftreg:DDR_Reg_neg[1][0]|dffs[1]"
+set_location_assignment FF_X43_Y1_N17 -to "lpm_shiftreg:DDR_Reg_neg[1][0]|dffs[2]"
+# In[1]
+set_location_assignment FF_X45_Y1_N1 -to "DDR_in:DDR_InLVDS[1][1]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_h[0]"
+set_location_assignment FF_X45_Y1_N3 -to "lpm_shiftreg:DDR_Reg_pos[1][1]|dffs[0]"
+set_location_assignment FF_X45_Y1_N5 -to "lpm_shiftreg:DDR_Reg_pos[1][1]|dffs[1]"
+set_location_assignment FF_X45_Y1_N7 -to "lpm_shiftreg:DDR_Reg_pos[1][1]|dffs[2]"
+set_location_assignment FF_X45_Y1_N9 -to "DDR_in:DDR_InLVDS[1][1]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_l[0]"
+set_location_assignment FF_X45_Y1_N11 -to "DDR_in:DDR_InLVDS[1][1]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_latch_l[0]"
+set_location_assignment FF_X45_Y1_N13 -to "lpm_shiftreg:DDR_Reg_neg[1][1]|dffs[0]"
+set_location_assignment FF_X45_Y1_N15 -to "lpm_shiftreg:DDR_Reg_neg[1][1]|dffs[1]"
+set_location_assignment FF_X45_Y1_N17 -to "lpm_shiftreg:DDR_Reg_neg[1][1]|dffs[2]"
+# MixReg
+set_location_assignment FF_X44_Y1_N1 -to "lpm_shiftreg:InData_RegMix[1]|dffs[0]"
+set_location_assignment FF_X44_Y1_N3 -to "lpm_shiftreg:InData_RegMix[1]|dffs[1]"
+set_location_assignment FF_X44_Y1_N5 -to "lpm_shiftreg:InData_RegMix[1]|dffs[2]"
+set_location_assignment FF_X44_Y1_N7 -to "lpm_shiftreg:InData_RegMix[1]|dffs[3]"
+set_location_assignment FF_X44_Y1_N9 -to "lpm_shiftreg:InData_RegMix[1]|dffs[4]"
+set_location_assignment FF_X44_Y1_N11 -to "lpm_shiftreg:InData_RegMix[1]|dffs[5]"
+set_location_assignment FF_X44_Y1_N13 -to "lpm_shiftreg:InData_RegMix[1]|dffs[6]"
+set_location_assignment FF_X44_Y1_N15 -to "lpm_shiftreg:InData_RegMix[1]|dffs[7]"
+set_location_assignment FF_X44_Y1_N17 -to "lpm_shiftreg:InData_RegMix[1]|dffs[8]"
+set_location_assignment FF_X44_Y1_N19 -to "lpm_shiftreg:InData_RegMix[1]|dffs[9]"
+set_location_assignment FF_X44_Y1_N21 -to "lpm_shiftreg:InData_RegMix[1]|dffs[10]"
+set_location_assignment FF_X44_Y1_N23 -to "lpm_shiftreg:InData_RegMix[1]|dffs[11]"
+# InReg
+set_location_assignment FF_X44_Y2_N1 -to "lpm_shiftreg:InData_Reg[1]|dffs[0]"
+set_location_assignment FF_X44_Y2_N3 -to "lpm_shiftreg:InData_Reg[1]|dffs[1]"
+set_location_assignment FF_X44_Y2_N5 -to "lpm_shiftreg:InData_Reg[1]|dffs[2]"
+set_location_assignment FF_X44_Y2_N7 -to "lpm_shiftreg:InData_Reg[1]|dffs[3]"
+set_location_assignment FF_X44_Y2_N9 -to "lpm_shiftreg:InData_Reg[1]|dffs[4]"
+set_location_assignment FF_X44_Y2_N11 -to "lpm_shiftreg:InData_Reg[1]|dffs[5]"
+set_location_assignment FF_X44_Y2_N13 -to "lpm_shiftreg:InData_Reg[1]|dffs[6]"
+set_location_assignment FF_X44_Y2_N15 -to "lpm_shiftreg:InData_Reg[1]|dffs[7]"
+set_location_assignment FF_X44_Y2_N17 -to "lpm_shiftreg:InData_Reg[1]|dffs[8]"
+set_location_assignment FF_X44_Y2_N19 -to "lpm_shiftreg:InData_Reg[1]|dffs[9]"
+set_location_assignment FF_X44_Y2_N21 -to "lpm_shiftreg:InData_Reg[1]|dffs[10]"
+set_location_assignment FF_X44_Y2_N23 -to "lpm_shiftreg:InData_Reg[1]|dffs[11]"
+##----------------------------------------------
+## Ch[2]
+# In[0]
+set_location_assignment FF_X61_Y1_N1 -to "DDR_in:DDR_InLVDS[2][0]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_h[0]"
+set_location_assignment FF_X61_Y1_N3 -to "lpm_shiftreg:DDR_Reg_pos[2][0]|dffs[0]"
+set_location_assignment FF_X61_Y1_N5 -to "lpm_shiftreg:DDR_Reg_pos[2][0]|dffs[1]"
+set_location_assignment FF_X61_Y1_N7 -to "lpm_shiftreg:DDR_Reg_pos[2][0]|dffs[2]"
+set_location_assignment FF_X61_Y1_N9 -to "DDR_in:DDR_InLVDS[2][0]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_l[0]"
+set_location_assignment FF_X61_Y1_N11 -to "DDR_in:DDR_InLVDS[2][0]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_latch_l[0]"
+set_location_assignment FF_X61_Y1_N13 -to "lpm_shiftreg:DDR_Reg_neg[2][0]|dffs[0]"
+set_location_assignment FF_X61_Y1_N15 -to "lpm_shiftreg:DDR_Reg_neg[2][0]|dffs[1]"
+set_location_assignment FF_X61_Y1_N17 -to "lpm_shiftreg:DDR_Reg_neg[2][0]|dffs[2]"
+# In[1]
+set_location_assignment FF_X66_Y7_N1 -to "DDR_in:DDR_InLVDS[2][1]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_h[0]"
+set_location_assignment FF_X66_Y7_N3 -to "lpm_shiftreg:DDR_Reg_pos[2][1]|dffs[0]"
+set_location_assignment FF_X66_Y7_N5 -to "lpm_shiftreg:DDR_Reg_pos[2][1]|dffs[1]"
+set_location_assignment FF_X66_Y7_N7 -to "lpm_shiftreg:DDR_Reg_pos[2][1]|dffs[2]"
+set_location_assignment FF_X66_Y7_N9 -to "DDR_in:DDR_InLVDS[2][1]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_l[0]"
+set_location_assignment FF_X66_Y7_N11 -to "DDR_in:DDR_InLVDS[2][1]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_latch_l[0]"
+set_location_assignment FF_X66_Y7_N13 -to "lpm_shiftreg:DDR_Reg_neg[2][1]|dffs[0]"
+set_location_assignment FF_X66_Y7_N15 -to "lpm_shiftreg:DDR_Reg_neg[2][1]|dffs[1]"
+set_location_assignment FF_X66_Y7_N17 -to "lpm_shiftreg:DDR_Reg_neg[2][1]|dffs[2]"
+# MixReg
+set_location_assignment FF_X64_Y4_N1 -to "lpm_shiftreg:InData_RegMix[2]|dffs[0]"
+set_location_assignment FF_X64_Y4_N3 -to "lpm_shiftreg:InData_RegMix[2]|dffs[1]"
+set_location_assignment FF_X64_Y4_N5 -to "lpm_shiftreg:InData_RegMix[2]|dffs[2]"
+set_location_assignment FF_X64_Y4_N7 -to "lpm_shiftreg:InData_RegMix[2]|dffs[3]"
+set_location_assignment FF_X64_Y4_N9 -to "lpm_shiftreg:InData_RegMix[2]|dffs[4]"
+set_location_assignment FF_X64_Y4_N11 -to "lpm_shiftreg:InData_RegMix[2]|dffs[5]"
+set_location_assignment FF_X64_Y4_N13 -to "lpm_shiftreg:InData_RegMix[2]|dffs[6]"
+set_location_assignment FF_X64_Y4_N15 -to "lpm_shiftreg:InData_RegMix[2]|dffs[7]"
+set_location_assignment FF_X64_Y4_N17 -to "lpm_shiftreg:InData_RegMix[2]|dffs[8]"
+set_location_assignment FF_X64_Y4_N19 -to "lpm_shiftreg:InData_RegMix[2]|dffs[9]"
+set_location_assignment FF_X64_Y4_N21 -to "lpm_shiftreg:InData_RegMix[2]|dffs[10]"
+set_location_assignment FF_X64_Y4_N23 -to "lpm_shiftreg:InData_RegMix[2]|dffs[11]"
+# InReg
+set_location_assignment FF_X63_Y4_N1 -to "lpm_shiftreg:InData_Reg[2]|dffs[0]"
+set_location_assignment FF_X63_Y4_N3 -to "lpm_shiftreg:InData_Reg[2]|dffs[1]"
+set_location_assignment FF_X63_Y4_N5 -to "lpm_shiftreg:InData_Reg[2]|dffs[2]"
+set_location_assignment FF_X63_Y4_N7 -to "lpm_shiftreg:InData_Reg[2]|dffs[3]"
+set_location_assignment FF_X63_Y4_N9 -to "lpm_shiftreg:InData_Reg[2]|dffs[4]"
+set_location_assignment FF_X63_Y4_N11 -to "lpm_shiftreg:InData_Reg[2]|dffs[5]"
+set_location_assignment FF_X63_Y4_N13 -to "lpm_shiftreg:InData_Reg[2]|dffs[6]"
+set_location_assignment FF_X63_Y4_N15 -to "lpm_shiftreg:InData_Reg[2]|dffs[7]"
+set_location_assignment FF_X63_Y4_N17 -to "lpm_shiftreg:InData_Reg[2]|dffs[8]"
+set_location_assignment FF_X63_Y4_N19 -to "lpm_shiftreg:InData_Reg[2]|dffs[9]"
+set_location_assignment FF_X63_Y4_N21 -to "lpm_shiftreg:InData_Reg[2]|dffs[10]"
+set_location_assignment FF_X63_Y4_N23 -to "lpm_shiftreg:InData_Reg[2]|dffs[11]"
+##----------------------------------------------
+## Ch[3]
+# In[0]
+set_location_assignment FF_X66_Y8_N1 -to "DDR_in:DDR_InLVDS[3][0]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_h[0]"
+set_location_assignment FF_X66_Y8_N3 -to "lpm_shiftreg:DDR_Reg_pos[3][0]|dffs[0]"
+set_location_assignment FF_X66_Y8_N5 -to "lpm_shiftreg:DDR_Reg_pos[3][0]|dffs[1]"
+set_location_assignment FF_X66_Y8_N7 -to "lpm_shiftreg:DDR_Reg_pos[3][0]|dffs[2]"
+set_location_assignment FF_X66_Y8_N9 -to "DDR_in:DDR_InLVDS[3][0]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_l[0]"
+set_location_assignment FF_X66_Y8_N11 -to "DDR_in:DDR_InLVDS[3][0]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_latch_l[0]"
+set_location_assignment FF_X66_Y8_N13 -to "lpm_shiftreg:DDR_Reg_neg[3][0]|dffs[0]"
+set_location_assignment FF_X66_Y8_N15 -to "lpm_shiftreg:DDR_Reg_neg[3][0]|dffs[1]"
+set_location_assignment FF_X66_Y8_N17 -to "lpm_shiftreg:DDR_Reg_neg[3][0]|dffs[2]"
+# In[1]
+set_location_assignment FF_X66_Y10_N1 -to "DDR_in:DDR_InLVDS[3][1]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_h[0]"
+set_location_assignment FF_X66_Y10_N3 -to "lpm_shiftreg:DDR_Reg_pos[3][1]|dffs[0]"
+set_location_assignment FF_X66_Y10_N5 -to "lpm_shiftreg:DDR_Reg_pos[3][1]|dffs[1]"
+set_location_assignment FF_X66_Y10_N7 -to "lpm_shiftreg:DDR_Reg_pos[3][1]|dffs[2]"
+set_location_assignment FF_X66_Y10_N9 -to "DDR_in:DDR_InLVDS[3][1]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_l[0]"
+set_location_assignment FF_X66_Y10_N11 -to "DDR_in:DDR_InLVDS[3][1]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_latch_l[0]"
+set_location_assignment FF_X66_Y10_N13 -to "lpm_shiftreg:DDR_Reg_neg[3][1]|dffs[0]"
+set_location_assignment FF_X66_Y10_N15 -to "lpm_shiftreg:DDR_Reg_neg[3][1]|dffs[1]"
+set_location_assignment FF_X66_Y10_N17 -to "lpm_shiftreg:DDR_Reg_neg[3][1]|dffs[2]"
+# MixReg
+set_location_assignment FF_X66_Y9_N1 -to "lpm_shiftreg:InData_RegMix[3]|dffs[0]"
+set_location_assignment FF_X66_Y9_N3 -to "lpm_shiftreg:InData_RegMix[3]|dffs[1]"
+set_location_assignment FF_X66_Y9_N5 -to "lpm_shiftreg:InData_RegMix[3]|dffs[2]"
+set_location_assignment FF_X66_Y9_N7 -to "lpm_shiftreg:InData_RegMix[3]|dffs[3]"
+set_location_assignment FF_X66_Y9_N9 -to "lpm_shiftreg:InData_RegMix[3]|dffs[4]"
+set_location_assignment FF_X66_Y9_N11 -to "lpm_shiftreg:InData_RegMix[3]|dffs[5]"
+set_location_assignment FF_X66_Y9_N13 -to "lpm_shiftreg:InData_RegMix[3]|dffs[6]"
+set_location_assignment FF_X66_Y9_N15 -to "lpm_shiftreg:InData_RegMix[3]|dffs[7]"
+set_location_assignment FF_X66_Y9_N17 -to "lpm_shiftreg:InData_RegMix[3]|dffs[8]"
+set_location_assignment FF_X66_Y9_N19 -to "lpm_shiftreg:InData_RegMix[3]|dffs[9]"
+set_location_assignment FF_X66_Y9_N21 -to "lpm_shiftreg:InData_RegMix[3]|dffs[10]"
+set_location_assignment FF_X66_Y9_N23 -to "lpm_shiftreg:InData_RegMix[3]|dffs[11]"
+# InReg
+set_location_assignment FF_X65_Y9_N1 -to "lpm_shiftreg:InData_Reg[3]|dffs[0]"
+set_location_assignment FF_X65_Y9_N3 -to "lpm_shiftreg:InData_Reg[3]|dffs[1]"
+set_location_assignment FF_X65_Y9_N5 -to "lpm_shiftreg:InData_Reg[3]|dffs[2]"
+set_location_assignment FF_X65_Y9_N7 -to "lpm_shiftreg:InData_Reg[3]|dffs[3]"
+set_location_assignment FF_X65_Y9_N9 -to "lpm_shiftreg:InData_Reg[3]|dffs[4]"
+set_location_assignment FF_X65_Y9_N11 -to "lpm_shiftreg:InData_Reg[3]|dffs[5]"
+set_location_assignment FF_X65_Y9_N13 -to "lpm_shiftreg:InData_Reg[3]|dffs[6]"
+set_location_assignment FF_X65_Y9_N15 -to "lpm_shiftreg:InData_Reg[3]|dffs[7]"
+set_location_assignment FF_X65_Y9_N17 -to "lpm_shiftreg:InData_Reg[3]|dffs[8]"
+set_location_assignment FF_X65_Y9_N19 -to "lpm_shiftreg:InData_Reg[3]|dffs[9]"
+set_location_assignment FF_X65_Y9_N21 -to "lpm_shiftreg:InData_Reg[3]|dffs[10]"
+set_location_assignment FF_X65_Y9_N23 -to "lpm_shiftreg:InData_Reg[3]|dffs[11]"
+
+# -------------------------------------------------------------------------- #
+## Time REQUIREMENT
+
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from ADC_In_Data[0][0] -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from ADC_In_Data[0][1] -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from ADC_In_Data[1][0] -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from ADC_In_Data[1][1] -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from ADC_In_Data[2][0] -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from ADC_In_Data[2][1] -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from ADC_In_Data[3][0] -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from ADC_In_Data[3][1] -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "DDR_in:DDR_InLVDS[0][0]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_h[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "DDR_in:DDR_InLVDS[0][0]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_l[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "DDR_in:DDR_InLVDS[0][0]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_latch_l[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "DDR_in:DDR_InLVDS[0][1]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_h[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "DDR_in:DDR_InLVDS[0][1]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_l[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "DDR_in:DDR_InLVDS[0][1]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_latch_l[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "DDR_in:DDR_InLVDS[1][0]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_h[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "DDR_in:DDR_InLVDS[1][0]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_l[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "DDR_in:DDR_InLVDS[1][0]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_latch_l[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "DDR_in:DDR_InLVDS[1][1]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_h[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "DDR_in:DDR_InLVDS[1][1]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_l[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "DDR_in:DDR_InLVDS[1][1]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_latch_l[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "DDR_in:DDR_InLVDS[2][0]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_h[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "DDR_in:DDR_InLVDS[2][0]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_l[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "DDR_in:DDR_InLVDS[2][0]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_latch_l[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "DDR_in:DDR_InLVDS[2][1]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_h[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "DDR_in:DDR_InLVDS[2][1]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_l[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "DDR_in:DDR_InLVDS[2][1]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_latch_l[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "DDR_in:DDR_InLVDS[3][0]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_h[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "DDR_in:DDR_InLVDS[3][0]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_l[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "DDR_in:DDR_InLVDS[3][0]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_latch_l[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "DDR_in:DDR_InLVDS[3][1]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_h[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "DDR_in:DDR_InLVDS[3][1]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_cell_l[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "DDR_in:DDR_InLVDS[3][1]|altddio_in:altddio_in_component|ddio_in_u4e:auto_generated|input_latch_l[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_neg[0][0]|dffs[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_neg[0][0]|dffs[1]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_neg[0][0]|dffs[2]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_neg[0][1]|dffs[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_neg[0][1]|dffs[1]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_neg[0][1]|dffs[2]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_neg[1][0]|dffs[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_neg[1][0]|dffs[1]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_neg[1][0]|dffs[2]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_neg[1][1]|dffs[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_neg[1][1]|dffs[1]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_neg[1][1]|dffs[2]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_neg[2][0]|dffs[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_neg[2][0]|dffs[1]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_neg[2][0]|dffs[2]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_neg[2][1]|dffs[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_neg[2][1]|dffs[1]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_neg[2][1]|dffs[2]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_neg[3][0]|dffs[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_neg[3][0]|dffs[1]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_neg[3][0]|dffs[2]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_neg[3][1]|dffs[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_neg[3][1]|dffs[1]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_neg[3][1]|dffs[2]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_pos[0][0]|dffs[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_pos[0][0]|dffs[1]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_pos[0][0]|dffs[2]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_pos[0][1]|dffs[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_pos[0][1]|dffs[1]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_pos[0][1]|dffs[2]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_pos[1][0]|dffs[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_pos[1][0]|dffs[1]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_pos[1][0]|dffs[2]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_pos[1][1]|dffs[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_pos[1][1]|dffs[1]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_pos[1][1]|dffs[2]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_pos[2][0]|dffs[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_pos[2][0]|dffs[1]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_pos[2][0]|dffs[2]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_pos[2][1]|dffs[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_pos[2][1]|dffs[1]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_pos[2][1]|dffs[2]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_pos[3][0]|dffs[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_pos[3][0]|dffs[1]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_pos[3][0]|dffs[2]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_pos[3][1]|dffs[0]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_pos[3][1]|dffs[1]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:DDR_Reg_pos[3][1]|dffs[2]" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:InData_RegMix[0]|dffs" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:InData_RegMix[1]|dffs" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:InData_RegMix[2]|dffs" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:InData_RegMix[3]|dffs" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:InData_Reg[0]|dffs" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:InData_Reg[1]|dffs" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:InData_Reg[2]|dffs" -to *
+set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:InData_Reg[3]|dffs" -to *
+
+# -------------------------------------------------------------------------- #
+## Signal Tap 
+
 set_global_assignment -name SIGNALTAP_FILE "Input data.stp"
 set_global_assignment -name ENABLE_SIGNALTAP ON
 set_global_assignment -name USE_SIGNALTAP_FILE "Input data.stp"
@@ -282,39 +577,12 @@ set_global_assignment -name SLD_NODE_PARAMETER_ASSIGNMENT "SLD_STATE_BITS=11" -s
 set_global_assignment -name SLD_NODE_PARAMETER_ASSIGNMENT "SLD_BUFFER_FULL_STOP=1" -section_id auto_signaltap_0
 set_global_assignment -name SLD_NODE_PARAMETER_ASSIGNMENT "SLD_CURRENT_RESOURCE_WIDTH=1" -section_id auto_signaltap_0
 set_global_assignment -name SLD_NODE_PARAMETER_ASSIGNMENT "SLD_SAMPLE_DEPTH=2048" -section_id auto_signaltap_0
-set_global_assignment -name SLD_NODE_PARAMETER_ASSIGNMENT "SLD_TRIGGER_IN_ENABLED=0" -section_id auto_signaltap_0
 set_global_assignment -name SLD_NODE_PARAMETER_ASSIGNMENT "SLD_TRIGGER_LEVEL_PIPELINE=1" -section_id auto_signaltap_0
 set_global_assignment -name SLD_NODE_PARAMETER_ASSIGNMENT "SLD_ENABLE_ADVANCED_TRIGGER=0" -section_id auto_signaltap_0
 set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[0] -to ADC_FrameClk[0] -section_id auto_signaltap_0
 set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[0] -to ADC_FrameClk[0] -section_id auto_signaltap_0
 set_global_assignment -name SLD_NODE_PARAMETER_ASSIGNMENT "SLD_TRIGGER_LEVEL=5" -section_id auto_signaltap_0
 set_global_assignment -name SLD_NODE_PARAMETER_ASSIGNMENT "SLD_ADVANCED_TRIGGER_ENTITY=basic,1,basic,1,basic,1,basic,1,basic,1," -section_id auto_signaltap_0
-set_global_assignment -name TIMEQUEST_MULTICORNER_ANALYSIS ON
-set_global_assignment -name TIMEQUEST_DO_CCPP_REMOVAL ON
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[69] -to "lpm_shiftreg:InData_Reg[1]|dffs[0]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[70] -to "lpm_shiftreg:InData_Reg[1]|dffs[10]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[71] -to "lpm_shiftreg:InData_Reg[1]|dffs[11]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[72] -to "lpm_shiftreg:InData_Reg[1]|dffs[1]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[73] -to "lpm_shiftreg:InData_Reg[1]|dffs[2]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[74] -to "lpm_shiftreg:InData_Reg[1]|dffs[3]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[75] -to "lpm_shiftreg:InData_Reg[1]|dffs[4]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[76] -to "lpm_shiftreg:InData_Reg[1]|dffs[5]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[77] -to "lpm_shiftreg:InData_Reg[1]|dffs[6]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[78] -to "lpm_shiftreg:InData_Reg[1]|dffs[7]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[79] -to "lpm_shiftreg:InData_Reg[1]|dffs[8]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[80] -to "lpm_shiftreg:InData_Reg[1]|dffs[9]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[69] -to "lpm_shiftreg:InData_Reg[1]|dffs[0]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[70] -to "lpm_shiftreg:InData_Reg[1]|dffs[10]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[71] -to "lpm_shiftreg:InData_Reg[1]|dffs[11]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[72] -to "lpm_shiftreg:InData_Reg[1]|dffs[1]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[73] -to "lpm_shiftreg:InData_Reg[1]|dffs[2]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[74] -to "lpm_shiftreg:InData_Reg[1]|dffs[3]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[75] -to "lpm_shiftreg:InData_Reg[1]|dffs[4]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[76] -to "lpm_shiftreg:InData_Reg[1]|dffs[5]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[77] -to "lpm_shiftreg:InData_Reg[1]|dffs[6]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[78] -to "lpm_shiftreg:InData_Reg[1]|dffs[7]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[79] -to "lpm_shiftreg:InData_Reg[1]|dffs[8]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[80] -to "lpm_shiftreg:InData_Reg[1]|dffs[9]" -section_id auto_signaltap_0
 set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[1] -to "Digitizer_TA6:TA12Channel[1]|ADCdata[0]" -section_id auto_signaltap_0
 set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[2] -to "Digitizer_TA6:TA12Channel[1]|ADCdata[10]" -section_id auto_signaltap_0
 set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[3] -to "Digitizer_TA6:TA12Channel[1]|ADCdata[11]" -section_id auto_signaltap_0
@@ -341,48 +609,6 @@ set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[23]
 set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[24] -to "Digitizer_TA6:TA12Channel[1]|Summ[7]" -section_id auto_signaltap_0
 set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[25] -to "Digitizer_TA6:TA12Channel[1]|Summ[8]" -section_id auto_signaltap_0
 set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[26] -to "Digitizer_TA6:TA12Channel[1]|Summ[9]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[27] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[0]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[28] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[10]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[29] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[11]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[30] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[12]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[31] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[13]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[32] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[1]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[33] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[2]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[34] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[3]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[35] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[4]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[36] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[5]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[37] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[6]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[38] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[7]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[39] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[8]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[40] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[9]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[41] -to "Digitizer_TA6:TA12Channel[1]|AllReset" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[42] -to "Digitizer_TA6:TA12Channel[1]|Max_Trig" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[43] -to "Digitizer_TA6:TA12Channel[1]|Thr_Trig" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[44] -to "Digitizer_TA6:TA12Channel[1]|Zero_Trig" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[45] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[0]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[46] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[10]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[47] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[11]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[48] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[1]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[49] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[2]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[50] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[3]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[51] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[4]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[52] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[5]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[53] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[6]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[54] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[7]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[55] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[8]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[56] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[9]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[57] -to "lpm_shiftreg:InData_RegMix[1]|dffs[0]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[58] -to "lpm_shiftreg:InData_RegMix[1]|dffs[10]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[59] -to "lpm_shiftreg:InData_RegMix[1]|dffs[11]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[60] -to "lpm_shiftreg:InData_RegMix[1]|dffs[1]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[61] -to "lpm_shiftreg:InData_RegMix[1]|dffs[2]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[62] -to "lpm_shiftreg:InData_RegMix[1]|dffs[3]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[63] -to "lpm_shiftreg:InData_RegMix[1]|dffs[4]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[64] -to "lpm_shiftreg:InData_RegMix[1]|dffs[5]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[65] -to "lpm_shiftreg:InData_RegMix[1]|dffs[6]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[66] -to "lpm_shiftreg:InData_RegMix[1]|dffs[7]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[67] -to "lpm_shiftreg:InData_RegMix[1]|dffs[8]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[68] -to "lpm_shiftreg:InData_RegMix[1]|dffs[9]" -section_id auto_signaltap_0
 set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[1] -to "Digitizer_TA6:TA12Channel[1]|ADCdata[0]" -section_id auto_signaltap_0
 set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[2] -to "Digitizer_TA6:TA12Channel[1]|ADCdata[10]" -section_id auto_signaltap_0
 set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[3] -to "Digitizer_TA6:TA12Channel[1]|ADCdata[11]" -section_id auto_signaltap_0
@@ -409,55 +635,374 @@ set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[23] -t
 set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[24] -to "Digitizer_TA6:TA12Channel[1]|Summ[7]" -section_id auto_signaltap_0
 set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[25] -to "Digitizer_TA6:TA12Channel[1]|Summ[8]" -section_id auto_signaltap_0
 set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[26] -to "Digitizer_TA6:TA12Channel[1]|Summ[9]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[27] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[0]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[28] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[10]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[29] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[11]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[30] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[12]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[31] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[13]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[32] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[1]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[33] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[2]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[34] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[3]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[35] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[4]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[36] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[5]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[37] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[6]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[38] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[7]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[39] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[8]" -section_id auto_signaltap_0
-set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[40] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[9]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[41] -to "Digitizer_TA6:TA12Channel[1]|AllReset" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[42] -to "Digitizer_TA6:TA12Channel[1]|Max_Trig" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[43] -to "Digitizer_TA6:TA12Channel[1]|Thr_Trig" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[44] -to "Digitizer_TA6:TA12Channel[1]|Zero_Trig" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[45] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[0]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[46] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[10]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[47] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[11]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[48] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[1]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[49] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[2]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[50] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[3]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[51] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[4]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[52] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[5]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[53] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[6]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[54] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[7]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[55] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[8]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[56] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[9]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[57] -to "lpm_shiftreg:InData_RegMix[1]|dffs[0]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[58] -to "lpm_shiftreg:InData_RegMix[1]|dffs[10]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[59] -to "lpm_shiftreg:InData_RegMix[1]|dffs[11]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[60] -to "lpm_shiftreg:InData_RegMix[1]|dffs[1]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[61] -to "lpm_shiftreg:InData_RegMix[1]|dffs[2]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[62] -to "lpm_shiftreg:InData_RegMix[1]|dffs[3]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[63] -to "lpm_shiftreg:InData_RegMix[1]|dffs[4]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[64] -to "lpm_shiftreg:InData_RegMix[1]|dffs[5]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[65] -to "lpm_shiftreg:InData_RegMix[1]|dffs[6]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[66] -to "lpm_shiftreg:InData_RegMix[1]|dffs[7]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[67] -to "lpm_shiftreg:InData_RegMix[1]|dffs[8]" -section_id auto_signaltap_0
-set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[68] -to "lpm_shiftreg:InData_RegMix[1]|dffs[9]" -section_id auto_signaltap_0
-set_global_assignment -name SLD_NODE_PARAMETER_ASSIGNMENT "SLD_DATA_BITS=81" -section_id auto_signaltap_0
-set_global_assignment -name SLD_NODE_PARAMETER_ASSIGNMENT "SLD_TRIGGER_BITS=81" -section_id auto_signaltap_0
-set_global_assignment -name SLD_NODE_PARAMETER_ASSIGNMENT "SLD_INVERSION_MASK=0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" -section_id auto_signaltap_0
-set_global_assignment -name SLD_NODE_PARAMETER_ASSIGNMENT "SLD_INVERSION_MASK_LENGTH=1240" -section_id auto_signaltap_0
 set_global_assignment -name SIGNALTAP_FILE Digitizer.stp
-set_global_assignment -name SLD_NODE_PARAMETER_ASSIGNMENT "SLD_NODE_CRC_LOWORD=9296" -section_id auto_signaltap_0
-set_global_assignment -name SLD_NODE_PARAMETER_ASSIGNMENT "SLD_NODE_CRC_HIWORD=28167" -section_id auto_signaltap_0
-set_global_assignment -name OPTIMIZE_HOLD_TIMING "ALL PATHS"
 set_global_assignment -name SEED 4
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT trigger_in -to "Digitizer_TA6:TA12Channel[1]|Thr_Trig" -section_id auto_signaltap_0
+set_global_assignment -name SLD_NODE_PARAMETER_ASSIGNMENT "SLD_TRIGGER_IN_ENABLED=1" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[27] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[0]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[28] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[10]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[29] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[11]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[30] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[12]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[31] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[13]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[32] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[1]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[33] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[2]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[34] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[3]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[35] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[4]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[36] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[5]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[37] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[6]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[38] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[7]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[39] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[8]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[40] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[9]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[41] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[0]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[42] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[10]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[43] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[11]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[44] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[12]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[45] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[13]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[46] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[1]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[47] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[2]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[48] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[3]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[49] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[4]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[50] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[5]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[51] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[6]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[52] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[7]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[53] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[8]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[54] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[9]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[55] -to "Digitizer_TA6:TA12Channel[1]|AllReset" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[56] -to "Digitizer_TA6:TA12Channel[1]|Max_Trig" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[57] -to "Digitizer_TA6:TA12Channel[1]|Thr_Trig" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[58] -to "Digitizer_TA6:TA12Channel[1]|Zero_Trig" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[59] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[0]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[60] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[10]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[61] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[11]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[62] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[12]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[63] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[13]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[64] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[1]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[65] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[2]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[66] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[3]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[67] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[4]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[68] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[5]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[69] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[6]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[70] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[7]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[71] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[8]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[72] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[9]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[73] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:SumPed|add_sub_snh:auto_generated|pipeline_dffe[0]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[74] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:SumPed|add_sub_snh:auto_generated|pipeline_dffe[10]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[75] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:SumPed|add_sub_snh:auto_generated|pipeline_dffe[11]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[76] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:SumPed|add_sub_snh:auto_generated|pipeline_dffe[1]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[77] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:SumPed|add_sub_snh:auto_generated|pipeline_dffe[2]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[78] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:SumPed|add_sub_snh:auto_generated|pipeline_dffe[3]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[79] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:SumPed|add_sub_snh:auto_generated|pipeline_dffe[4]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[80] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:SumPed|add_sub_snh:auto_generated|pipeline_dffe[5]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[81] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:SumPed|add_sub_snh:auto_generated|pipeline_dffe[6]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[82] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:SumPed|add_sub_snh:auto_generated|pipeline_dffe[7]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[83] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:SumPed|add_sub_snh:auto_generated|pipeline_dffe[8]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[84] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:SumPed|add_sub_snh:auto_generated|pipeline_dffe[9]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[85] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[0]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[86] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[10]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[87] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[11]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[88] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[12]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[89] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[13]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[90] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[1]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[91] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[2]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[92] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[3]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[93] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[4]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[94] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[5]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[95] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[6]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[96] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[7]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[97] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[8]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[98] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[9]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[99] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[0]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[100] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[10]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[101] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[11]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[102] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[1]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[103] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[2]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[104] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[3]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[105] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[4]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[106] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[5]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[107] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[6]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[108] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[7]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[109] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[8]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[110] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[9]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[111] -to "lpm_shiftreg:InData_RegMix[0]|dffs[0]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[112] -to "lpm_shiftreg:InData_RegMix[0]|dffs[10]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[113] -to "lpm_shiftreg:InData_RegMix[0]|dffs[11]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[114] -to "lpm_shiftreg:InData_RegMix[0]|dffs[1]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[115] -to "lpm_shiftreg:InData_RegMix[0]|dffs[2]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[116] -to "lpm_shiftreg:InData_RegMix[0]|dffs[3]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[117] -to "lpm_shiftreg:InData_RegMix[0]|dffs[4]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[118] -to "lpm_shiftreg:InData_RegMix[0]|dffs[5]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[119] -to "lpm_shiftreg:InData_RegMix[0]|dffs[6]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[120] -to "lpm_shiftreg:InData_RegMix[0]|dffs[7]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[121] -to "lpm_shiftreg:InData_RegMix[0]|dffs[8]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[122] -to "lpm_shiftreg:InData_RegMix[0]|dffs[9]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[123] -to "lpm_shiftreg:InData_RegMix[1]|dffs[0]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[124] -to "lpm_shiftreg:InData_RegMix[1]|dffs[10]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[125] -to "lpm_shiftreg:InData_RegMix[1]|dffs[11]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[126] -to "lpm_shiftreg:InData_RegMix[1]|dffs[1]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[127] -to "lpm_shiftreg:InData_RegMix[1]|dffs[2]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[128] -to "lpm_shiftreg:InData_RegMix[1]|dffs[3]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[129] -to "lpm_shiftreg:InData_RegMix[1]|dffs[4]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[130] -to "lpm_shiftreg:InData_RegMix[1]|dffs[5]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[131] -to "lpm_shiftreg:InData_RegMix[1]|dffs[6]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[132] -to "lpm_shiftreg:InData_RegMix[1]|dffs[7]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[133] -to "lpm_shiftreg:InData_RegMix[1]|dffs[8]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[134] -to "lpm_shiftreg:InData_RegMix[1]|dffs[9]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[135] -to "lpm_shiftreg:InData_RegMix[2]|dffs[0]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[136] -to "lpm_shiftreg:InData_RegMix[2]|dffs[10]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[137] -to "lpm_shiftreg:InData_RegMix[2]|dffs[11]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[138] -to "lpm_shiftreg:InData_RegMix[2]|dffs[1]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[139] -to "lpm_shiftreg:InData_RegMix[2]|dffs[2]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[140] -to "lpm_shiftreg:InData_RegMix[2]|dffs[3]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[141] -to "lpm_shiftreg:InData_RegMix[2]|dffs[4]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[142] -to "lpm_shiftreg:InData_RegMix[2]|dffs[5]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[143] -to "lpm_shiftreg:InData_RegMix[2]|dffs[6]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[144] -to "lpm_shiftreg:InData_RegMix[2]|dffs[7]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[145] -to "lpm_shiftreg:InData_RegMix[2]|dffs[8]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[146] -to "lpm_shiftreg:InData_RegMix[2]|dffs[9]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[147] -to "lpm_shiftreg:InData_RegMix[3]|dffs[0]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[148] -to "lpm_shiftreg:InData_RegMix[3]|dffs[10]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[149] -to "lpm_shiftreg:InData_RegMix[3]|dffs[11]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[150] -to "lpm_shiftreg:InData_RegMix[3]|dffs[1]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[151] -to "lpm_shiftreg:InData_RegMix[3]|dffs[2]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[152] -to "lpm_shiftreg:InData_RegMix[3]|dffs[3]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[153] -to "lpm_shiftreg:InData_RegMix[3]|dffs[4]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[154] -to "lpm_shiftreg:InData_RegMix[3]|dffs[5]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[155] -to "lpm_shiftreg:InData_RegMix[3]|dffs[6]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[156] -to "lpm_shiftreg:InData_RegMix[3]|dffs[7]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[157] -to "lpm_shiftreg:InData_RegMix[3]|dffs[8]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[158] -to "lpm_shiftreg:InData_RegMix[3]|dffs[9]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[159] -to "lpm_shiftreg:InData_Reg[0]|dffs[0]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[160] -to "lpm_shiftreg:InData_Reg[0]|dffs[10]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[161] -to "lpm_shiftreg:InData_Reg[0]|dffs[11]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[162] -to "lpm_shiftreg:InData_Reg[0]|dffs[1]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[163] -to "lpm_shiftreg:InData_Reg[0]|dffs[2]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[164] -to "lpm_shiftreg:InData_Reg[0]|dffs[3]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[165] -to "lpm_shiftreg:InData_Reg[0]|dffs[4]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[166] -to "lpm_shiftreg:InData_Reg[0]|dffs[5]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[167] -to "lpm_shiftreg:InData_Reg[0]|dffs[6]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[168] -to "lpm_shiftreg:InData_Reg[0]|dffs[7]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[169] -to "lpm_shiftreg:InData_Reg[0]|dffs[8]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[170] -to "lpm_shiftreg:InData_Reg[0]|dffs[9]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[171] -to "lpm_shiftreg:InData_Reg[1]|dffs[0]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[172] -to "lpm_shiftreg:InData_Reg[1]|dffs[10]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[173] -to "lpm_shiftreg:InData_Reg[1]|dffs[11]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[174] -to "lpm_shiftreg:InData_Reg[1]|dffs[1]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[175] -to "lpm_shiftreg:InData_Reg[1]|dffs[2]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[176] -to "lpm_shiftreg:InData_Reg[1]|dffs[3]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[177] -to "lpm_shiftreg:InData_Reg[1]|dffs[4]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[178] -to "lpm_shiftreg:InData_Reg[1]|dffs[5]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[179] -to "lpm_shiftreg:InData_Reg[1]|dffs[6]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[180] -to "lpm_shiftreg:InData_Reg[1]|dffs[7]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[181] -to "lpm_shiftreg:InData_Reg[1]|dffs[8]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[182] -to "lpm_shiftreg:InData_Reg[1]|dffs[9]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[183] -to "lpm_shiftreg:InData_Reg[2]|dffs[0]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[184] -to "lpm_shiftreg:InData_Reg[2]|dffs[10]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[185] -to "lpm_shiftreg:InData_Reg[2]|dffs[11]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[186] -to "lpm_shiftreg:InData_Reg[2]|dffs[1]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[187] -to "lpm_shiftreg:InData_Reg[2]|dffs[2]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[188] -to "lpm_shiftreg:InData_Reg[2]|dffs[3]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[189] -to "lpm_shiftreg:InData_Reg[2]|dffs[4]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[190] -to "lpm_shiftreg:InData_Reg[2]|dffs[5]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[191] -to "lpm_shiftreg:InData_Reg[2]|dffs[6]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[192] -to "lpm_shiftreg:InData_Reg[2]|dffs[7]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[193] -to "lpm_shiftreg:InData_Reg[2]|dffs[8]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[194] -to "lpm_shiftreg:InData_Reg[2]|dffs[9]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[195] -to "lpm_shiftreg:InData_Reg[3]|dffs[0]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[196] -to "lpm_shiftreg:InData_Reg[3]|dffs[10]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[197] -to "lpm_shiftreg:InData_Reg[3]|dffs[11]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[198] -to "lpm_shiftreg:InData_Reg[3]|dffs[1]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[199] -to "lpm_shiftreg:InData_Reg[3]|dffs[2]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[200] -to "lpm_shiftreg:InData_Reg[3]|dffs[3]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[201] -to "lpm_shiftreg:InData_Reg[3]|dffs[4]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[202] -to "lpm_shiftreg:InData_Reg[3]|dffs[5]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[203] -to "lpm_shiftreg:InData_Reg[3]|dffs[6]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[204] -to "lpm_shiftreg:InData_Reg[3]|dffs[7]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[205] -to "lpm_shiftreg:InData_Reg[3]|dffs[8]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_trigger_in[206] -to "lpm_shiftreg:InData_Reg[3]|dffs[9]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[27] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[0]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[28] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[10]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[29] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[11]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[30] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[12]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[31] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[13]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[32] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[1]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[33] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[2]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[34] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[3]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[35] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[4]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[36] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[5]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[37] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[6]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[38] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[7]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[39] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[8]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[40] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegZero[0]|dffs[9]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[41] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[0]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[42] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[10]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[43] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[11]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[44] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[12]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[45] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[13]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[46] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[1]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[47] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[2]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[48] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[3]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[49] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[4]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[50] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[5]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[51] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[6]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[52] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[7]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[53] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[8]" -section_id auto_signaltap_0
+set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[54] -to "Digitizer_TA6:TA12Channel[1]|sum_4:SUMMATOR|result[9]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[55] -to "Digitizer_TA6:TA12Channel[1]|AllReset" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[56] -to "Digitizer_TA6:TA12Channel[1]|Max_Trig" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[57] -to "Digitizer_TA6:TA12Channel[1]|Thr_Trig" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[58] -to "Digitizer_TA6:TA12Channel[1]|Zero_Trig" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[59] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[0]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[60] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[10]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[61] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[11]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[62] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[12]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[63] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[13]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[64] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[1]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[65] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[2]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[66] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[3]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[67] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[4]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[68] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[5]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[69] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[6]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[70] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[7]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[71] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[8]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[72] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:DelayData|add_sub_06i:auto_generated|pipeline_dffe[9]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[73] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:SumPed|add_sub_snh:auto_generated|pipeline_dffe[0]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[74] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:SumPed|add_sub_snh:auto_generated|pipeline_dffe[10]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[75] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:SumPed|add_sub_snh:auto_generated|pipeline_dffe[11]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[76] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:SumPed|add_sub_snh:auto_generated|pipeline_dffe[1]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[77] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:SumPed|add_sub_snh:auto_generated|pipeline_dffe[2]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[78] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:SumPed|add_sub_snh:auto_generated|pipeline_dffe[3]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[79] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:SumPed|add_sub_snh:auto_generated|pipeline_dffe[4]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[80] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:SumPed|add_sub_snh:auto_generated|pipeline_dffe[5]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[81] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:SumPed|add_sub_snh:auto_generated|pipeline_dffe[6]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[82] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:SumPed|add_sub_snh:auto_generated|pipeline_dffe[7]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[83] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:SumPed|add_sub_snh:auto_generated|pipeline_dffe[8]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[84] -to "Digitizer_TA6:TA12Channel[1]|lpm_add_sub:SumPed|add_sub_snh:auto_generated|pipeline_dffe[9]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[85] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[0]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[86] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[10]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[87] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[11]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[88] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[12]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[89] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[13]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[90] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[1]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[91] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[2]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[92] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[3]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[93] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[4]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[94] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[5]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[95] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[6]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[96] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[7]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[97] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[8]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[98] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:Max_Reg|dffs[9]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[99] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[0]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[100] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[10]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[101] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[11]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[102] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[1]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[103] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[2]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[104] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[3]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[105] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[4]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[106] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[5]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[107] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[6]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[108] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[7]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[109] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[8]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[110] -to "Digitizer_TA6:TA12Channel[1]|lpm_shiftreg:RegSum[0]|dffs[9]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[111] -to "lpm_shiftreg:InData_RegMix[0]|dffs[0]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[112] -to "lpm_shiftreg:InData_RegMix[0]|dffs[10]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[113] -to "lpm_shiftreg:InData_RegMix[0]|dffs[11]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[114] -to "lpm_shiftreg:InData_RegMix[0]|dffs[1]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[115] -to "lpm_shiftreg:InData_RegMix[0]|dffs[2]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[116] -to "lpm_shiftreg:InData_RegMix[0]|dffs[3]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[117] -to "lpm_shiftreg:InData_RegMix[0]|dffs[4]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[118] -to "lpm_shiftreg:InData_RegMix[0]|dffs[5]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[119] -to "lpm_shiftreg:InData_RegMix[0]|dffs[6]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[120] -to "lpm_shiftreg:InData_RegMix[0]|dffs[7]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[121] -to "lpm_shiftreg:InData_RegMix[0]|dffs[8]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[122] -to "lpm_shiftreg:InData_RegMix[0]|dffs[9]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[123] -to "lpm_shiftreg:InData_RegMix[1]|dffs[0]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[124] -to "lpm_shiftreg:InData_RegMix[1]|dffs[10]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[125] -to "lpm_shiftreg:InData_RegMix[1]|dffs[11]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[126] -to "lpm_shiftreg:InData_RegMix[1]|dffs[1]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[127] -to "lpm_shiftreg:InData_RegMix[1]|dffs[2]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[128] -to "lpm_shiftreg:InData_RegMix[1]|dffs[3]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[129] -to "lpm_shiftreg:InData_RegMix[1]|dffs[4]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[130] -to "lpm_shiftreg:InData_RegMix[1]|dffs[5]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[131] -to "lpm_shiftreg:InData_RegMix[1]|dffs[6]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[132] -to "lpm_shiftreg:InData_RegMix[1]|dffs[7]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[133] -to "lpm_shiftreg:InData_RegMix[1]|dffs[8]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[134] -to "lpm_shiftreg:InData_RegMix[1]|dffs[9]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[135] -to "lpm_shiftreg:InData_RegMix[2]|dffs[0]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[136] -to "lpm_shiftreg:InData_RegMix[2]|dffs[10]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[137] -to "lpm_shiftreg:InData_RegMix[2]|dffs[11]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[138] -to "lpm_shiftreg:InData_RegMix[2]|dffs[1]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[139] -to "lpm_shiftreg:InData_RegMix[2]|dffs[2]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[140] -to "lpm_shiftreg:InData_RegMix[2]|dffs[3]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[141] -to "lpm_shiftreg:InData_RegMix[2]|dffs[4]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[142] -to "lpm_shiftreg:InData_RegMix[2]|dffs[5]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[143] -to "lpm_shiftreg:InData_RegMix[2]|dffs[6]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[144] -to "lpm_shiftreg:InData_RegMix[2]|dffs[7]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[145] -to "lpm_shiftreg:InData_RegMix[2]|dffs[8]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[146] -to "lpm_shiftreg:InData_RegMix[2]|dffs[9]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[147] -to "lpm_shiftreg:InData_RegMix[3]|dffs[0]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[148] -to "lpm_shiftreg:InData_RegMix[3]|dffs[10]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[149] -to "lpm_shiftreg:InData_RegMix[3]|dffs[11]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[150] -to "lpm_shiftreg:InData_RegMix[3]|dffs[1]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[151] -to "lpm_shiftreg:InData_RegMix[3]|dffs[2]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[152] -to "lpm_shiftreg:InData_RegMix[3]|dffs[3]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[153] -to "lpm_shiftreg:InData_RegMix[3]|dffs[4]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[154] -to "lpm_shiftreg:InData_RegMix[3]|dffs[5]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[155] -to "lpm_shiftreg:InData_RegMix[3]|dffs[6]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[156] -to "lpm_shiftreg:InData_RegMix[3]|dffs[7]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[157] -to "lpm_shiftreg:InData_RegMix[3]|dffs[8]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[158] -to "lpm_shiftreg:InData_RegMix[3]|dffs[9]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[159] -to "lpm_shiftreg:InData_Reg[0]|dffs[0]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[160] -to "lpm_shiftreg:InData_Reg[0]|dffs[10]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[161] -to "lpm_shiftreg:InData_Reg[0]|dffs[11]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[162] -to "lpm_shiftreg:InData_Reg[0]|dffs[1]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[163] -to "lpm_shiftreg:InData_Reg[0]|dffs[2]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[164] -to "lpm_shiftreg:InData_Reg[0]|dffs[3]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[165] -to "lpm_shiftreg:InData_Reg[0]|dffs[4]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[166] -to "lpm_shiftreg:InData_Reg[0]|dffs[5]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[167] -to "lpm_shiftreg:InData_Reg[0]|dffs[6]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[168] -to "lpm_shiftreg:InData_Reg[0]|dffs[7]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[169] -to "lpm_shiftreg:InData_Reg[0]|dffs[8]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[170] -to "lpm_shiftreg:InData_Reg[0]|dffs[9]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[171] -to "lpm_shiftreg:InData_Reg[1]|dffs[0]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[172] -to "lpm_shiftreg:InData_Reg[1]|dffs[10]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[173] -to "lpm_shiftreg:InData_Reg[1]|dffs[11]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[174] -to "lpm_shiftreg:InData_Reg[1]|dffs[1]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[175] -to "lpm_shiftreg:InData_Reg[1]|dffs[2]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[176] -to "lpm_shiftreg:InData_Reg[1]|dffs[3]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[177] -to "lpm_shiftreg:InData_Reg[1]|dffs[4]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[178] -to "lpm_shiftreg:InData_Reg[1]|dffs[5]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[179] -to "lpm_shiftreg:InData_Reg[1]|dffs[6]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[180] -to "lpm_shiftreg:InData_Reg[1]|dffs[7]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[181] -to "lpm_shiftreg:InData_Reg[1]|dffs[8]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[182] -to "lpm_shiftreg:InData_Reg[1]|dffs[9]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[183] -to "lpm_shiftreg:InData_Reg[2]|dffs[0]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[184] -to "lpm_shiftreg:InData_Reg[2]|dffs[10]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[185] -to "lpm_shiftreg:InData_Reg[2]|dffs[11]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[186] -to "lpm_shiftreg:InData_Reg[2]|dffs[1]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[187] -to "lpm_shiftreg:InData_Reg[2]|dffs[2]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[188] -to "lpm_shiftreg:InData_Reg[2]|dffs[3]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[189] -to "lpm_shiftreg:InData_Reg[2]|dffs[4]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[190] -to "lpm_shiftreg:InData_Reg[2]|dffs[5]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[191] -to "lpm_shiftreg:InData_Reg[2]|dffs[6]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[192] -to "lpm_shiftreg:InData_Reg[2]|dffs[7]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[193] -to "lpm_shiftreg:InData_Reg[2]|dffs[8]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[194] -to "lpm_shiftreg:InData_Reg[2]|dffs[9]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[195] -to "lpm_shiftreg:InData_Reg[3]|dffs[0]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[196] -to "lpm_shiftreg:InData_Reg[3]|dffs[10]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[197] -to "lpm_shiftreg:InData_Reg[3]|dffs[11]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[198] -to "lpm_shiftreg:InData_Reg[3]|dffs[1]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[199] -to "lpm_shiftreg:InData_Reg[3]|dffs[2]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[200] -to "lpm_shiftreg:InData_Reg[3]|dffs[3]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[201] -to "lpm_shiftreg:InData_Reg[3]|dffs[4]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[202] -to "lpm_shiftreg:InData_Reg[3]|dffs[5]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[203] -to "lpm_shiftreg:InData_Reg[3]|dffs[6]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[204] -to "lpm_shiftreg:InData_Reg[3]|dffs[7]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[205] -to "lpm_shiftreg:InData_Reg[3]|dffs[8]" -section_id auto_signaltap_0
+set_instance_assignment -name POST_FIT_CONNECT_TO_SLD_NODE_ENTITY_PORT acq_data_in[206] -to "lpm_shiftreg:InData_Reg[3]|dffs[9]" -section_id auto_signaltap_0
+set_global_assignment -name SLD_NODE_PARAMETER_ASSIGNMENT "SLD_DATA_BITS=207" -section_id auto_signaltap_0
+set_global_assignment -name SLD_NODE_PARAMETER_ASSIGNMENT "SLD_TRIGGER_BITS=207" -section_id auto_signaltap_0
+set_global_assignment -name SLD_NODE_PARAMETER_ASSIGNMENT "SLD_INVERSION_MASK=0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" -section_id auto_signaltap_0
+set_global_assignment -name SLD_NODE_PARAMETER_ASSIGNMENT "SLD_INVERSION_MASK_LENGTH=3130" -section_id auto_signaltap_0
+set_global_assignment -name SLD_NODE_PARAMETER_ASSIGNMENT "SLD_NODE_CRC_LOWORD=30302" -section_id auto_signaltap_0
+set_global_assignment -name SLD_NODE_PARAMETER_ASSIGNMENT "SLD_NODE_CRC_HIWORD=17340" -section_id auto_signaltap_0
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
