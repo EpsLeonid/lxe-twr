@@ -1,19 +1,17 @@
 TITLE "UpLink  v.2g" ;
 -- Файл содержит унифицированную реализацию медленного линка КМД-3 - 
--- модуль "UpLink", работающий на "нижестоящем" по иерархии узле ССД.
+-- модуль "UpLink", работающий на "нижестоящем" по иерархии узле ССД. 
 -- Данный модуль должен встраиваться в платы сбора данных и обеспечивать 
--- связь с "вышестоящим" по иерархии блоком - ППД.
-% Данная версия расширена узлами :
-"Пресэмплер" - автоматическая подстройка фазы, компенсирующая
-возможную разность задержки фазы и данных в ППД (селивановской коробке).
-%
+-- связь с "вышестоящим" по иерархии блоком - ППД. 
 -- Ver. 2e :  new feature added: During Data_Transmisson, after latching 
---            a Data_Word from buffer register "Reg_TxData" into "TxShifter"
+--            a Data_Word from buffer register "Reg_TxData" into "TxShifter" 
 --            the "Reg_TxData" is cleared, so if a new Data_Word is not 
---            supplied upon IORequest, the next word transmitted is ZERO.  
+--            supplied upon IORequest, the next word transmitted is ZERO. 
 -- Ver. 2g :  Real Parity_check of the [StBit,OpCode] bits is implemented 
 --            instead of 8-bit pattern comparation of [StBit,OpCode,+P,-P]
---            few minor code improvements are made   
+--            few minor improvements of the code have been made  
+-- Ver. 2i :  Outputs "RxOpCode_ld" and "RxInData_ld" are implemented.
+--            few minor improvements of the code have been made
 
 Include "CMD3_DAQ_LINK.inc";
 Include "PulseShaper.inc";
@@ -45,12 +43,14 @@ TxRx                : OUTPUT; -- направление передачи, управляет приемо-передатч
 -- Connections to User Project
 Clock               : input;    -- Global Clock used in user project, usually 100MHz 
 
-LinkMessage         : output;-- сообщение о приходе валидной команды, аналог сигнала FLT+ для "энергетических" каналов
+LinkMessage         : output; -- indication of receiving a VALID command
 IORq                : output; -- Data_ready or Data_required	
 RdWr_out            : output; -- =1(Wr) => Data_ready / =0(Rd) => Data_required
 
-OpCode_out[(Command_Size + Pause -1)..0]: output; -- получаемая-она_же-отправляемая команда
+OpCode_out[(Command_Size + Pause -1)..0]: output; --received Command, the same Command to be sent
+RxOpCode_ld         : output; -- 1*Clock strobe for latching OpCode
 InData_out[15..0]   : output; -- 1st word - "InData" 
+RxInData_ld         : output; -- 1*Clock strobe for latching InData
 CRC_Out[15..0]      : output;
 
 DataBus_in[15..0]   : input;    -- отправляемые с Внутренней Шины в Линк данные
@@ -93,28 +93,31 @@ SampleEnable        : node ; -- One FPGA Clock pulse which enables all data movi
 LinkBitCounter      : LPM_COUNTER with ( lpm_width=WORD_WIDTH, lpm_direction="up" ); -- счетчик числа принятых/переданных бит из/в линк
 LinkCycle           : node; -- Flag: Link_Cycle is in progress
 LinkActive          : node; -- Flag: Link_Cycle is in progress
-EndLinkCycle        : node; -- флаг окончания цикла приема/передачи из/в линк
-ChangeDirect        : node; -- сигнал о преключении направления передачи
+EndLinkCycle        : node; -- Flag: END of Link_Cycle
+ChangeDirect        : node; -- switches the direction of data transfer:  Rx/Tx
 
-RxOpCode_ld	        : node;
-RxInData_ld         : node;
-RxWord_ld           : node; -- сигнал конца фрейма (о приеме одного слова), 
+RxOpCode_rdy        : node; -- indicates that entire "OpCode" is in RxShifter
+RxInData_ld0,
+RxInData_rdy        : node; -- indicates that entire "InData" is in RxShifter
+RxWord_ld0,
+RxWord_rdy           : node; -- indicates that entire "Data" is in RxShifter
 -- высоким уровнем разрешает перезагрузку принятого слова из RxShifter в Reg_RxData
 -- LockRxData[WordsToGoDown + 1..0] : node ; -- выходы компараторов-формирователей, используются для явного определения схемы "ИЛИ"
 
 TxOpCode_ld         : node ;
-TxInData_ld         : node; -- высоким уровнем разрешает перезагрузку команды и первого слова в TxShifter
-TxWord_ld           : node; -- высоким уровнем разрешает перезагрузку слова из TxDataReg в TxShifter
+TxInData_ld0,
+TxInData_rdy        : node; -- enables loading the InData word into TxShifter
+TxWord_ld0,
+TxWord_rdy          : node; -- enables loading the DataWords into TxShifter
 CRC_ld              : node ;
 --LockTxWord[WordsToGoUp+1..0] : node ;-- выходы компараторов-формирователей
 
 --**************** Reciever Part ****************
 RxShifter       : LPM_SHIFTREG with (lpm_width=(WordSize + Pause + Pause), -- contains input data (running), sampled at NORMAL rate 
                                 lpm_direction="left"); --shift: q0 -> q[MSB]
-Reg_OpCode      : LPM_SHIFTREG with (lpm_width=(CommandSize + Pause), -- contains Command
-                                lpm_direction="left"); -- not important
-Reg_InData      : LPM_SHIFTREG with (lpm_width=WordSize, lpm_direction="left");  -- регистр номера события (первое слово после OpCode, влючая биты паузы )
-Reg_RxData      : LPM_SHIFTREG with (lpm_width=WordSize, lpm_direction="left");  -- регистр номера события (первое слово после OpCode, влючая биты паузы )
+Reg_OpCode[(CommandSize+Pause)-1..0]  : DFFE; --"register" contains Command
+Reg_InData[(WordSize-1)..0] : DFFE; --"register" contains InData (1st DWord after OpCode)
+Reg_RxData[(WordSize-1)..0] : DFFE; --"register" contains (current) Data word
 Parity          : node; -- trigger which counts the parity of [StBit,OpCode]
 HeaderErr       : node; --  
 HeaderError     : node; -- Flag to desable data movement, not TIMING of Link
@@ -159,8 +162,8 @@ CRC_Checker         : CRC_Gen with (PolinomPower = WordSize);
 BEGIN
 
 DEFAULTS
-	RxWord_ld = GND;
-	TxWord_ld = GND;
+	RxInData_ld0 = GND; RxWord_ld0 = GND;
+	TxInData_ld0 = GND; TxWord_ld0 = GND;
 END DEFAULTS;
 
 --============================================================================
@@ -203,6 +206,8 @@ LinkCycle   = SRFF(.S=RxShifter.q[CommandSize+Pause-1], --Starting in any case..
                     -- .. when StartBit has reached the q[MSB] of the RxShifter
                 .clrn=!(EndLinkCycle # Reset), .clk=Clock);
 LinkActive  = DFF (.D=LinkCycle, .clrn=!(EndLinkCycle # Reset), .clk=Clock);
+
+RxOpCode_rdy= LinkCycle & !LinkActive; --indicates that entire OpCode is in RxShifter
 %
 CASE RxShifter.q[(CommandSize+Pause-1)..0] IS
     WHEN  Read              => HeaderErr = GND;	-- Read 62 words from Object(s)
@@ -234,38 +239,40 @@ IF (   ( Parity == RxShifter.q[Pause+1])-- if actual  Parity = +P_bit..
     End IF;
 
 HeaderError = DFFE(.d=HeaderErr, .clk=Clock,    -- check validity...
-                .ena=(LinkCycle & !LinkActive), --when whole Command entered RxShifter
-                .clrn=!(EndLinkCycle # Reset)); --reset at the End of Cycle
+                .ena =RxOpCode_rdy,             -- when entire Command entered RxShifter
+                .clrn=!(EndLinkCycle # Reset)); -- reset at the End of Cycle
 
-Error	=	HeaderError OR RdWr_Error ;-- OR Marker_Error_Flag.q ;
+Error	= HeaderError OR RdWr_Error ;-- OR Marker_Error_Flag.q ;
 
--- Управление защелкиванием Reg_OpCode
-RxOpCode_ld  = !LinkActive ;
+RxOpCode_ld = DFF(.D=RxOpCode_rdy, .clk=Clock); --strobe for MainProject, for latching OpCode
 
 
 --********  The "reference" counter:  ********
 --    counts LinkClock periods => this counter's state defines all signals 
 --    which handle the Link operation
-LinkBitCounter.(clock,cnt_en)= (clock, (LinkActive AND SampleEnable));
+LinkBitCounter.(clock,cnt_en)= (Clock, (LinkActive AND SampleEnable));
 --LinkBitCounter.sclr = EndLinkCycle OR HeaderError OR Reset ;
 LinkBitCounter.sclr = EndLinkCycle OR Reset ;
 
--- Управление защелкиванием Reg_InData
+--Strobe for latching "InData" into Reg_InData
 IF (LinkBitCounter.q[(OrderOfBitNumber-1)..0] == (WordSize+Pause)) 	
-    THEN  RxInData_ld = VCC;    -- _/^\_  ONE pulse
-    ELSE  RxInData_ld = GND;
+    THEN  RxInData_ld0 = VCC;   -- _/^^^\_ - ONE pulse 4*Clock
+    ELSE  RxInData_ld0 = GND;
 End IF;
+RxInData_rdy= DFF(.D=RxInData_ld0, .clk=Clock) & SampleEnable;   -- ONE pulse, 1*Clock
+RxInData_ld = DFF(.D=RxInData_rdy, .clk=Clock); --strobe for MainProject, for latching InData
 
 -- Генерим схемы совпадения на моменты заполнения Rx shiftera и используем их 
 -- для записи Data_Word в буферный регистр приёмника
 FOR i in 1 to WordsToGoDown GENERATE
     IF (LinkBitCounter.q[OrderOfBitNumber-1..0] == ((WordSize+Pause)*(1+i))) 
-        Then  RxWord_ld = VCC;  -- _/^\_ - (WordsToGoDown) pulses
-        Else  RxWord_ld = GND;
+        Then  RxWord_ld0 = VCC;  -- _/^^^\_ - (WordsToGoDown) pulses
+        Else  RxWord_ld0 = GND;
     End IF;
 End GENERATE;
+RxWord_rdy  = DFF(.D=RxWord_ld0, .clk=Clock) & SampleEnable;-- (WordsToGoDown) pulses, 1*Clock
 
--- условие переключения с приема на передачу:
+-- The condition of switching from Receiving to Transmitting :
 IF  (LinkBitCounter.q[OrderOfBitNumber-1..0] == BitOfReverse)
     THEN ChangeDirect = VCC;            -- переключаемся с приема на передачу
     ELSE ChangeDirect = GND;
@@ -278,14 +285,14 @@ TxRx = SRFF(.s=ChangeDirect, .clk=Clock, .r=EndLinkCycle, .clrn=!Reset);
 
 -- Handling  the TxShifter  and  selection of Data to be transmitted:
 CASE LinkBitCounter.q[(OrderOfBitNumber-1)..0] IS
--- подсоединяем к Tx шифтеру выходы с Reg_OpCode
+-- 1) feed Reg_OpCode' outputs to Tx_Shifter
     WHEN  BitOfAnswerStart  =>  
                     TxOpCode_ld = VCC;  -- load OpCode
-            TxShifter.data[WordSize-1..(WordSize-(CommandSize+Pause))] = Reg_OpCode.q[]; 
--- подсоединяем к Tx шифтеру выходы с Reg_InData
+            TxShifter.data[WordSize-1..(WordSize-(CommandSize+Pause))] = Reg_OpCode[].q; 
+-- 2) feed Reg_InData' outputs to Tx_Shifter
 	WHEN  Bit_of_Header_UP_Reload => 
-                    TxInData_ld = VCC;  -- load InData
-                    TxShifter.data[] = Reg_InData.q[];
+                    TxInData_ld0 = VCC;  -- load InData
+                    TxShifter.data[] = Reg_InData[].q;
 -- подсоединяем к Tx шифтеру остальные данные
     --WHEN... comparators for strobing data loading are described below
     --                TxShifter.data[] = Reg_TxData.q[];
@@ -294,20 +301,21 @@ CASE LinkBitCounter.q[(OrderOfBitNumber-1)..0] IS
                     CRC_ld      = VCC;  -- load CRC
                     TxShifter.data[] = CRC_Checker.CRC_Parallel_Out[];
     WHEN OTHERS =>  TxOpCode_ld = GND;
-                    TxInData_ld = GND; 
-                    TxWord_ld   = GND; 
+                    TxInData_ld0= GND; 
                     CRC_ld      = GND;
                     TxShifter.data[] = Reg_TxData.q[];
 End CASE;
+TxInData_rdy= DFF(.D=TxInData_ld0, .clk=Clock) & SampleEnable;-- 1 pulse, 1*Clock
 
 -- Гененерим схемы совпадения на моменты перезагрузки данных в Tx shifter
 FOR i in 1 to (WordsToGoUp) GENERATE
     IF  LinkBitCounter.q[(OrderOfBitNumber-1)..0] == 
         ( BitOfAnswerStart + CommandSize+Pause+(WordSize+Pause)*i ) 
-        Then  TxWord_ld = VCC; -- формируем импульс для защелкивания данных в регистр Tx shifter
-        Else  TxWord_ld = GND;
+        Then  TxWord_ld0 = VCC; -- формируем импульс для защелкивания данных в регистр Tx shifter
+        Else  TxWord_ld0 = GND;
     End IF;
 End GENERATE;
+TxWord_rdy  = DFF(.D=TxWord_ld0, .clk=Clock) & SampleEnable;-- (WordsToGoDown) pulses, 1*Clock
 
 -- По концу работы линка запускаем формировку защитного промежутка	
 IF ( LinkBitCounter.q[OrderOfBitNumber-1..0] == (MaxNumberOfBit+1) ) 	
@@ -327,27 +335,24 @@ LinkMessage = DFF(.D=(LinkActive & !HeaderError), .clk=Clock)--Flag: VALID comma
 -- connections to user project are defined
 
 -- Reg_OpCode catches and holds the OpCode
-Reg_OpCode.data[(CommandSize+Pause-1)..0]= RxShifter.q[(CommandSize+Pause-1)..0];
-Reg_OpCode.(clock, enable, load)= (Clock, RxOpCode_ld, VCC); -- catch data when RxOpCodeReload=1 
-Reg_OpCode.(aclr, sclr)         = (Reset, EndLinkCycle );
+Reg_OpCode[(CommandSize+Pause-1)..0].D = RxShifter.q[(CommandSize+Pause-1)..0];
+Reg_OpCode[].(clk, ena) = (Clock, RxOpCode_rdy);
+--Reg_OpCode[].clrn   = !(EndLinkCycle # Reset);  -- reset at the End of Cycle
+OpCode_out[]        = Reg_OpCode[].q;           -- OpCode => user project
 
-OpCode_out[]    = Reg_OpCode.q[];           -- OpCode => user project
-
--- Reg_InData catches and holds the InData_word
+-- Reg_InData catches and holds the "InData" word
 -- Note: If Error, Reg_InData will be loaded with 0000, since RxShifter is cleared
-Reg_InData.data[(WordSize-1)..0]= RxShifter.q[(WordSize+Pause-1)..Pause]; 
-Reg_InData.(clock,enable, load) = (Clock, SampleEnable AND RxInData_ld, VCC);
-Reg_InData.(aclr, sclr)         = (Reset, EndLinkCycle%GND% );
-InData_out[15..0]   = Reg_InData.q[15..0];  -- InData => user project
---AddrBus_out[15..0] = Reg_InData.q[15..0]; -- InData используется как адрес 
-            -- только при операциях Rd/Wr  from/to  user project's objects
+Reg_InData[(WordSize-1)..0].D   = RxShifter.q[(WordSize+Pause-1)..Pause]; 
+Reg_InData[].(clk, ena) = (Clock, RxInData_rdy);
+--Reg_InData[].clrn   = !(EndLinkCycle # Reset)); -- reset at the End of Cycle
+InData_out[15..0]   = Reg_InData[].q;           -- InData => user project
 
 -- Reg_RxData catches and holds the data words coming in Command_Sequence
 -- Note: If Error, Reg_RxData will be loaded with 0000, since RxShifter is cleared
-Reg_RxData.data[(WordSize-1)..0]= RxShifter.q[(WordSize+Pause-1)..Pause]; 
-Reg_RxData.(clock, enable, load)= (Clock, SampleEnable AND RxWord_ld, VCC);
-Reg_RxData.(aclr, sclr)         = (Reset, EndLinkCycle );
-DataBus_out[15..0] = Reg_RxData.q[15..0];   -- Data received => user project
+Reg_RxData[(WordSize-1)..0].D   = RxShifter.q[(WordSize+Pause-1)..Pause]; 
+Reg_RxData[].(clk, ena) = (Clock, RxWord_rdy);
+Reg_RxData[].clrn   = !(EndLinkCycle # Reset);  -- reset at the End of Cycle
+DataBus_out[15..0]  = Reg_RxData[].q;           -- Data received => user project
 
 -- Buffer register: loads Data words to be transmitted from Data bus
 Reg_TxData.data[]  = DataBus_in[]; -- подключение буферного параллельного регистра Tx к интерфейсу пользователя
@@ -357,7 +362,7 @@ Reg_TxData.(clock, enable, load) = (Clock,
 Reg_TxData.(sclr, aclr) = (RegTxData_clr, (EndLinkCycle OR Reset));
 
 RegTxData_ld= Select AND DataStrobe AND RdWr_in;-- load data at "Write" operation when DataStrobe comes
-RegTxData_clr=DFF(.D=((TxInData_ld # TxWord_ld)& SampleEnable),-- 1clk pulse..
+RegTxData_clr=DFF(.D=(TxInData_rdy # TxWord_rdy),   -- 1clk pulse..
                 .clk=Clock);    --.. just after latching DataWord into TxShifter
 
 -- TxShifter: loads Data_Word to be transmitted and shifts it,
@@ -366,8 +371,8 @@ TxShifter.shiftin = GND; -- используется для создания паузы (сдвигаем на PAUSE т
 --TxShifter.data[] -- see above, in "Link Cycle operation Control" section
 TxShifter.(clock,enable)= (Clock, SampleEnable); -- сдвигаем данные для передачи в линк
 TxShifter.load  =   TxOpCode_ld
-                OR  TxInData_ld
-                OR  TxWord_ld
+                OR  TxInData_rdy
+                OR  TxWord_rdy
                 OR  CRC_ld ;    -- защелкиваем данные для передачи в линк
 
 LinkData_out = TRI(TxShifter.shiftout, TxRx); -- connection to BIDIR output
@@ -391,11 +396,11 @@ LinkData_out = TRI(TxShifter.shiftout, TxRx); -- connection to BIDIR output
 --   Data latching [Reg_TxData -> TxShifter] :  _________/:::::::::::::       
 --   IORq_set   __________________________________/^^^^^^^\_____________
 
-All_ld      = (RxInData_ld # RxWord_ld) OR (TxInData_ld # TxWord_ld);
+All_ld      = (RxInData_rdy # RxWord_rdy) OR (TxInData_rdy # TxWord_rdy);
 All_ld_del  = DFF(.D=All_ld, .clk=Clock);
 
 -- Req. for "Write": user should read data / Request: user MUST supply data
-IORq_set= All_Ld AND SampleEnable;  -- 1clk _/^\_ 
+IORq_set= All_Ld;--AND SampleEnable;  -- 1clk _/^\_ 
 IORq_rst= All_ld AND !All_ld_del;   -- 1clk _/^\_ just before new request
 
 IORq    =SRFF(.S=IORq_set, .clk=Clock,      -- Request for "Write" or "Read"
@@ -403,7 +408,7 @@ IORq    =SRFF(.S=IORq_set, .clk=Clock,      -- Request for "Write" or "Read"
             OR IORq_rst),                   -- .. OR just before new request
             .clrn=!(EndLinkCycle # Reset)) ;
 
-RdWr_out=SRFF(.S=(RxInData_ld # RxWord_ld), --"Write": Link -> user project
+RdWr_out=SRFF(.S=(RxInData_rdy # RxWord_rdy), --"Write": Link -> user project
             .R=((Select & DataStrobe)       -- Reset when data transfer done
             OR IORq_rst),                   -- .. OR just before new request
                .clk=Clock,
@@ -439,11 +444,11 @@ CRC_Out[]   = CRC_Checker.CRC_Parallel_Out[];
 --Test1 = CRC_Checker.Residue_OK ;
 Test1 = SampleEnable;
 Test2 = LinkActive ;--SampleEnable ;
-Test3 = RxOpCode_ld OR RxInData_ld OR RxWord_ld;
-Test4 = TxOpCode_ld ;
-Test5 = TxInData_ld ;
-Test6 = TxWord_ld;
-Test7 = RxShifter.q[2]; 
+Test3 = RxOpCode_rdy OR RxInData_rdy OR RxWord_rdy;
+Test4 = TxOpCode_ld OR TxInData_rdy ;
+Test5 = TxWord_rdy;--TxInData_ld ;
+Test6 = Prescaler_En.q ;--TxWord_ld;
+Test7 = RxShifter.q[2];
 Test8 = Parity;     --LinkBitCounter.q0;    --CRC_Checker.CRC_Serial_Out;
 
 END;

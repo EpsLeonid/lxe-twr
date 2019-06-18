@@ -551,10 +551,10 @@ END IF;
 
 --******** Main Counter of Digitization: *************************************
 --   counts #_of_Clock, defines all control signals' states
-DigitCt.(clock,cnt_en,clk_en,sclr) = (ADC_Clock, LinkMessage, VCC, InitSet OR AllReset.q); -- sets to #00 in the Beg-g_of_Cycle
+DigitCt.(clock,cnt_en,clk_en,sclr) = (ADC_Clock, !DigitEnd, VCC, !LinkMessage); -- sets to #00 in the Beg-g_of_Cycle
 
 IF ((DigitCt.q[] == TimeRead) %AND (LinkMessage == GND )%)   -- 
-	Then  DigitEnd   = VCC;     --
+	Then DigitEnd = VCC;     --
 End IF;
 
 -- Общий сброс
@@ -649,7 +649,7 @@ END IF;
 
 	WFhist_Eth.data[11..0] = RegSum[0].q[11..0];--ADCdata[9..0];--TestLinkCt.q[11..0];--
 --	WFhist_Eth.data[11..0] = GND;
-	WFhist_Eth.(wraddress[], wrclock, wren) = (WFhist_ADCCt_Eth.q[8..0], ADC_clock, WriteWFhist_Eth AND !DigitEnd);--AND SaveRam));
+	WFhist_Eth.(wraddress[], wrclock, wren) = (WFhist_ADCCt_Eth.q[8..0], ADC_clock, WriteWFhist_Eth %AND !DigitEnd%);--AND SaveRam));
 --	WFhist_Eth.(wraddress[], wrclock, wren) = (WFhist_ADCCt_Eth.q[8..0], ADC_clock, GND);--AND SaveRam));
 --	WFhist.(rdaddress[], rdclock, rden) = (DAQAddrBus_In[7..0], Flink_clock, ReadWFhist);--AND SaveRam));
 	WFhist_Eth.(rdaddress[], rdclock, rden) = (WFhist_RAMAddr_Eth[8..0], Bus_clock, ReadWFhist_Eth);--AND SaveRam));
@@ -659,14 +659,14 @@ END IF;
 	WFhist_ADCCt_Eth.clock = ADC_Clock;
 	WFhist_ADCCt_Eth.sclr = (EdgeSensing(.D= ReadWFhist_Eth, .clk=ADC_clock, .reset=RESET) );
 	WFhist_ADCCt_Eth.clk_en = VCC;
-	WFhist_ADCCt_Eth.cnt_en = WriteWFhist_Eth;
+	WFhist_ADCCt_Eth.cnt_en = WriteWFhist_Eth% AND !DigitEnd%;
 	
 	DelayReadWFhist_Eth.(d, clk, clrn) = (ReadWFhist_Eth, ADC_Clock, Reset);
 	EndTxWF_Eth.(d, clk, clrn) = (!ReadWFhist_Eth AND DelayReadWFhist_Eth.q, ADC_Clock, Reset);
 	WFSampleCt_Eth.(clock, clk_en, cnt_en, sclr) = (ADC_Clock, Thr_Trig.q AND !LinkMessage, VCC, EndTxWF_Eth.q);
 	
 	WFhist_RAMAddrBus_Eth.(data[], clock, load, enable) = (WFhist_ADCCt_Eth.q[], ADC_Clock, VCC, ReadWFhist_Eth AND !DelayReadWFhist_Eth.q);
-	WFhist_RAMAddr_Eth[8..0] = WFhist_RAMAddrBus_Eth.q[8..0] + 1 + DAQAddrBus_Eth_In[8..0]; -- выставление адреса в момент, когда начался сигнал с запасом в несколько тактов
+	WFhist_RAMAddr_Eth[8..0] = WFhist_RAMAddrBus_Eth.q[8..0] + 255 + DAQAddrBus_Eth_In[8..0]; -- выставление адреса в момент, когда начался сигнал с запасом в несколько тактов
 						-- значение счетчика при 			 счетчик перебора 
 						-- 		общем стопе					 адресов для посылки
 

@@ -238,8 +238,8 @@ CONTENT  BEGIN
  186        :     8284; -- / UDP packet' DWord31
  187        :     8285; --/  UDP packet' DWord32
 
- 188        :     8286;      UDP packet' DWord33
- 189        :     8287;      UDP packet' DWord34
+ 188        :     8286; --   UDP packet' DWord33
+ 189        :     8287; --   UDP packet' DWord34
 
 [190..191]  :    65535; -- B"1111111111111111"
 
@@ -341,7 +341,8 @@ CONTENT  BEGIN
 --                    CSR value   ==  10 (default value)
 	
  576        :      202; -- store OpCode==202 (for test)
- 577        :       10; -- write default value into CSR (for nothing)
+-- 577        :        8; -- write "Blocking" value into CSR (Mode="UDP", StartMulti=0)
+ 577        :        4; -- write "Blocking" value into CSR (Mode="CMD3", StartMulti=0)
 
  578        :       16; -- write  #16 (for test)
  579        :       32; -- write  #32 (for test)
@@ -361,7 +362,8 @@ CONTENT  BEGIN
 --  Write  2 words:   1 CSReg value (must be loaded same as in CommdLst_Wr101) 
 
  704        :      217; -- store OpCode (for test)  == 217
- 705        :       10; -- write default value =10 into CSR (for nothing)
+-- 705        :       10; -- write default value into CSR (Mode="UDP", StartMulti=1)
+ 705        :        6; -- write default value into CSR (Mode="CMD3", StartMulti=1)
 
  706        :      256; -- write  #256 (for test)
  707        :      512; -- write  #512 (for test)
