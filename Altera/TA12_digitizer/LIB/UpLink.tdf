@@ -232,17 +232,21 @@ Parity  = TFFE(.T=RxShifter.q[Pause+1], -- counts "1"s in [StBit,OpCode]
     -- [StBit,OpCode], т.е. биты чётности не учитываются - они будут использованы
     -- для проверки правильной чётности принятого OpCode.    
 
-IF (   ( Parity == RxShifter.q[Pause+1])-- if actual  Parity = +P_bit..
-    AND(!Parity == RxShifter.q[Pause]) )--   .. and  !Parity = -P_bit 
+IF (   ( Parity == RxShifter.q[Pause+1])        -- if actual  Parity = +P_bit..
+    AND(!Parity == RxShifter.q[Pause]) )        --   .. and  !Parity = -P_bit 
         Then  HeaderErr = GND;  -- No Error in Header
         Else  HeaderErr = VCC;  --  Error in Header
     End IF;
 
-HeaderError = DFFE(.d=HeaderErr, .clk=Clock,    -- check validity...
-                .ena =RxOpCode_rdy,             -- when entire Command entered RxShifter
+HeaderError = DFFE(.D=HeaderErr,                -- check validity...
+                .ena =RxOpCode_rdy, .clk=Clock, -- when entire Command entered RxShifter
                 .clrn=!(EndLinkCycle # Reset)); -- reset at the End of Cycle
 
-Error	= HeaderError OR RdWr_Error ;-- OR Marker_Error_Flag.q ;
+Error	= HeaderError OR RdWr_Error ;   -- OR Marker_Error_Flag.q ;
+
+LinkMessage = DFFE(.D=!HeaderErr,               --Flag: VALID command is being executed
+                .ena =RxOpCode_rdy, .clk=Clock, --check validity when entire Command entered RxShifter
+                .clrn=!(EndLinkCycle # Reset) ) ;
 
 RxOpCode_ld = DFF(.D=RxOpCode_rdy, .clk=Clock); --strobe for MainProject, for latching OpCode
 
@@ -325,9 +329,6 @@ End IF;
 DeadTimePulse.(Clk, Reset)= (Clock, Reset); -- _/^^^^\_
 
 EndLinkCycle= DeadTimePulse.q ; 
-
-LinkMessage = DFF(.D=(LinkActive & !HeaderError), .clk=Clock)--Flag: VALID command is being executed
-       %OR EndLinkCycle%;               -- Duration extended with DeadTime.
 
 --============================================================================
 --************ Registers and Bus Connections ************

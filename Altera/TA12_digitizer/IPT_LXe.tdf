@@ -10,7 +10,8 @@ Title "IFLT for LXe-Towers";
 --           aligned to all clocks (RxClk, TxClk and Clock100) is provided. 
 -- v.4j : With UpLink2i module, this Project provides Dispatching of Ethernet opera-
 --           tions when sending data related to all Link-Commands under high rate 
---           of Link-Commands arrivals. 
+--           of Link-Commands arrivals.  
+--           Outcoming packets protocols :  USB and CMD3 (selectable)
 
 INCLUDE "lpm_shiftreg.inc";
 INCLUDE "lpm_counter.inc";
@@ -578,8 +579,8 @@ Ether_TxUDPcycle: node; -- flag: UDP-packet is being transmitted
 
 TxCMD_Rq_StReg  : node; --request for starting a CMD3-Tx_cycle in reply for Link "StartNormal" Commd
 TxCMD_Rq_Other  : node; --request for starting a CMD3-Tx_cycle in reply for Link Commd other than "StartNormal"
-InitCMD_StReg   : SRFF; -- flag: CMD3 Tx_cycle upon "StartRegular" is to be started
-InitCMD_Other   : SRFF; -- flag: CMD3 Tx_cycle upon any other Command is to be started
+InitCMD_StReg   : node; -- flag: CMD3 Tx_cycle upon "StartRegular" is to be started
+InitCMD_Other   : node; -- flag: CMD3 Tx_cycle upon any other Command is to be started
 InitCMD         : node; -- initializes CMD3 Tx_cycle
 Ether_TxCMDcycle: node; -- flag : CMD3-Link-Command is being executed
 StartEthTx      : PulseShaper with (DurationCode=4);--Start any Ether' Tx_cycle
@@ -1769,7 +1770,7 @@ UDPtstSeries= SRFF(.S=(RxUDPDBlck AND           --\_Sets when a UDP packet ..
 
 UDPtstSerCt.(clock, clk_en) = (Clk25, VCC);     -- 
 UDPtstSerCt.cnt_en  = (UDPtstSeries & !UDPtstSerCt.eq0) 
-                    AND EdgeSensing(.D=Ether_TxUDPcycle, .clk=Clk25) ; 
+            AND EdgeSensing(.D=(Ether_TxUDPcycle # Ether_TxCMDcycle), .clk=Clk25) ; 
 UDPtstSerCt.sset    = !UDPtstSeries ;           -- counts down from =12 to =0
 
 
@@ -2014,13 +2015,13 @@ IF  InitUDP  Then
 End IF;
 
 --When starting a CMD3 Tx_cycle :
-IF    InitCMD_StReg.q  Then  -- IF OpCode=193, ..
+IF    InitCMD_StReg  Then   -- IF OpCode=193, ..
     Ether.TxLenTyp[16..1]  = H"CDCC";   -- Type="CMD3", value to be transmitted
     --Length of DataBlock = DBlkLengthRg.q[], and ..
     Ether.TxLength[12..1]  = (B"0", DBlkLengthRg[11..1].q); --.. Frame=(DataBlock+18B)
     -- Init.addr=60 => after sending OpCode and InData, the addr will be =62 =>
     EthNextAdr[].D=  60;    -- .. => entire DataBlock (Event' data) will be sent
-ELSIF InitCMD_Other.q  Then -- IF there is any other Command present, ..
+ELSIF InitCMD_Other  Then   -- IF there is any other Command present, ..
     Ether.TxLenTyp[16..1]  = H"CDCC";   -- Type="CMD3", value to be transmitted
     Ether.TxLength[12..1]  = 46;        -- Length of DBlock, Frame=(DBlock+18B)
     -- Init.addr=42 => after sending OpCode and InData, the addr will be =44 =>
@@ -2527,24 +2528,24 @@ TestCt.aclr				= !PowerUp0;    -- even if NO clock - Reset does occur
     TestTrg4 = DFF(.D=((Ether.RxDestAddr # Ether.RxSourAddr) 
                     & (EtherAdrCt.q[9..0] > 8)), .clk=RxClk);
 
---Test1 = Ether.TxPreamble;   --Ether.test[1];    --Ether.TX_EN;      -- Pin236
+Test1 = Ether.TX_EN;        --Ether.test[1];    --Ether.TX_EN;      -- Pin236
 --Test2 = Ether.IORq;         --Ether.RxWaitSFD;  --Ether.TxStFrmDel; -- Pin237
 --Test3 = EthAddrLd2;         --Ether.RxDestAddr; --Ether.test[2];    -- Pin238
 --Test4 = TxUDP_Rq_UDP;       --Ether.RxSourAddr; --Ether.test[3];    -- Pin239
---Test5 = TxUDP_Rq_Long;      --Ether.RxPkLenTyp; --Ether.test[4];    -- Pin240
-Test6 = Ether_TxUDPcycle;   --Ether.test[4];    --Ether.test[6];    -- Pin__4
-Test7 = EtherBusy;          --Ether.test[5];    --Ether.test[7];    -- Pin__5
+--Test5 = UDPtstSeries;       --Ether.RxPkLenTyp; --Ether.test[4];    -- Pin240
+--Test6 = Ether_TxUDPcycle;   --Ether.test[4];    --Ether.test[6];    -- Pin__4
+--Test7 = EtherBusy;          --Ether.test[5];    --Ether.test[7];    -- Pin__5
 --Test8 = EthBusyEnd;         --Ether.test[6];    --Ether.test[8];    -- Pin__6
 --Test9 = InitCMD;            --EthOpCode_saved;                      -- Pin__9
 --Test10= DataStrobe;         --DataIn_TA[0][9];                      -- Pin
 
-Test1 = CommdPut_en;        --Link_IFace.LinkMessage;   -- Pin236
+--Test1 = CommdPut_en;        --Link_IFace.LinkMessage;   -- Pin236
 Test2 = CommdPut_init;      --Link_IFace.RxInData_ld;   -- Pin237
 Test3 = CommdPut_ld;        --StartProc_Link;           -- Pin238
 Test4 = EtherTx_Rq;         --CommdStReg_Ini;           -- Pin239
-Test5 = EtherPauseCt.eq4;   --CommdOther_Ini;           -- Pin240
---Test6 = StackCt.q0;         --CommdPut_init;            -- Pin__4
---Test7 = StackCt.q1;         --CommdPut_ld;              -- Pin__5
+Test5 = Tx_Rq_StReg.q;      --CommdOther_Ini;           -- Pin240
+Test6 = TxCMD_Rq_StReg;     --CommdPut_init;            -- Pin__4
+Test7 = InitCMD_StReg;      --CommdPut_ld;              -- Pin__5
 Test8 = CommdMov_int;       --EtherTxRq_Link;           -- Pin__6
 Test9 = CommdMov_en;                                    -- Pin__9
 Test10= DataStrobe;                                     -- Pin
