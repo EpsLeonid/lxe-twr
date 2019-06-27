@@ -155,7 +155,7 @@ architecture particle_detector of DataSelect_V2 is
 					-- Waiting to receive data from buffer in data_input signal --
 					when S2 =>
 						count_buffer <= count_buffer+1;
-						if (count_buffer = 2) then
+						if (count_buffer = 3) then
 							autom <= S3;
 						end if;
 					

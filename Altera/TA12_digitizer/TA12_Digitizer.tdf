@@ -1,6 +1,7 @@
 Title "TA12 Module for LXeTower";
 -- v.2  : The project of digitizing module for LXe-calorimeter
 -- v.2b : The project of digitizing module for LXe-calorimeter with new Ether module for UDP
+-- v.2c : The project of digitizing module for LXe-calorimeter with new Ether module for UDP
 
 -- v.4d  : With ETHERNET_4b module, this Project supports ARP-request / ARP-reply, 
 --           and is capable of receiving UDP-packets and sending them back. 
@@ -468,6 +469,7 @@ DelayWriteWFEnd		: DFF;
 WriteWFCt			: lpm_counter with (lpm_width = 7, lpm_direction="up" ); -- 
 EnWriteWFHist		: SRFF;
 WriteDATA			: lpm_shiftreg with (lpm_width = 16, lpm_direction="unused");
+WrRdExtRAMAddr		: lpm_shiftreg with (lpm_width = 16, lpm_direction="unused");
 Write_ExtRamCt		: lpm_counter with (lpm_width = 16, lpm_direction="up" ); -- 
 StopWrite			: node;
 
@@ -1806,7 +1808,7 @@ Write_IntRamCt.clock = Clk100;
 Write_IntRamCt.clk_en  = VCC;
 Write_IntRamCt.sload = Tx_Rq_StReg.q;--OutData_rdy.q OR !ReadExtMem%!TxWFhist_Eth.q AND DelayWorkTime0.q%;
 Write_IntRamCt.data = EtherRam_DataAddr;
-Write_IntRamCt.cnt_en = Read_time.q AND !Write_IntRamCt.cout;
+Write_IntRamCt.cnt_en = DelayReadTime1.q AND !Write_IntRamCt.cout;
 --Write_IntRamCt.sclr = !Read_time.q;
 
 --============================================================================
