@@ -557,7 +557,7 @@ set_instance_assignment -name TPD_REQUIREMENT "2 ns" -from "lpm_shiftreg:InData_
 ## Signal Tap 
 
 set_global_assignment -name ENABLE_SIGNALTAP ON
-set_global_assignment -name USE_SIGNALTAP_FILE Ether.stp
+set_global_assignment -name USE_SIGNALTAP_FILE Ext_IntRAM.stp
 set_global_assignment -name SLD_NODE_CREATOR_ID 110 -section_id auto_signaltap_0
 set_global_assignment -name SLD_NODE_ENTITY_NAME sld_signaltap -section_id auto_signaltap_0
 set_instance_assignment -name CONNECT_TO_SLD_NODE_ENTITY_PORT acq_clk -to Clk100 -section_id auto_signaltap_0

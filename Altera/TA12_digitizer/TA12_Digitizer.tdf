@@ -761,11 +761,11 @@ ADC_SCLK		= GND;
 WriteDATA.data[] = GND;
 
 ExtRAM_Addr[15..0]		= GND;
-ExtRAM_OutEn			= GND;
-ExtRAM_CEn				= GND;
-ExtRAM_WriteEn			= GND;
-ExtRAM_LowerByteControl	= GND;
-ExtRAM_UpByteControl	= GND;
+ExtRAM_OutEn			= VCC;
+ExtRAM_CEn				= VCC;
+ExtRAM_WriteEn			= VCC;
+ExtRAM_LowerByteControl	= VCC;
+ExtRAM_UpByteControl	= VCC;
 
 Compres.buffer_DATA[11..0] = GND;
 Compres.reset_n = VCC;
@@ -1733,28 +1733,33 @@ OutData_rdy.(d,clk) = ((DelayWorkTime1.q AND !DelayWorkTime0.q), Clk100);
 
 Write_ExtRamCt.(clock, clk_en, cnt_en, aclr) = (Clk100, VCC, TxWFhist_Eth.q OR DelayWorkTime0.q, PwrUpSet2 # Reset);
 
+WrRdExtRAMAddr.(clock, enable, load) = (Clk100, VCC, VCC);
+
 If	(TxWFhist_Eth.q OR DelayWorkTime0.q) == VCC Then 
-	ExtRAM_Addr[15..0]		= Write_ExtRamCt.q[15..0];
-	ExtRAM_OutEn			= GND;
-	ExtRAM_CEn				= GND;
-	ExtRAM_WriteEn			= GND;
-	ExtRAM_LowerByteControl	= GND;--Clk50;--
-	ExtRAM_UpByteControl	= GND;--Clk50;--
+	WrRdExtRAMAddr.data[15..0]	= Write_ExtRamCt.q[15..0];
+	ExtRAM_OutEn				= GND;
+	ExtRAM_CEn					= GND;
+	ExtRAM_WriteEn				= GND;
+	ExtRAM_LowerByteControl		= GND;--Clk50;--
+	ExtRAM_UpByteControl		= GND;--Clk50;--
 Elsif ((Read_time.q == VCC) and (EtherLinkMessage.q == GND)) Then 
-	ExtRAM_Addr[15..0]		= EnRead_ExtRamCt.q[];
-	ExtRAM_OutEn			= GND;
-	ExtRAM_CEn				= GND;
-	ExtRAM_WriteEn			= VCC;
-	ExtRAM_LowerByteControl	= GND;--Clk50;--
-	ExtRAM_UpByteControl	= GND;--Clk50;--
+	WrRdExtRAMAddr.data[15..0]	= EnRead_ExtRamCt.q[];
+	ExtRAM_OutEn				= GND;
+	ExtRAM_CEn					= GND;
+	ExtRAM_WriteEn				= VCC;
+	ExtRAM_LowerByteControl		= GND;--Clk50;--
+	ExtRAM_UpByteControl		= GND;--Clk50;--
 							Else
-	ExtRAM_OutEn			= VCC;
-	ExtRAM_CEn				= VCC;
-	ExtRAM_WriteEn			= VCC;
-	ExtRAM_LowerByteControl	= VCC;
-	ExtRAM_UpByteControl	= VCC;
+	ExtRAM_OutEn				= VCC;
+	ExtRAM_CEn					= VCC;
+	ExtRAM_WriteEn				= VCC;
+	ExtRAM_LowerByteControl		= VCC;
+	ExtRAM_UpByteControl		= VCC;
+	WriteDATA.aclr				= VCC;
+	WrRdExtRAMAddr.aclr			= VCC;
 End IF;
 
+	ExtRAM_Addr[] = WrRdExtRAMAddr.q[];
 For i in 0 to 15 generate
 	ExtRAM_Data[i] = TRI (WriteDATA.q[i],TxWFhist_Eth.q);
 End generate;
