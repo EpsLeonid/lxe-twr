@@ -578,8 +578,6 @@ set_global_assignment -name AHDL_FILE TA12_Digitizer.tdf
 set_global_assignment -name SIGNALTAP_FILE "Input data.stp"
 set_global_assignment -name SIGNALTAP_FILE Digitizer.stp
 set_global_assignment -name SIGNALTAP_FILE Ext_IntRAM.stp
-set_global_assignment -name TIMEQUEST_MULTICORNER_ANALYSIS ON
-set_global_assignment -name TIMEQUEST_DO_CCPP_REMOVAL ON
 set_location_assignment PIN_Y8 -to RXD[0]
 set_location_assignment PIN_W8 -to RXD[1]
 set_location_assignment PIN_Y7 -to RXD[2]
@@ -1142,5 +1140,5 @@ set_global_assignment -name SLD_NODE_PARAMETER_ASSIGNMENT "SLD_NODE_CRC_LOWORD=5
 set_global_assignment -name SLD_NODE_PARAMETER_ASSIGNMENT "SLD_NODE_CRC_HIWORD=29373" -section_id auto_signaltap_0
 set_global_assignment -name SEARCH_PATH lib
 set_global_assignment -name SEARCH_PATH lib/buslvds
-set_global_assignment -name SEARCH_PATH "d:\\leon\\cmd-3\\electronics\\trunk\\altera\\lib"
+set_global_assignment -name SEARCH_PATH "d:\\users\\leon\\work\\cmd-3\\el_lxe\\electronics\\trunk\\altera\\lib"
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
