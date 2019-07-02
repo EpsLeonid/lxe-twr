@@ -19,6 +19,7 @@ CONSTANT	ADC_WIDTH = 12;	-- Кол-во битов АЦП
 CONSTANT	REG_SUM = 8;	-- Кол-во регистров для суммирования
 CONSTANT	MaxTime = 250;  -- Maximal Valid time (2.5mks)
 CONSTANT	TimeRead = 100;  -- Maximal Valid time (3mks)
+CONSTANT	WriteWFDelayTime = 220;  -- Maximal Valid time (3mks)
 CONSTANT	DelayTime= 30;	-- Время задержки в разностном сигнале
 --CONSTANT	PopravDelTime = 52; -- Время задержки = DelayTime - 22 (момент вычитывания значения амплитуды для поиска поправки)
 								-- **нужно протестировать на симуляторе и подобрать время задержки!!!
@@ -64,8 +65,9 @@ SUBDESIGN Digitizer_TA6
 		DAQAddrBus_In[8..0]		: input; -- адрес данных для передачи по быстрому линку, когда пришла команда чтения
 		DAQDataBusOut[11..0]	: output; -- данные для передачи по быстрому линку, когда пришла команда чтения
 
-		ReadWFhist_Eth			: input; -- neaiae ia ?oaiea oi?i neaiaeia
-		WriteWFhist_Eth			: input; -- neaiae, ?oi caienu oi?iu ?ac?aoaia
+		WriteWFEnd				: output; -- сигнал оканчания записи памяти с формой сиганала
+		ReadWFhist_Eth			: input; -- сигнал на чтение форм сигналов
+		WriteWFhist_Eth			: input; -- сигнал, что запись формы разрешена
 		DAQAddrBus_Eth_In[8..0]		: input; -- адрес данных для передачи по быстрому линку, когда пришла команда чтения
 		DAQDataBusOut_Eth[11..0]	: output; -- данные для передачи по быстрому линку, когда пришла команда чтения
 
@@ -104,37 +106,6 @@ VARIABLE
 	Im_ADCCt			:	LPM_COUNTER with (lpm_width = 8, lpm_direction="up" ); -- счетчик 
 --	Im_RAMAddrBus[7..0]	:	node;
 %
-	Hist_ADC			:	hist_ram;
-	Hist_ADCCt			:	LPM_COUNTER with (lpm_width = 9, lpm_direction="up" ); -- счетчик 
-	Hist_RAMAddrBus		:	lpm_shiftreg with (LPM_WIDTH = 9, LPM_DIRECTION="unused");
-	Hist_RAMAddr[9..0]	:	node;
-	StopWrite			:	DelayLine with (DelayCode = 200);
-	StopWrite_trig		:	SRFF;
---	SaveRam				:	node;
-
-	WFhist				:	WFhist_ram;
-	WFhist_ADCCt		:	LPM_COUNTER with (lpm_width = 9, lpm_direction="up" ); -- счетчик 
-	DelayReadWFhist,
-	EndTxWF				:	DFFE;
-	WFSampleCt			:	lpm_counter with (LPM_WIDTH = 9, LPM_DIRECTION="up"); -- счетчик с момент пересечения порога до прихода команды чтения.
-	WFhist_RAMAddrBus	:	lpm_shiftreg with (LPM_WIDTH = 9, LPM_DIRECTION="unused");
-	WFhist_RAMAddr[9..0]:	node;
-
-	WFhist_Eth				:	WFhist_ram;
-	WFhist_ADCCt_Eth		:	LPM_COUNTER with (lpm_width = 9, lpm_direction="up" ); -- n?ao?ee 
-	DelayReadWFhist_Eth,
-	EndTxWF_Eth				:	DFFE;
-	WFSampleCt_Eth			:	lpm_counter with (LPM_WIDTH = 9, LPM_DIRECTION="up"); -- n?ao?ee n iiiaio ia?ana?aiey ii?iaa ai i?eoiaa eiiaiau ?oaiey.
-	WFhist_RAMAddrBus_Eth	:	lpm_shiftreg with (LPM_WIDTH = 9, LPM_DIRECTION="unused");
-	WFhist_RAMAddr_Eth[9..0]:	node;
-
-%
-	Test_ADC			:	test_ram;
-	Test_ADCCt			:	LPM_COUNTER with (lpm_width = 8, lpm_direction="up" ); -- счетчик 
-%
---	Ram_Sel[2..0]       :   node; -- мультиплексор для выбора обращения к памятям
-	Ram_Sel				:	node; -- мультиплексор для выбора обращения к памятям
-
 	Threshold_Reg		:	lpm_shiftreg with (LPM_WIDTH = 14, LPM_DIRECTION="unused",LPM_SVALUE = Threshold_def); -- регистр уровня порога
 	SaveTReg			:	node;
 	Piedistal_Reg		:	lpm_shiftreg with (LPM_WIDTH = ADC_WIDTH, LPM_DIRECTION="unused",LPM_SVALUE = Piedistal_def); -- регистр уровня порога
@@ -223,7 +194,10 @@ VARIABLE
 	ZeroFound			:	node; -- сигнал о пересечении разности нуля (тройного пъедистала)
 	Value_Max_Done		:	node; -- сигнал об обнаружении изменения знака разницы между предыдущими и текущими сэмплами
 
-
+	WriteWFCt			:	lpm_counter with (lpm_width = 8, lpm_direction="up" ); -- 
+	Reg_WF_Cnt			:	lpm_shiftreg with (LPM_WIDTH = 8, LPM_DIRECTION="unused"); -- значение счетчика в момент пересечения нуля
+	Read_WFCnt			:	node;
+	
 	ENDthrFound			:	node; -- флаг на разрешение работы цикла заново 
 	ENDthr[13..0]		:	node;
 	
@@ -236,6 +210,38 @@ VARIABLE
 	
 	LinkMessage_reset	:	DFFE;
 	Reset_def			:	node;
+
+--## RAM-s setup
+	Hist_ADC			:	hist_ram;
+	Hist_ADCCt			:	LPM_COUNTER with (lpm_width = 9, lpm_direction="up" ); -- n?ao?ee 
+	Hist_RAMAddrBus		:	lpm_shiftreg with (LPM_WIDTH = 9, LPM_DIRECTION="unused");
+	Hist_RAMAddr[9..0]	:	node;
+	StopWrite			:	DelayLine with (DelayCode = 200);
+	StopWrite_trig		:	SRFF;
+--	SaveRam				:	node;
+
+	WFhist				:	WFhist_ram;
+	WFhist_ADCCt		:	LPM_COUNTER with (lpm_width = 9, lpm_direction="up" ); -- n?ao?ee 
+	DelayReadWFhist,
+	EndTxWF				:	DFFE;
+	WFSampleCt			:	lpm_counter with (LPM_WIDTH = 9, LPM_DIRECTION="up"); -- n?ao?ee n iiiaio ia?ana?aiey ii?iaa ai i?eoiaa eiiaiau ?oaiey.
+	WFhist_RAMAddrBus	:	lpm_shiftreg with (LPM_WIDTH = 9, LPM_DIRECTION="unused");
+	WFhist_RAMAddr[9..0]:	node;
+
+	WFhist_Eth				:	WFhist_ram;
+	WFhist_ADCCt_Eth		:	LPM_COUNTER with (lpm_width = 9, lpm_direction="up" ); -- n?ao?ee 
+	DelayReadWFhist_Eth,
+	EndTxWF_Eth				:	DFFE;
+	WFSampleCt_Eth			:	lpm_counter with (LPM_WIDTH = 9, LPM_DIRECTION="up"); -- n?ao?ee n iiiaio ia?ana?aiey ii?iaa ai i?eoiaa eiiaiau ?oaiey.
+	WFhist_RAMAddrBus_Eth	:	lpm_shiftreg with (LPM_WIDTH = 9, LPM_DIRECTION="unused");
+	WFhist_RAMAddr_Eth[9..0]:	node;
+
+%
+	Test_ADC			:	test_ram;
+	Test_ADCCt			:	LPM_COUNTER with (lpm_width = 8, lpm_direction="up" ); -- n?ao?ee 
+%
+--	Ram_Sel[2..0]       :   node; -- ioeuoeieaeni? aey auai?a ia?auaiey e iaiyoyi
+	Ram_Sel				:	node; -- ioeuoeieaeni? aey auai?a ia?auaiey e iaiyoyi
 
 	TestLinkCt			:	lpm_counter with (lpm_width = 20, lpm_direction="up"); -- oanoiaue n?ao?ee aey i?iaa?ee ia?aaa?e aaiiuo
 	Test_Reg[9..0]		:	lpm_shiftreg with (LPM_WIDTH = 16, LPM_DIRECTION="unused"); -- тестовые регистры для внешнего чтения 
@@ -603,7 +609,7 @@ END IF;
 %	Hist_ADC.data_a[11..0] = RegSum[0].q[];--Hist_ADCCt.q[];--ADCdata[11..0];--SUMMATOR.result[14..0];--SampleRAM.q_b[13..0];--(GND,GND,Div1.result[13..2]);--Sub.result[13..0];--
 	Hist_ADC.data_a[15..12] = GND;
 --	Hist_ADC.data_a[15] = SUB_ped.cout;
-	Hist_ADC.(address_a[], clock_a, wren_a) = (Hist_ADCCt.q[8..0], ADC_clock, !(StopWrite_trig.q OR LinkMessage));--AND SaveRam));
+	Hist_ADC.(address_a[], clock_a, wren_a) = (Hist_ADCCt.q[8..0], ADC_clock, !LinkMessage);--AND SaveRam));
 
 	StopWrite.(d,clk,reset) = (WriteRam, ADC_Clock, Reset);
 	StopWrite_trig.(s,r,clk) = (StopWrite.q, !WriteRAM, ADC_Clock);
@@ -613,9 +619,9 @@ END IF;
 	Hist_ADC.wren_b = DataBusStrobe and  DirectIn AND Select AND Ram_Sel;
 
 	Hist_ADCCt.clock = ADC_Clock;
-	Hist_ADCCt.sclr = (EdgeSensing(.D= LinkMessage, .clk=ADC_clock, .reset=RESET) & StopWrite_trig.q);
+	Hist_ADCCt.sclr = EdgeSensing(.D= LinkMessage, .clk=ADC_clock, .reset=RESET);
 	Hist_ADCCt.clk_en = VCC;
-	Hist_ADCCt.cnt_en = !StopWrite_trig.q OR !LinkMessage;
+	Hist_ADCCt.cnt_en = !LinkMessage;
 
 	Hist_RAMAddrBus.(data[], clock, load, enable) = (Hist_ADCCt.q[], ADC_Clock, VCC, EdgeSensing(.D=WriteRAM, .clk=ADC_Clock, .reset=RESET));
 	Hist_RAMAddr[8..0] = Hist_RAMAddrBus.q[8..0] + 1 + AddrBus_In[8..0]; -- выставление адреса в 0 для текущего значения счетчика адресса
@@ -646,6 +652,15 @@ END IF;
 	DAQDataBusOut[] = WFhist.q[];--TestLinkCt.q[9..0];--
 
 -----------------------------------------------------------
+
+	WriteWFCt.(clock,cnt_en,clk_en,sclr) = (ADC_Clock, Thr_Trig.q AND WriteWFhist_Eth, VCC, AllReset.q); -- счетчик тактов от момента пересечения порога до Общео стопа
+
+	IF ((WriteWFCt.q[] >= WriteWFDelayTime) %AND (LinkMessage == GND )%)   -- 
+		Then WriteWFEnd = VCC;     --
+		Else WriteWFEnd = GND;     --
+	End IF;
+
+	Reg_WF_Cnt.(data[], clock, load, enable, sclr) = (NSampleCt.q[7..0], ADC_Clock, VCC, LinkMessage, AllReset.q);--!Working);
 
 	WFhist_Eth.data[11..0] = RegSum[0].q[11..0];--ADCdata[9..0];--TestLinkCt.q[11..0];--
 --	WFhist_Eth.data[11..0] = GND;
@@ -696,7 +711,7 @@ END IF;
 IF(AddrBus_In[] >= 0 AND AddrBus_In[] <= 255)   THEN DataBusOut[15..0] = Im_ADC.q_b[]; RAM_Sel[0] = VCC;
 												ELSE RAM_Sel[0] = GND;
 END IF;%
--- 4352 - 4607 начальный адрес "памяти истории"
+-- 4096 - 4607 начальный адрес "памяти истории"
 IF(AddrBus_In[] >= 0 AND AddrBus_In[] <= 767) THEN DataBusOut[15..0] = Hist_ADC.q_b[]; RAM_Sel = VCC;
 													--DataBusOut[15..12] = GND;
 											  ELSE RAM_Sel = GND;
@@ -708,16 +723,22 @@ IF(AddrBus_In[] >= 512 AND AddrBus_In[] <= 767) THEN DataBusOut[] = Test_ADC.q_b
 END IF;
 %
 -- 4872 адрес регистра амплитуды
-IF(AddrBus_In[] == 776)  THEN Read_Amp			= DataBusStrobe and  DirectIn AND Select;
-							  DataBusOut[13..0]	= Max_Reg.q[];
+IF(AddrBus_In[] == 776)  THEN Read_Amp			 = DataBusStrobe and DirectIn AND Select;
+							  DataBusOut[13..0]	 = Max_Reg.q[];
 							  DataBusOut[15..14] = GND;
-                         ELSE Read_Amp			= GND; 
+                         ELSE Read_Amp			 = GND; 
+END IF;
+-- 4871 адрес регистра количества "сэмплов" от пересечения порога до общего стопа
+IF(AddrBus_In[] == 775)  THEN Read_WFCnt		 = DataBusStrobe and DirectIn AND Select;
+                              DataBusOut[7..0]	 = Reg_WF_Cnt.q[];
+							  DataBusOut[15..8]	 = GND;
+                         ELSE Read_WFCnt		 = GND; 
 END IF;
 -- 4870 адрес регистра номера "сэмпла" при пересечении нуля
-IF(AddrBus_In[] == 774)  THEN Read_Zero_Cnt					= DataBusStrobe and  DirectIn AND Select;
-                              DataBusOut[10..0] = Reg_Zero_Cnt.q[];
+IF(AddrBus_In[] == 774)  THEN Read_Zero_Cnt		 = DataBusStrobe and DirectIn AND Select;
+                              DataBusOut[10..0]	 = Reg_Zero_Cnt.q[];
 							  DataBusOut[15..11] = GND;
-                         ELSE Read_Zero_Cnt					= GND; 
+                         ELSE Read_Zero_Cnt		 = GND; 
 END IF;
 
 --=========================================================================================

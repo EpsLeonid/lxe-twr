@@ -1551,7 +1551,7 @@ FOR i IN 0 TO (NUM_CH-1) GENERATE
 	TA12Channel[i].DataBusStrobe		= DataStrobe ;
 	TA12Channel[i].DirectIn			= RW;
 	TA12Channel[i].Select			= DevSel[11+i].q ;
-	TA12Channel[i].LinkMessage		= Link_IFace.LinkMessage OR Test_in;--;
+	TA12Channel[i].LinkMessage		= Link_IFace.LinkMessage OR Test_in;--St_ADC_Link;--
 	TA12Channel[i].WriteRAM			= VCC;--SelCommdList_Trig.q;--SelCommdList_Count.q;
 
 END GENERATE;
@@ -1587,7 +1587,7 @@ End generate;
 
 WriteWFCt.(clock,cnt_en,clk_en,sclr) = (Clk100, (!WriteWFEnd AND StartWFTx_Eth), VCC, !StartWFTx_Eth); -- sets to #00 in the Beg-g_of_Cycle
 
-IF ((WriteWFCt.q[] == WriteWFDelayTime) %AND (LinkMessage == GND )%)   -- 
+IF ((WriteWFCt.q[] >= WriteWFDelayTime) AND (TA12Channel[0].WriteWFEnd == VCC OR TA12Channel[1].WriteWFEnd == VCC))   -- 
 	Then WriteWFEnd = VCC;     --
 	Else WriteWFEnd = GND;     --
 End IF;
