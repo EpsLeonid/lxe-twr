@@ -88,7 +88,7 @@ VARIABLE
 	DigitInit1				: node; -- stretcher of "DigitInit" signal
 	DigitInit2,
 	DigitInit3				: node; -- 2-clock _/^^\_ in the beginning of Cycle
---	Working					: node; -- Flag: Cycle in progress, declared as Output
+	DigitWork				: node; -- Flag: Cycle in progress, declared as Output
 	InitSet					: node; -- 1-clock _/^\_ for initializing the counters
 	DigitEnd				: node; -- _/^^\_ at the end of Loading Cycle
 
@@ -271,17 +271,17 @@ END DEFAULTS;
 --============================================================================
 --************ Cycle proceeding units ****************************************
 -- Digitizing_Cycle Initializing Circuitry 
-DigitInit1  = SRFF(.s=GND, .r=DigitInit2, 						--\ "DigitInit" 
+DigitInit1	= SRFF(.s=GND, .r=DigitInit2, 						--\ "DigitInit" 
                    .clk=ADC_Clock, .clrn=!Reset,				-- > stretcher
-                   .prn=!(DigitInit & !DigitInit2 & !Working)); --/
+                   .prn=!(DigitInit & !DigitInit2 & !DigitWork)); --/
 --DigitInit2  = SRFF(.s=(DigitInit1 AND Sync),                    -- aligned to PHASE
 --                   .clk=Clock, .r=DigitInit3,.clrn=!Reset);     -- 2-clock _/^^^\_
-DigitInit2  = DFF (.d=DigitInit1, .clk=ADC_Clock,.clrn=!Reset); -- 2-clock   _/^^^\_
-DigitInit3  = DFF (.d=DigitInit2, .clk=ADC_Clock,.clrn=!Reset); -- 2-clock     _/^^^\_
+DigitInit2	= DFF (.d=DigitInit1, .clk=ADC_Clock,.clrn=!Reset); -- 2-clock   _/^^^\_
+DigitInit3	= DFF (.d=DigitInit2, .clk=ADC_Clock,.clrn=!Reset); -- 2-clock     _/^^^\_
 
-Working     = SRFF(.s=DigitInit2,.clk=ADC_Clock, .r=AllReset.q,   -- level       _/^^^^  ^^^^\_
+DigitWork	= SRFF(.s=DigitInit2,.clk=ADC_Clock, .r=AllReset.q,   -- level       _/^^^^  ^^^^\_
                    .clrn=!Reset);
-InitSet     = DigitInit3 AND DigitInit2 ;                   	-- 1-clock     _/^^\_
+InitSet		= DigitInit3 AND DigitInit2 ;                   	-- 1-clock     _/^^\_
 
 DigitInit4.(d, clk, clrn) = (DigitInit2, ADC_Clock, !Reset); -- 1-clock   _/^^^\_
 DigitInit5.(d, clk, clrn) = (DigitInit4, ADC_Clock, !Reset); -- 1-clock   _/^^^\_
@@ -383,7 +383,8 @@ IF((SUMM[13..0] > Threshold_Reg.q[13..0]) AND (SUMM[13] == GND) AND (Thr_Trig.q 
 																						 ELSE Value_Th = GND;
 END IF; 
 	Thr_Trig.(S,clk,R,clrn) = (Value_Th, ADC_Clock, Reset, !AllReset.q);--Working); -- флаг превышения порога
-
+	Working = SRFF(.S = Value_Th, .clk = ADC_Clock, .R =  Reset, .clrn = !AllReset.q); -- флаг превышения порога
+	
 --*************** "Constant-Fraction Discriminator" section *******************************
 -- Запись и определение памяти
 	SampleRAM.data_a[13..0] = SUMM[13..0];
@@ -584,7 +585,7 @@ END IF;
 
 	AllReset.S = TimeOutSch %OR DigitEnd %OR Reset OR EdgeSensing(.D=!WriteRAM, .clk=ADC_Clock, .reset=RESET);
 	AllReset.clk = ADC_Clock;
-	AllReset.R = (ENDthrFound AND DelayReg[1].q) OR !Working; -- работа разрешается после пересечения малого порога при уменьшении сигнала
+	AllReset.R = (ENDthrFound AND DelayReg[1].q) OR !DigitWork; -- работа разрешается после пересечения малого порога при уменьшении сигнала
 
 DelayReg[0].(d, clk) = (AllReset.q, ADC_Clock);
 DelayReg[1].(d, clk) = (DelayReg[0].q, ADC_Clock);
@@ -786,7 +787,7 @@ TestLinkCt.aclr				= GND;    -- even if NO clock - Reset does occur
 	test8[] = (GND,GND,SampleRAM_AddrCnt2.q[]);--(GND,GND,Popravka_AddrCnt.q[]);--NSampleCt.q[];
 
 --=========================================================================================
-	Test_Reg[9..0].(clock,load,enable,sclr) = (ADC_Clock,VCC, GND,!Working);
+	Test_Reg[9..0].(clock,load,enable,sclr) = (ADC_Clock,VCC, GND,!DigitWork);
 --	Test_Reg[8..0].(clock,load,sclr) = (ADC_Clock,VCC,!Working);
 	Test_Reg[9..0].data[] = GND;
 %
