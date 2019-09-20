@@ -1,4 +1,4 @@
-<session jtag_chain="USB-Blaster [USB-0]" jtag_device="@1: EP3C40/EP4CE30/EP4CE40 (0x020F40DD)" sof_file="TA12_Digitizer.sof" top_level_entity="TA12_Digitizer">
+<session jtag_chain="USB-Blaster [USB-0]" jtag_device="" sof_file="TA12_Digitizer.sof" top_level_entity="TA12_Digitizer">
   <display_tree gui_logging_enabled="0">
     <display_branch instance="auto_signaltap_0" log="USE_GLOBAL_TEMP" signal_set="USE_GLOBAL_TEMP" trigger="USE_GLOBAL_TEMP"/>
   </display_tree>
@@ -1319,7 +1319,7 @@
           <net is_signal_inverted="no" name="ReadExtMem"/>
         </setup_view>
       </presentation>
-      <trigger CRC="AEB8F5B" attribute_mem_mode="false" gap_record="true" is_expanded="true" name="trigger: 2019/06/19 14:56:38  #1" position="pre" power_up_trigger_mode="false" record_data_gap="true" segment_size="1" storage_mode="off" storage_qualifier_disabled="no" storage_qualifier_port_is_pin="true" storage_qualifier_port_name="auto_stp_external_storage_qualifier" storage_qualifier_port_tap_mode="classic" trigger_in="rising edge" trigger_out="active high" trigger_type="circular">
+      <trigger CRC="AEB8F5B" attribute_mem_mode="false" gap_record="true" is_expanded="true" name="trigger: 2019/06/19 14:56:38  #1" position="pre" power_up_trigger_mode="false" record_data_gap="true" segment_size="1" storage_mode="off" storage_qualifier_disabled="no" storage_qualifier_port_is_pin="false" storage_qualifier_port_name="auto_stp_external_storage_qualifier" storage_qualifier_port_tap_mode="classic" trigger_in="rising edge" trigger_out="active high" trigger_type="circular">
         <power_up_trigger position="pre" storage_qualifier_disabled="no" trigger_in="dont_care" trigger_out="active high"/>
         <events use_custom_flow_control="no">
           <level enabled="yes" name="condition1" type="basic">
@@ -1353,7 +1353,9 @@
             
             
             
+            
             <pwr_up_transitional>11111111111111111111111111111111111111111111111111111111111111111111111111111111100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+            
             
             
             
@@ -1381,26 +1383,7 @@
         </log>
       </trigger>
     </signal_set>
-    <position_info>
-      <single attribute="active tab" value="0"/>
-      <single attribute="data hierarchy Digitizer_TA6:TA12Channel[1]" value="1"/>
-      <single attribute="data hierarchy lpm_shiftreg:InData_RegMix[1]" value="1"/>
-      <single attribute="data hierarchy lpm_shiftreg:InData_Reg[1]" value="1"/>
-      <single attribute="data hierarchy root" value="3"/>
-      <single attribute="data horizontal scroll position" value="1366"/>
-      <single attribute="data vertical scroll position" value="24"/>
-      <single attribute="setup hierarchy Digitizer_TA6:TA12Channel[1]" value="1"/>
-      <single attribute="setup hierarchy lpm_shiftreg:InData_RegMix[1]" value="1"/>
-      <single attribute="setup hierarchy lpm_shiftreg:InData_Reg[1]" value="1"/>
-      <single attribute="setup hierarchy root" value="3"/>
-      <single attribute="setup horizontal scroll position" value="0"/>
-      <single attribute="setup vertical scroll position" value="26"/>
-      <single attribute="zoom level denominator" value="1"/>
-      <single attribute="zoom level numerator" value="64"/>
-      <single attribute="zoom offset denominator" value="1"/>
-      <single attribute="zoom offset numerator" value="2016"/>
-    </position_info>
-    <signal_set global_temp="1" name="signal_set: 2019/06/27 15:13:55  #0">
+    <signal_set global_temp="1" is_expanded="true" name="signal_set: 2019/06/27 15:13:55  #0">
       <clock name="Clk100" polarity="posedge" tap_mode="classic"/>
       <config ram_type="M4K" reserved_data_nodes="0" reserved_storage_qualifier_nodes="0" reserved_trigger_nodes="0" sample_depth="2048" trigger_in_enable="yes" trigger_in_node="UpLink:Link_IFace|LinkMessage" trigger_in_tap_mode="classic" trigger_out_enable="no"/>
       <top_entity/>
@@ -2872,7 +2855,7 @@
           <net is_signal_inverted="no" name="WriteWFEnd"/>
         </setup_view>
       </presentation>
-      <trigger CRC="72BDE4A4" attribute_mem_mode="false" gap_record="true" global_temp="1" name="trigger: 2019/06/27 15:13:55  #1" position="pre" power_up_trigger_mode="false" record_data_gap="true" segment_size="1" storage_mode="off" storage_qualifier_disabled="no" storage_qualifier_port_is_pin="true" storage_qualifier_port_name="auto_stp_external_storage_qualifier" storage_qualifier_port_tap_mode="classic" trigger_in="rising edge" trigger_out="active high" trigger_type="circular">
+      <trigger CRC="72BDE4A4" attribute_mem_mode="false" gap_record="true" global_temp="1" is_expanded="true" name="trigger: 2019/06/27 15:13:55  #1" position="pre" power_up_trigger_mode="false" record_data_gap="true" segment_size="1" storage_mode="off" storage_qualifier_disabled="no" storage_qualifier_port_is_pin="false" storage_qualifier_port_name="auto_stp_external_storage_qualifier" storage_qualifier_port_tap_mode="classic" trigger_in="rising edge" trigger_out="active high" trigger_type="circular">
         <power_up_trigger position="pre" storage_qualifier_disabled="no" trigger_in="dont_care" trigger_out="active high"/>
         <events use_custom_flow_control="no">
           <level enabled="yes" name="condition1" type="basic">
@@ -2903,7 +2886,9 @@
         </events>
         <storage_qualifier_events>
           <transitional>1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111100000000000000000000000000000
+            
             <pwr_up_transitional>1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111100000000000000000000000000000
+            
             </pwr_up_transitional>
           </transitional>
           <storage_qualifier_level type="basic">
@@ -2928,6 +2913,25 @@
         </log>
       </trigger>
     </signal_set>
+    <position_info>
+      <single attribute="active tab" value="0"/>
+      <single attribute="data hierarchy Digitizer_TA6:TA12Channel[1]" value="1"/>
+      <single attribute="data hierarchy lpm_shiftreg:InData_RegMix[1]" value="1"/>
+      <single attribute="data hierarchy lpm_shiftreg:InData_Reg[1]" value="1"/>
+      <single attribute="data hierarchy root" value="3"/>
+      <single attribute="data horizontal scroll position" value="0"/>
+      <single attribute="data vertical scroll position" value="27"/>
+      <single attribute="setup hierarchy Digitizer_TA6:TA12Channel[1]" value="1"/>
+      <single attribute="setup hierarchy lpm_shiftreg:InData_RegMix[1]" value="1"/>
+      <single attribute="setup hierarchy lpm_shiftreg:InData_Reg[1]" value="1"/>
+      <single attribute="setup hierarchy root" value="3"/>
+      <single attribute="setup horizontal scroll position" value="0"/>
+      <single attribute="setup vertical scroll position" value="26"/>
+      <single attribute="zoom level denominator" value="1"/>
+      <single attribute="zoom level numerator" value="1"/>
+      <single attribute="zoom offset denominator" value="1"/>
+      <single attribute="zoom offset numerator" value="129024"/>
+    </position_info>
   </instance>
   <mnemonics/>
   <static_plugin_mnemonics/>
@@ -6017,6 +6021,7 @@ ntPraZv+hU0YHmpxHxOe4dM+Brj/zY21Wu0d767V3qw+vveGm95e8/TL9+7/
     
     
     
+    
     </embedded_sof_file>
   </embedded_sof_files>
   <global_info>
@@ -6024,6 +6029,6 @@ ntPraZv+hU0YHmpxHxOe4dM+Brj/zY21Wu0d767V3qw+vveGm95e8/TL9+7/
     <single attribute="lock mode" value="36110"/>
     <single attribute="sof manager hidden" value="0"/>
     <multi attribute="column width" size="23" value="34,34,191,74,68,70,88,88,98,98,88,88,110,101,101,101,101,101,101,101,101,107,10"/>
-    <multi attribute="window position" size="9" value="1516,962,400,212,0,50,86,0,0"/>
+    <multi attribute="window position" size="9" value="1532,884,400,212,0,50,86,0,0"/>
   </global_info>
 </session>
