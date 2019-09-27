@@ -107,7 +107,7 @@ Constant TestRAM_Size			= 256;		-- 256words * 16bits
 Constant ADC_Bits				= 12;	-- Number of ADC bits
 Constant NUM_CH					= 4;	-- Number of channels on the board
 CONSTANT TA_Bits				= 10;	-- Number of transfered bits to IPT_LXe
-constant WriteWFDelayTime		= 100;	-- Time for write Waveform after LinkMessage (1mks)
+constant WriteWFDelayTime		= 50;	-- Time for write Waveform after LinkMessage (1mks)
 
 -- Map of Objects' addresses in Ethernet 
 
@@ -1587,17 +1587,21 @@ End generate;
 
 WriteWFCt.(clock,cnt_en,clk_en,sclr) = (Clk100, (!WriteWFEnd AND StartWFTx_Eth), VCC, !StartWFTx_Eth); -- sets to #00 in the Beg-g_of_Cycle
 
-IF (TA12Channel[0].Working OR TA12Channel[1].Working) 
-	Then 
-		IF ((WriteWFCt.q[] >= WriteWFDelayTime) AND (TA12Channel[0].WriteWFEnd == VCC OR TA12Channel[1].WriteWFEnd == VCC))   -- 
-			Then WriteWFEnd = VCC;     --
-			Else WriteWFEnd = GND;     --
-		END IF;
-	Else 
-		IF (WriteWFCt.q[] >= WriteWFDelayTime)
-			Then WriteWFEnd = VCC;     --
-			Else WriteWFEnd = GND;     --
-		END IF;
+--IF (TA12Channel[0].Working OR TA12Channel[1].Working) 
+--	Then 
+--		IF ((WriteWFCt.q[] >= WriteWFDelayTime) AND (TA12Channel[0].WriteWFEnd == VCC OR TA12Channel[1].WriteWFEnd == VCC))   -- 
+--			Then WriteWFEnd = VCC;     --
+--			Else WriteWFEnd = GND;     --
+--		END IF;
+--	Else 
+--		IF (WriteWFCt.q[] >= WriteWFDelayTime)
+--			Then WriteWFEnd = VCC;     --
+--			Else WriteWFEnd = GND;     --
+--		END IF;
+--End IF;
+IF ((WriteWFCt.q[] == WriteWFDelayTime) %AND (LinkMessage == GND )%)   -- 
+	Then WriteWFEnd = VCC;     --
+	Else WriteWFEnd = GND;     --
 End IF;
 
 --DelayWriteWFEnd.(d,clk) = (WriteWFEnd, Clk100);
@@ -2989,9 +2993,9 @@ TestRAM.(address[7..0], data[],    clock,    wren                     ) =
                     & (EtherAdrCt.q[9..0] > 8)), .clk=RxClk);
 
 --Test1 = Ether.TxPreamble;   --Ether.test[1];    --Ether.TX_EN;      -- Pin236
-Test2 = EthBusyEnd;--DDR_InLVDS[1][1].dataout_l;--EthAddrLd2;         --Ether.RxDestAddr; --Ether.test[2];    -- Pin238
-Test3 = Ether_TxCMDcycle;--TxUDP_Rq;           --Ether.RxSourAddr; --Ether.test[3];    -- Pin239
-Test4 = Ether.TxPkLenTyp;--InitUDP;            --Ether.RxPkLenTyp; --Ether.test[4];    -- Pin240
+Test2 = Link_IFace.LinkMessage;--EthBusyEnd;--DDR_InLVDS[1][1].dataout_l;--EthAddrLd2;         --Ether.RxDestAddr; --Ether.test[2];    -- Pin238
+Test3 = EnWriteWFHist.q;--Ether_TxCMDcycle;--TxUDP_Rq;           --Ether.RxSourAddr; --Ether.test[3];    -- Pin239
+Test4 = TxWFhist_Eth.q;--Ether.TxPkLenTyp;--InitUDP;            --Ether.RxPkLenTyp; --Ether.test[4];    -- Pin240
 Test5 = AccessGrtd;--Read_time.q;--EtherBusy;    --Ether.test[6];    -- Pin__4
 Test6 = Ether.IORq;--Tx_Rq_StReg.q;--EtherPauseCt.eq0;    --Ether.test[7];    -- Pin__5
 Test7 = (TxDataBus[]== 193);--EthBusyEnd;         --Ether.test[6];    --Ether.test[8];    -- Pin__6
