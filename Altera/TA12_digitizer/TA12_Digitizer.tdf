@@ -2025,53 +2025,108 @@ Reg_BaseAddr.(load, aclr)   = (VCC, RESET);
 
 --When there is NO Link_cycle in progress, Link_IFace.OpCode_out[]=00 ;  
 --Link_IFace.OpCode_out[] changes from =00 to valid OpCode simultaneously with _/ of LinkMessage
+--IF (Link_IFace.LinkMessage == VCC)  then -- If VALID command received, 
+--    CASE  Link_IFace.OpCode_out[(CommandSize+Pause-1)..0] is -- recognizing the particular Operation :
+--        WHEN  Read   => BaseAd[]        = 50;   --#145-"Read" (=<8words) from Objects 
+--                        StProc_Link     = VCC;
+--        WHEN  Write  => BaseAd[]        =126;   --#154-"Write"(=<4words) to Objects
+--                        StProc_Link     = VCC;
+--        WHEN  Read62 => BaseAd[]        =158;   --#130-"Read62": Read 62words from Object(s)
+--                        StProc_Link     = VCC;
+--        WHEN  Write8 => BaseAd[]        =174;   --#137-"Write8": Write 8 words  to Object(s)
+--                        StProc_Link     = VCC;
+--
+--        WHEN  StartRegul     =>     -- #193-"START_Regular"        (Read   Lst0)
+--                        BaseAd[]        =  2;           --Program: CommdList_Rd000
+--                        StProc_Link     = VCC;          --Start up the Program
+--                        St_ADC_Link     = VCC;          --Start up ADC
+--        WHEN  CommdLst_Wr001 =>     -- #202-"Blocking_Begin"       (Write  Lst1)
+--                        BaseAd[]        = 72;           --Program: CommdList_Wr001
+--                        StProc_Link     = VCC;          --Start up the Program
+--
+--        WHEN  StartAlter     =>     -- #210-"START_Alternative"    (Read   Lst2)
+--                        BaseAd[]        =  6;           --Program: CommdList_Rd010
+--                        StProc_Link     = VCC;          --Start up the Program
+--                        --St_ADC_Link     = VCC;          --Start up ADC
+--        WHEN  CommdLst_Wr011 =>     -- #217-"Blocking_End"         (Write  Lst3)
+--                        BaseAd[]        = 78;           --Program: CommdList_Wr011
+--                        StProc_Link     = VCC;          --Start up the Program
+--
+--        WHEN  CommdLst_Rd100 =>     -- #226-"Read  by CommdLst100" (Read   Lst4)
+--                        BaseAd[]        = 10;           --Program: CommdList_Rd100
+--                        StProc_Link     = VCC;          --Start up the Program
+--        WHEN  CommdLst_Wr101 =>     -- #233-"Write by CommdLst101" (Write  Lst5)
+--                        BaseAd[]        = 84;           --Program: CommdList_Wr101
+--                        StProc_Link     = VCC;          --Start up the Program
+--
+--        WHEN  CommdLst_Rd110 =>     -- #241-"Read  by CommdLst110" (Read   Lst6)
+--                        BaseAd[]        = 14;           --Program: CommdList_Rd110;
+--                        StProc_Link     = VCC;          --Start up the Program
+--        WHEN  CommdLst_Wr111 =>     -- #250-"Write by CommdLst111" (Write  Lst7)
+--                        BaseAd[]        = 90;           --Program: CommdList_Wr111
+--                        StProc_Link     = VCC;          --Start up the Program
+--
+--        WHEN  Rd_SelCommdLst =>     -- #198-"Read  by CommdLst_selected_by_InData"
+--                        BaseAd[]        =204;           --Program: Rd_SelCommdList
+--                        StProc_Link     = VCC;          --Start up the Program
+--        --WHEN  Wr_SelCommdLst =>     -- #205-"Write by CommdLst_selected_by_InData"
+--        --                BaseAd[]        =153;           --Program: Wr_SelCommdList
+--        --                StProc_Link     = VCC;          --Start up the Program
+--
+--        WHEN OTHERS            => StProc_Link  = GND;
+--                                  St_ADC_Link  = GND;
+--    End CASE;
+--End IF ;
+
+--When there is NO Link_cycle in progress, Link_IFace.OpCode_out[]=00 ;  
+--Link_IFace.OpCode_out[] changes from =00 to valid OpCode simultaneously with _/ of LinkMessage
 IF (Link_IFace.LinkMessage == VCC)  then -- If VALID command received, 
     CASE  Link_IFace.OpCode_out[(CommandSize+Pause-1)..0] is -- recognizing the particular Operation :
-        WHEN  Read   => BaseAd[]        = 50;   --#145-"Read" (=<8words) from Objects 
+        WHEN  Read     => BaseAd[]    = 80;   --#145-"Read" (=<8words) from Objects 
                         StProc_Link     = VCC;
-        WHEN  Write  => BaseAd[]        =126;   --#154-"Write"(=<4words) to Objects
+        WHEN  Write    => BaseAd[]      =192; --#154-"Write"(=<4words) to Objects
                         StProc_Link     = VCC;
-        WHEN  Read62 => BaseAd[]        =158;   --#130-"Read62": Read 62words from Object(s)
+        WHEN  Read62 => BaseAd[]        =  2;   --#130-"Read62": Read 62words from Object(s)
                         StProc_Link     = VCC;
-        WHEN  Write8 => BaseAd[]        =174;   --#137-"Write8": Write 8 words  to Object(s)
+        WHEN  Write8 => BaseAd[]        =160;   --#137-"Write8": Write 8 words  to Object(s)
                         StProc_Link     = VCC;
 
         WHEN  StartRegul     =>     -- #193-"START_Regular"        (Read   Lst0)
-                        BaseAd[]        =  2;           --Program: CommdList_Rd000
+                        BaseAd[]        = 24;           --Program: CommdList_Rd000
                         StProc_Link     = VCC;          --Start up the Program
                         St_ADC_Link     = VCC;          --Start up ADC
         WHEN  CommdLst_Wr001 =>     -- #202-"Blocking_Begin"       (Write  Lst1)
-                        BaseAd[]        = 72;           --Program: CommdList_Wr001
+                        BaseAd[]        =100;           --Program: CommdList_Wr001
                         StProc_Link     = VCC;          --Start up the Program
 
         WHEN  StartAlter     =>     -- #210-"START_Alternative"    (Read   Lst2)
-                        BaseAd[]        =  6;           --Program: CommdList_Rd010
+                        BaseAd[]        = 28;           --Program: CommdList_Rd010
                         StProc_Link     = VCC;          --Start up the Program
                         --St_ADC_Link     = VCC;          --Start up ADC
         WHEN  CommdLst_Wr011 =>     -- #217-"Blocking_End"         (Write  Lst3)
-                        BaseAd[]        = 78;           --Program: CommdList_Wr011
+                        BaseAd[]        =106;           --Program: CommdList_Wr011
                         StProc_Link     = VCC;          --Start up the Program
 
         WHEN  CommdLst_Rd100 =>     -- #226-"Read  by CommdLst100" (Read   Lst4)
-                        BaseAd[]        = 10;           --Program: CommdList_Rd100
+                        BaseAd[]        = 32;           --Program: CommdList_Rd100
                         StProc_Link     = VCC;          --Start up the Program
         WHEN  CommdLst_Wr101 =>     -- #233-"Write by CommdLst101" (Write  Lst5)
-                        BaseAd[]        = 84;           --Program: CommdList_Wr101
+                        BaseAd[]        =112;           --Program: CommdList_Wr101
                         StProc_Link     = VCC;          --Start up the Program
 
         WHEN  CommdLst_Rd110 =>     -- #241-"Read  by CommdLst110" (Read   Lst6)
-                        BaseAd[]        = 14;           --Program: CommdList_Rd110;
+                        BaseAd[]        = 36;           --Program: CommdList_Rd110;
                         StProc_Link     = VCC;          --Start up the Program
         WHEN  CommdLst_Wr111 =>     -- #250-"Write by CommdLst111" (Write  Lst7)
-                        BaseAd[]        = 90;           --Program: CommdList_Wr111
+                        BaseAd[]        =118;           --Program: CommdList_Wr111
                         StProc_Link     = VCC;          --Start up the Program
 
         WHEN  Rd_SelCommdLst =>     -- #198-"Read  by CommdLst_selected_by_InData"
-                        BaseAd[]        =204;           --Program: Rd_SelCommdList
+                        BaseAd[]        = 72;           --Program: Rd_SelCommdList
                         StProc_Link     = VCC;          --Start up the Program
-        --WHEN  Wr_SelCommdLst =>     -- #205-"Write by CommdLst_selected_by_InData"
-        --                BaseAd[]        =153;           --Program: Wr_SelCommdList
-        --                StProc_Link     = VCC;          --Start up the Program
+        WHEN  Wr_SelCommdLst =>     -- #205-"Write by CommdLst_selected_by_InData"
+                        BaseAd[]        =153;           --Program: Wr_SelCommdList
+                        StProc_Link     = VCC;          --Start up the Program
 
         WHEN OTHERS            => StProc_Link  = GND;
                                   St_ADC_Link  = GND;
