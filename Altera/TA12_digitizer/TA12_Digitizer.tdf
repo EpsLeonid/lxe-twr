@@ -2996,9 +2996,9 @@ TestRAM.(address[7..0], data[],    clock,    wren                     ) =
 Test2 = Link_IFace.LinkMessage;--EthBusyEnd;--DDR_InLVDS[1][1].dataout_l;--EthAddrLd2;         --Ether.RxDestAddr; --Ether.test[2];    -- Pin238
 Test3 = EnWriteWFHist.q;--Ether_TxCMDcycle;--TxUDP_Rq;           --Ether.RxSourAddr; --Ether.test[3];    -- Pin239
 Test4 = TxWFhist_Eth.q;--Ether.TxPkLenTyp;--InitUDP;            --Ether.RxPkLenTyp; --Ether.test[4];    -- Pin240
-Test5 = AccessGrtd;--Read_time.q;--EtherBusy;    --Ether.test[6];    -- Pin__4
+Test5 = ReadExtMem;--AccessGrtd;--Read_time.q;--EtherBusy;    --Ether.test[6];    -- Pin__4
 Test6 = Ether.IORq;--Tx_Rq_StReg.q;--EtherPauseCt.eq0;    --Ether.test[7];    -- Pin__5
-Test7 = (TxDataBus[]== 193);--EthBusyEnd;         --Ether.test[6];    --Ether.test[8];    -- Pin__6
+Test7 = Ether_TxCMDcycle;--(TxDataBus[]== 193);--EthBusyEnd;         --Ether.test[6];    --Ether.test[8];    -- Pin__6
 Test8 = Contin1.q;
 Test9 = Commd_ld1;   --EthOpCode_saved;                      -- Pin__9
 Test10= OutData_rdy.q;--DataStrobe;         --DataIn_TA[0][9];                      -- Pin
