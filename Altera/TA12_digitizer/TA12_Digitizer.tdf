@@ -107,7 +107,7 @@ Constant TestRAM_Size			= 256;		-- 256words * 16bits
 Constant ADC_Bits				= 12;	-- Number of ADC bits
 Constant NUM_CH					= 4;	-- Number of channels on the board
 CONSTANT TA_Bits				= 10;	-- Number of transfered bits to IPT_LXe
-constant WriteWFDelayTime		= 50;	-- Time for write Waveform after LinkMessage (1mks)
+constant WriteWFDelayTime		= 65;	-- Time for write Waveform after LinkMessage (1mks), чтобы Линк успел распознать номер события.
 
 -- Map of Objects' addresses in Ethernet 
 
@@ -1780,10 +1780,9 @@ End generate;
 
 ReadCnt.(clock, clk_en, cnt_en) = (Clk100, VCC, (DelayReadTime0.q and !Read_time.q));
 
-Read_time.(S, clk, R) = ((%(!DelayWorkTime0.q AND DelayWorkTime1.q) OR% Tx_Rq_StReg.q), Clk100, !ReadExtMem); -- чтение внешней памяти по команде готовности передачи в изернет
---Read_time.(S, clk, R) = ((!DelayWorkTime0.q AND DelayWorkTime1.q) OR ReadCnt.q, Clk100, !ReadExtMem);
---Read_time.(S, clk, R) = ((!DelayWorkTime0.q AND DelayWorkTime1.q), Clk100, StopRead_ExtRam); -- ?oaiea aiaoiae iaiyoe ii eiiaiaa aioiaiinoe ia?aaa?e a eca?iao
---Read_time.(S, clk, R) = ((!DelayWorkTime0.q AND DelayWorkTime1.q), Clk100, !ReadExtMem); -- ?oaiea aiaoiae iaiyoe ii eiiaiaa aioiaiinoe ia?aaa?e a eca?iao
+Read_time.(S, clk, R) = (Tx_Rq_StReg.q, Clk100, !ReadExtMem); -- чтение внешней памяти по команде готовности передачи в изернет
+--ReadExtMem_Rq.(S, clk, R) = (Tx_Rq_StReg.q, Clk100, !ReadExtMem); -- ?oaiea aiaoiae iaiyoe ii eiiaiaa aioiaiinoe ia?aaa?e a eca?iao
+--Read_time.(S, clk, R) = ((ReadExtMem_Rq.q AND !(TxWFhist_Eth.q OR DelayWorkTime0.q)), Clk100, !ReadExtMem); -- ?oaiea aiaoiae iaiyoe ii eiiaiaa aioiaiinoe ia?aaa?e a eca?iao
 
 DelayReadTime[1..0].(clk) = Clk100;
 DelayReadTime0.d = Read_time.q;
@@ -2384,13 +2383,13 @@ St_Multi= StartMulti & !DFF(.D=StartMulti, .clk=Clk100);    -- _/^^\_ for resett
 EtherCMD3mode   = DFFE(.D=DataBus[2], .clk=Clk100,          -- 3rd_bit, "CMD3_Mode"
                     .ena= ( DevSel[8] & (AddrBus[2..0]==0)  --\_AddrBus[]== Addr_of_thisReg
                     AND (DataStrobe & RW) ),                --/ ..and "write" is conducted
-                    .prn =!(RESET # PwrUpSet2) );            -- by default =1
-                    --.clrn=!(RESET # PwrUpSet2) );            -- by default =0
+                    --.prn =!(RESET # PwrUpSet2) );            -- by default =1
+                    .clrn=!(RESET # PwrUpSet2) );            -- by default =0
 EtherUDPmode    = DFFE(.D=DataBus[3], .clk=Clk100,          -- 4th_bit, "UDP_Mode"
                     .ena= ( DevSel[8] & (AddrBus[2..0]==0)  --\_AddrBus[]== Addr_of_thisReg
                     AND (DataStrobe & RW) ),                --/ ..and "write" is conducted
-                    --.prn = !(RESET # PwrUpSet2) );          -- by default =1
-                    .clrn= !(RESET # PwrUpSet2) );          -- by default =0
+                    .prn = !(RESET # PwrUpSet2) );          -- by default =1
+                    --.clrn= !(RESET # PwrUpSet2) );          -- by default =0
 
 Reset2  = SRFF(.clk=Clk100,                 --<< Partial Reset >>
         .S=( DataBus[10] AND                                -- by 11th_bit=1
@@ -2580,16 +2579,17 @@ DBlkLengthRg[11..1].clk = Clk100;
 --DBlkLengthRg[ 3].clrn   = !(RESET);-- # Reset2);    --  > .. so that ..
 --DBlkLengthRg[ 2].prn    = !(RESET);-- # Reset2);    -- / ..the total length .. 
 --DBlkLengthRg[ 1].clrn   = !(RESET);-- # Reset2);    --/  ..of Frame is 64B (MIN)
+
 --DBlkLengthRg[11..7].clrn= !(RESET);-- # Reset2);    --\  For Mode = "CMD3" :
 --DBlkLengthRg[ 6].prn    = !(RESET);-- # Reset2);    -- \  Default value = 46, ..
 --DBlkLengthRg[ 5].clrn   = !(RESET);-- # Reset2);    --  > .. so that ..
 --DBlkLengthRg[ 4..2].prn = !(RESET);-- # Reset2);    -- / ..the total length .. 
 --DBlkLengthRg[ 1].clrn   = !(RESET);-- # Reset2);    --/  ..of Frame is 64B (MIN)
 
-DBlkLengthRg[11].prn	 = !(RESET);-- # Reset2);    --\  For Mode = "CMD3" :
-DBlkLengthRg[10..4].clrn = !(RESET);-- # Reset2);    -- \  Default value = 46, ..
-DBlkLengthRg[ 3].prn	 = !(RESET);-- # Reset2);    --  > .. so that ..
-DBlkLengthRg[ 2..1].clrn = !(RESET);-- # Reset2);    -- / ..the total length .. 
+--DBlkLengthRg[11].prn	 = !(RESET);-- # Reset2);    --\  For Mode = "CMD3" :
+DBlkLengthRg[11].clrn = !(RESET);-- # Reset2);    -- \  Default value = 46, ..
+DBlkLengthRg[10].prn	 = !(RESET);-- # Reset2);    --  > .. so that ..
+DBlkLengthRg[9..1].clrn = !(RESET);-- # Reset2);    -- / ..the total length .. 
 
 --Adder which calculates and holds the Length of IP DataBlock to be transmitted :
 IPlength.dataa[10..0]   = DBlkLengthRg[11..1].q;
