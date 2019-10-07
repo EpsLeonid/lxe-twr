@@ -432,12 +432,17 @@ ADCtest_Bit_write	: node;
 ADCtest_CSB_trig	: DFFE;
 ADCtest_SDIO_trig	: DFFE;
 ADCtest_reg			: lpm_shiftreg with (lpm_width=102,
-					  lpm_svalue = b"010000000000011000000001000100000000000110000000100011000000000001100010001000110000000000101100100010",lpm_DIRECTION="left"); -- 
---					  						reg H"0A" 01000100(1&2ch) 	reg H"0B" 01000100(3&4ch) = Digital ramp: data increment by 1 LSB every clock cycle from code 0 to 4095.
---									 01 00000000000101 00000000 00 01 00000000000110 00000010 00 01 00000000001010 01010101 00 01 00000000001011 01100110
---									 01 00000000001010 01010101 00 01 00000000001011 01100110 00 01 00000000001110 10100011 00 01 00000000001111 00110000
---									"set	addr		data		set		addr	 data		 set	addr		data		set		addr	 data"
---									 2bit	14bit		8bit		2bit	14bit	 8bit		 2bit	14bit		8bit		2bit	14bit	 8bit
+					  lpm_svalue = b"010000000000011000000001000100000000000101000000010001000000000001100000001000010000000000101001010101",lpm_DIRECTION="left"); -- 
+--									"01						 0001					   0001						 0001					   "
+--									"set	addr	 data		set		addr	 data		 set	addr		data		set		addr	 data"
+--									 2bit	14bit	 8bit		2bit	14bit	 8bit		 2bit	14bit		8bit		2bit	14bit	 8bit
+
+--											reg H"05" 00000000000101 00000001	Output data are transmitted on 1/2-wires
+--											reg H"06" 00000000000110 00000011	TEST PATTERN EN / RESET
+--					  						reg H"0A" 00000000001010 01010101	(1&2ch) Custom pattern
+--											reg H"0B" 00000000001011 01010101	(3&4ch) Custom pattern
+--											reg H"0E" 00000000001110 10100011	Custom pattern [11:4] 101000110011
+--											reg H"0F" 00000000001111 00110000	Custom pattern [3 :0]
 ADCsetup_reg		: lpm_shiftreg with (lpm_width=50,
 					  lpm_svalue = b"01000000000001010000000100010000000000011000000010",lpm_DIRECTION="left"); -- 
 --											reg H"05" 00000001			reg H"06" 00000010 Output data are transmitted on 1/2-wires 	TEST PATTERN EN
@@ -1483,7 +1488,7 @@ CMD3command     = SRFF(.S=CMD3OpCode_save,
 	
 	ADC_Reset		= PwrUpReset;
 	
-%	ADCtest_bit_count.sclr = !PowerUp2;
+	ADCtest_bit_count.sclr = !PowerUp2;
 	ADCtest_bit_count.(clock, cnt_en, clk_en) = (Clk12_5, ADCtest_Bit_write, VCC);
 	
 	IF ADCtest_bit_count.q[] < b"1101000" Then ADCtest_Bit_write = VCC;
@@ -1511,7 +1516,7 @@ CMD3command     = SRFF(.S=CMD3OpCode_save,
 	--ADCtest_SDIO_trig.d = ADCreset_reg.shiftout;
 
 	ADC_SEN[2..0] = ADCtest_CSB_trig.q;
-%
+
 --============================================================================
 
 --ADC_clk = LATCH()
