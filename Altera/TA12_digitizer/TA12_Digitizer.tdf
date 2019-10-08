@@ -1485,9 +1485,9 @@ CMD3command     = SRFF(.S=CMD3OpCode_save,
 --ADC setup
 --============================================================================
 	-- Test mode
-	
+
 	ADC_Reset		= PwrUpReset;
-	
+%
 	ADCtest_bit_count.sclr = !PowerUp2;
 	ADCtest_bit_count.(clock, cnt_en, clk_en) = (Clk12_5, ADCtest_Bit_write, VCC);
 	
@@ -1516,7 +1516,7 @@ CMD3command     = SRFF(.S=CMD3OpCode_save,
 	--ADCtest_SDIO_trig.d = ADCreset_reg.shiftout;
 
 	ADC_SEN[2..0] = ADCtest_CSB_trig.q;
-
+%
 --============================================================================
 
 --ADC_clk = LATCH()
@@ -1549,7 +1549,7 @@ FOR i IN 0 TO (NUM_CH-1) GENERATE
 								InData_RegMix[i].q[11],InData_RegMix[i].q[6],InData_RegMix[i].q[1],InData_RegMix[i].q[2],
 								InData_RegMix[i].q[3],InData_RegMix[i].q[4],InData_RegMix[i].q[5],InData_RegMix[i].q[0]);
 
-	TA12Channel[i].ADCdata[]		 = InData_Reg[i].q[];
+	TA12Channel[i].ADCdata[]		 = (GND,GND,GND,GND,GND,WriteWFCt.q);--InData_Reg[i].q[];
 	TA12Channel[i].DataBus_In[15..0] = DataBus[15..0];
 	TA12Channel[i].AddrBus_In[9..0]  = AddrBus[9..0] ;
 
