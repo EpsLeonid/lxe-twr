@@ -24,7 +24,7 @@ CONSTANT	DelayTime= 30;	-- ¬рем€ задержки в разностном сигнале
 --CONSTANT	PopravDelTime = 52; -- ¬рем€ задержки = DelayTime - 22 (момент вычитывани€ значени€ амплитуды дл€ поиска поправки)
 								-- **нужно протестировать на симул€торе и подобрать врем€ задержки!!!
 -- Only test --
-Constant	Piedistal_def = 0;--200;
+Constant	Piedistal_def = 200;
 Constant	Threshold_def = 350;
 ---------------
 
@@ -235,7 +235,9 @@ VARIABLE
 	EndTxWF_Eth				:	DFFE;
 	WFSampleCt_Eth			:	lpm_counter with (LPM_WIDTH = 9, LPM_DIRECTION="up"); -- n?ao?ee n iiiaio ia?ana?aiey ii?iaa ai i?eoiaa eiiaiau ?oaiey.
 	WFhist_RAMAddrBus_Eth	:	lpm_shiftreg with (LPM_WIDTH = 9, LPM_DIRECTION="unused");
-	WFhist_RAMAddr_Eth[9..0]:	node;
+	WFhist_RAMAddr_Eth		:	lpm_shiftreg with (LPM_WIDTH = 9, LPM_DIRECTION="unused");
+	WFhist_RAMAddrSUM[1..0]	:	lpm_add_sub with (lpm_width = 9, lpm_direction="add", LPM_REPRESENTATION = "UNSIGNED",
+												  ONE_INPUT_IS_CONSTANT = "yes", Lpm_pipeline = 1 ); -- сумматор 
 
 %
 	Test_ADC			:	test_ram;
@@ -669,7 +671,7 @@ END IF;
 	WFhist_Eth.(wraddress[], wrclock, wren) = (WFhist_ADCCt_Eth.q[8..0], ADC_clock, WriteWFhist_Eth %AND !DigitEnd%);--AND SaveRam));
 --	WFhist_Eth.(wraddress[], wrclock, wren) = (WFhist_ADCCt_Eth.q[8..0], ADC_clock, GND);--AND SaveRam));
 --	WFhist.(rdaddress[], rdclock, rden) = (DAQAddrBus_In[7..0], Flink_clock, ReadWFhist);--AND SaveRam));
-	WFhist_Eth.(rdaddress[], rdclock, rden) = (WFhist_RAMAddr_Eth[8..0], Bus_clock, ReadWFhist_Eth);--AND SaveRam));
+	WFhist_Eth.(rdaddress[], rdclock, rden) = (WFhist_RAMAddrSUM[1].result[8..0]%WFhist_RAMAddr_Eth.q[8..0]%, Bus_clock, ReadWFhist_Eth);--AND SaveRam));
 
 --	StopWriteWFhist.(s,r,clk) = (EdgeSensing(.D= LinkMessage, .clk=ADC_clock, .reset=RESET), !WriteRAM, ADC_Clock);
 
@@ -680,12 +682,20 @@ END IF;
 	
 	DelayWriteWFhist_Eth.(d, clk, clrn) = (WriteWFhist_Eth, ADC_Clock, Reset);
 	
-	DelayReadWFhist_Eth.(d, clk, clrn) = (ReadWFhist_Eth, ADC_Clock, Reset);
-	EndTxWF_Eth.(d, clk, clrn) = (!ReadWFhist_Eth AND DelayReadWFhist_Eth.q, ADC_Clock, Reset);
-	WFSampleCt_Eth.(clock, clk_en, cnt_en, sclr) = (ADC_Clock, Thr_Trig.q AND !LinkMessage, VCC, EndTxWF_Eth.q);
+--	DelayReadWFhist_Eth.(d, clk, clrn) = (ReadWFhist_Eth, ADC_Clock, Reset);
+--	EndTxWF_Eth.(d, clk, clrn) = (!ReadWFhist_Eth AND DelayReadWFhist_Eth.q, ADC_Clock, Reset);
+--	WFSampleCt_Eth.(clock, clk_en, cnt_en, sclr) = (ADC_Clock, Thr_Trig.q AND !LinkMessage, VCC, EndTxWF_Eth.q);
 	
-	WFhist_RAMAddrBus_Eth.(data[], clock, load, enable) = (WFhist_ADCCt_Eth.q[], ADC_Clock, VCC, DelayWriteWFhist_Eth.q AND !WriteWFhist_Eth);
-	WFhist_RAMAddr_Eth[8..0] = WFhist_RAMAddrBus_Eth.q[8..0] + 255 + DAQAddrBus_Eth_In[8..0]; -- выставление адреса в момент, когда началс€ сигнал с запасом в несколько тактов
+	WFhist_RAMAddrBus_Eth.(data[], clock, load, enable) = (WFhist_ADCCt_Eth.q[], ADC_Clock, VCC, WriteWFhist_Eth);
+	
+	WFhist_RAMAddrSUM[1..0].(clock, clken) = (ADC_Clock, VCC);
+	WFhist_RAMAddrSUM[0].(dataa,datab) = (WFhist_RAMAddrBus_Eth.q[8..0], 260);
+	WFhist_RAMAddrSUM[1].(dataa,datab) = (WFhist_RAMAddrSUM[0].result[8..0], DAQAddrBus_Eth_In[8..0]);
+
+	WFhist_RAMAddr_Eth.(clock, load, enable) = (ADC_Clock, VCC, ReadWFhist_Eth);
+
+	WFhist_RAMAddr_Eth.data[8..0] = WFhist_RAMAddrSUM[1].result;
+--	WFhist_RAMAddr_Eth.data[8..0] = WFhist_RAMAddrBus_Eth.q[8..0] + 255 + DAQAddrBus_Eth_In[8..0]; -- выставление адреса в момент, когда началс€ сигнал с запасом в несколько тактов
 						-- значение счетчика при 			 счетчик перебора 
 						-- 		общем стопе					 адресов дл€ посылки
 

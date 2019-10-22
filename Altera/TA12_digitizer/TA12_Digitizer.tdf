@@ -205,14 +205,14 @@ ExtRAM_UpByteControl	: output;
 -- 6. Test signal
 ExtReset			: input = GND;  -- external Reset (tied to GND --VCC)   <- Pin
 
-Test_in				: input;
+Test_in[16..0]		: input;
 Test[10..2]			: output;
 )
 
 VARIABLE
 --============================================================================
 --******** 1. Reference clock's & Frequency Control **************************
-PLL								: Pll_TA12;  -- PLL:  Fin=25MHz, PLL.c0=(25MHz shift=0), PLL.c1=(100MHz shift=0)
+PLL				: Pll_TA12;  -- PLL:  Fin=25MHz, PLL.c0=(25MHz shift=0), PLL.c1=(100MHz shift=0)
 Clk12_5			: node; -- This is Global Node
 Clk25			: node; -- This is Global Node 
 Clk37_5			: node; -- This is Global Node 
@@ -427,22 +427,27 @@ Eth_DataStrobe	: node; -- Strobe: latch data into the destination object, and fi
 
 --============================================================================
 --******** 7. Digitizing data / Processing ******************************************************
+Reg_ADCSetup		: lpm_shiftreg with (lpm_width=1, lpm_direction="left" );
+ADCtest_reset		: node;
 ADCtest_bit_count	: lpm_counter with (lpm_width=7, lpm_direction="up" );
 ADCtest_Bit_write	: node;
 ADCtest_CSB_trig	: DFFE;
 ADCtest_SDIO_trig	: DFFE;
 ADCtest_reg			: lpm_shiftreg with (lpm_width=102,
-					  lpm_svalue = b"010000000000011000000001000100000000000101000000010001000000000001100000001000010000000000101001010101",lpm_DIRECTION="left"); -- 
+					  lpm_svalue = b"010000000000011000000001000100000000000001111111110001000001001101000010100000010000000111101000000010",lpm_DIRECTION="left"); -- 
 --									"01						 0001					   0001						 0001					   "
 --									"set	addr	 data		set		addr	 data		 set	addr		data		set		addr	 data"
 --									 2bit	14bit	 8bit		2bit	14bit	 8bit		 2bit	14bit		8bit		2bit	14bit	 8bit
-
+--									reg H"06" / reg H"01" / reg H"134" / reg H"122"
+--									010000000000011000000001000100000000000001111111110001000001001101000010100000010000000111101000000010
+--									reg H"0E" / reg H"0F" / reg H"0A" / reg H"06"
+--									010000000000111011111011000100000000001111111000000001000000000010100101010100010000000000011000000010
 --											reg H"05" 00000000000101 00000001	Output data are transmitted on 1/2-wires
 --											reg H"06" 00000000000110 00000011	TEST PATTERN EN / RESET
 --					  						reg H"0A" 00000000001010 01010101	(1&2ch) Custom pattern
 --											reg H"0B" 00000000001011 01010101	(3&4ch) Custom pattern
 --											reg H"0E" 00000000001110 10100011	Custom pattern [11:4] 101000110011
---											reg H"0F" 00000000001111 00110000	Custom pattern [3 :0]
+--											reg H"0F" 00000000001111 00110000	Custom pattern [3 :0] 111110111110
 ADCsetup_reg		: lpm_shiftreg with (lpm_width=50,
 					  lpm_svalue = b"01000000000001010000000100010000000000011000000010",lpm_DIRECTION="left"); -- 
 --											reg H"05" 00000001			reg H"06" 00000010 Output data are transmitted on 1/2-wires 	TEST PATTERN EN
@@ -1487,8 +1492,16 @@ CMD3command     = SRFF(.S=CMD3OpCode_save,
 	-- Test mode
 
 	ADC_Reset		= PwrUpReset;
-%
-	ADCtest_bit_count.sclr = !PowerUp2;
+
+	Reg_ADCSetup.data[0] = DataBus[0];
+	Reg_ADCSetup.clock = Clk100;
+	Reg_ADCSetup.enable = ( DevSel[8] & (AddrBus[1]==1)  --AddrBus[]== Addr_of_thisReg
+							AND (DataStrobe & RW) );            --.. and "write" is conducted
+	Reg_ADCSetup.(load, aclr) = (VCC, RESET);
+	
+	ADCtest_reset= EdgeSensing(.D=Reg_ADCSetup.q[0], .clk=Clk100, .reset=RESET);
+	
+	ADCtest_bit_count.sclr = PwrUpSet1 OR ADCtest_reset;--!PowerUp2;
 	ADCtest_bit_count.(clock, cnt_en, clk_en) = (Clk12_5, ADCtest_Bit_write, VCC);
 	
 	IF ADCtest_bit_count.q[] < b"1101000" Then ADCtest_Bit_write = VCC;
@@ -1505,7 +1518,7 @@ CMD3command     = SRFF(.S=CMD3OpCode_save,
 	IF (((ADCtest_bit_count.q[] >= b"0000001") AND (ADCtest_bit_count.q[] < b"0011001")) OR ((ADCtest_bit_count.q[] >= b"0011011") AND (ADCtest_bit_count.q[] < b"0110011")) OR
 		((ADCtest_bit_count.q[] >= b"0110101") AND (ADCtest_bit_count.q[] < b"1001101")) OR ((ADCtest_bit_count.q[] >= b"1001111") AND (ADCtest_bit_count.q[] < b"1100111"))) Then 
 		ADCtest_CSB_trig.d = GND;
-		ADC_SCLK = !Clk12_5;
+		ADC_SCLK = Clk12_5;
 	ELSE 
 		ADCtest_CSB_trig.d = VCC;
 		ADC_SCLK = GND;
@@ -1516,7 +1529,7 @@ CMD3command     = SRFF(.S=CMD3OpCode_save,
 	--ADCtest_SDIO_trig.d = ADCreset_reg.shiftout;
 
 	ADC_SEN[2..0] = ADCtest_CSB_trig.q;
-%
+
 --============================================================================
 
 --ADC_clk = LATCH()
@@ -1549,14 +1562,14 @@ FOR i IN 0 TO (NUM_CH-1) GENERATE
 								InData_RegMix[i].q[11],InData_RegMix[i].q[6],InData_RegMix[i].q[1],InData_RegMix[i].q[2],
 								InData_RegMix[i].q[3],InData_RegMix[i].q[4],InData_RegMix[i].q[5],InData_RegMix[i].q[0]);
 
-	TA12Channel[i].ADCdata[]		 = (GND,GND,GND,GND,GND,WriteWFCt.q);--InData_Reg[i].q[];
+	TA12Channel[i].ADCdata[]		 = InData_Reg[i].q[];--(GND,GND,GND,GND,GND,WriteWFCt.q);--
 	TA12Channel[i].DataBus_In[15..0] = DataBus[15..0];
 	TA12Channel[i].AddrBus_In[9..0]  = AddrBus[9..0] ;
 
 	TA12Channel[i].DataBusStrobe		= DataStrobe ;
 	TA12Channel[i].DirectIn			= RW;
 	TA12Channel[i].Select			= DevSel[11+i].q ;
-	TA12Channel[i].LinkMessage		= Link_IFace.LinkMessage OR Test_in;--St_ADC_Link;--
+	TA12Channel[i].LinkMessage		= Link_IFace.LinkMessage OR Test_in[0];--St_ADC_Link;--
 	TA12Channel[i].WriteRAM			= VCC;--SelCommdList_Trig.q;--SelCommdList_Count.q;
 
 END GENERATE;
@@ -2986,6 +2999,7 @@ AddrValid = DevSel[ 1].q OR  -- MainRAM
 CASE  AddrBus[2..0] is
 	When 0  => Servo_Mux[16..1] = (H"000", EtherUDPmode,EtherCMD3mode, StartMulti,StartOne);
 	When 1  => Servo_Mux[16..1] = (B"00000000", Reg_BaseAddr.q[7..0]);
+	When 2  => Servo_Mux[16..1] = (B"000000000000000", Reg_ADCSetup.q[0]);
 	When 4  => Servo_Mux[16..1] = (B"00000",  DBlkLengthRg[11..1].q);
 	When 5  => Servo_Mux[16..1] = (UDP_PackCt.q[15..0]);
 	When 6  => Servo_Mux[16..1] = (B"000000", EtherPauseRg[10..1].q); 
@@ -3053,14 +3067,14 @@ TestRAM.(address[7..0], data[],    clock,    wren                     ) =
                     & (EtherAdrCt.q[9..0] > 8)), .clk=RxClk);
 
 --Test1 = Ether.TxPreamble;   --Ether.test[1];    --Ether.TX_EN;      -- Pin236
-Test2 = Link_IFace.LinkMessage;--EthBusyEnd;--DDR_InLVDS[1][1].dataout_l;--EthAddrLd2;         --Ether.RxDestAddr; --Ether.test[2];    -- Pin238
-Test3 = EnWriteWFHist.q;--Ether_TxCMDcycle;--TxUDP_Rq;           --Ether.RxSourAddr; --Ether.test[3];    -- Pin239
-Test4 = TxWFhist_Eth.q;--Ether.TxPkLenTyp;--InitUDP;            --Ether.RxPkLenTyp; --Ether.test[4];    -- Pin240
-Test5 = ReadExtMem;--AccessGrtd;--Read_time.q;--EtherBusy;    --Ether.test[6];    -- Pin__4
-Test6 = Ether.IORq;--Tx_Rq_StReg.q;--EtherPauseCt.eq0;    --Ether.test[7];    -- Pin__5
-Test7 = Ether_TxCMDcycle;--(TxDataBus[]== 193);--EthBusyEnd;         --Ether.test[6];    --Ether.test[8];    -- Pin__6
-Test8 = Contin1.q;
-Test9 = Commd_ld1;   --EthOpCode_saved;                      -- Pin__9
-Test10= OutData_rdy.q;--DataStrobe;         --DataIn_TA[0][9];                      -- Pin
+Test2 = InData_Reg[0].q[3];--Link_IFace.LinkMessage;--EthBusyEnd;--DDR_InLVDS[1][1].dataout_l;--EthAddrLd2;         --Ether.RxDestAddr; --Ether.test[2];    -- Pin238
+Test3 = InData_Reg[0].q[4];--EnWriteWFHist.q;--Ether_TxCMDcycle;--TxUDP_Rq;           --Ether.RxSourAddr; --Ether.test[3];    -- Pin239
+Test4 = InData_Reg[0].q[5];--TxWFhist_Eth.q;--Ether.TxPkLenTyp;--InitUDP;            --Ether.RxPkLenTyp; --Ether.test[4];    -- Pin240
+Test5 = InData_Reg[0].q[6];--ReadExtMem;--AccessGrtd;--Read_time.q;--EtherBusy;    --Ether.test[6];    -- Pin__4
+Test6 = InData_Reg[0].q[7];--Ether.IORq;--Tx_Rq_StReg.q;--EtherPauseCt.eq0;    --Ether.test[7];    -- Pin__5
+Test7 = InData_Reg[0].q[8];--Ether_TxCMDcycle;--(TxDataBus[]== 193);--EthBusyEnd;         --Ether.test[6];    --Ether.test[8];    -- Pin__6
+Test8 = InData_Reg[0].q[9];--Contin1.q;
+Test9 = InData_Reg[0].q[10];--Commd_ld1;   --EthOpCode_saved;                      -- Pin__9
+Test10= InData_Reg[0].q[11];--OutData_rdy.q;--DataStrobe;         --DataIn_TA[0][9];                      -- Pin
 
 END;
