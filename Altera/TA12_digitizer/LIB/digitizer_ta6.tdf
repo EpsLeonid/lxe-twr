@@ -666,7 +666,7 @@ END IF;
 
 	Reg_WF_Cnt.(data[], clock, load, enable, sclr) = (NSampleCt.q[7..0], ADC_Clock, VCC, LinkMessage, AllReset.q);--!Working);
 
-	WFhist_Eth.data[11..0] = RegSum[0].q[11..0];--ADCdata[9..0];--TestLinkCt.q[11..0];--
+	WFhist_Eth.data[11..0] = ADCdata[11..0];--RegSum[0].q[11..0];--ADCdata[9..0];--TestLinkCt.q[11..0];--
 --	WFhist_Eth.data[11..0] = GND;
 	WFhist_Eth.(wraddress[], wrclock, wren) = (WFhist_ADCCt_Eth.q[8..0], ADC_clock, WriteWFhist_Eth %AND !DigitEnd%);--AND SaveRam));
 --	WFhist_Eth.(wraddress[], wrclock, wren) = (WFhist_ADCCt_Eth.q[8..0], ADC_clock, GND);--AND SaveRam));

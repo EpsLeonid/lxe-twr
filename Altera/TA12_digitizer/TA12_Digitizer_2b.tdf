@@ -1,7 +1,5 @@
 Title "TA12 Module for LXeTower";
 -- v.2  : The project of digitizing module for LXe-calorimeter
--- v.2b : The project of digitizing module for LXe-calorimeter with new Ether module for UDP
--- v.2c : The project of digitizing module for LXe-calorimeter with new Ether module for UDP
 
 -- v.4d  : With ETHERNET_4b module, this Project supports ARP-request / ARP-reply, 
 --           and is capable of receiving UDP-packets and sending them back. 
@@ -39,13 +37,14 @@ INCLUDE "ImRam.inc";
 INCLUDE "ReadRam.inc";
 INCLUDE "AddrRam.inc";
 
+--INCLUDE "Loader.inc";
 --INCLUDE "PROCESSOR.inc" ;
-INCLUDE "PROCESSOR2m.inc" ; -- ^^ replaced temporarily ?
+INCLUDE "PROCESSOR2m.inc" ;
 INCLUDE "RAMmain.inc" ;     -- MainRAM - general purpose RAM
 INCLUDE "RAMcommd.inc" ;    -- CommandList RAM
-INCLUDE "RAMsetup.inc" ;    -- RAM containing data for ADCs setup
 --INCLUDE "TestRAM_main.inc";
 INCLUDE "EtherRAM2P.inc";     -- ^^ replaced with 2-port RAM (temporarily ?)
+INCLUDE "Arbiter.inc" ;
 
 INCLUDE "UpLink.inc";
 INCLUDE "Fast_Link.inc";
@@ -57,8 +56,6 @@ INCLUDE "ErrorCounters.inc";
 --============================================================================
 -- Map of Objects' addresses in TA12 Module
 
-Constant SetupRAM_Offset		= H"0200";	-- RAM block, 256words * 8bits \_Contains data
-Constant SetupRAM_Size			= 256;		-- #512..#767                  / for ADCs set-up
 Constant MainRAM_Offset			= H"0300";	-- main RAM block, 256words * 16bits
 Constant MainRAM_Size			= 256;		-- #768..#1023
 Constant ProgRAM_Offset 		= H"0400";	-- Program RAM block, 256words * 16bits
@@ -66,7 +63,6 @@ Constant ProgRAM_Size			= 256;		-- #1024..#1279
 
 --Constant CtrlStat_offset		= H"0800";	-- #2048 "Control-Status Reg", composed of named Triggers
 --Constant BaseAddr_offset		= H"0802";	-- #2049  Base Address of Program to be started
---Constant ADCfeed_Init			= H"0803";	-- #2050  ADC Setup started 
 --Constant UDPlength_Offset		= H"0804";	-- #2052  Length of UDP Data block
 --Constant UDP_PkNum_Offset		= H"0805";	-- #2053  Number of UDP-packet transmitted
 --Constant EthPause_Offset		= H"0806";	-- #2054  Value of Ethernet' PAUSE (in 10ns units)
@@ -82,18 +78,17 @@ Constant Link_IFace_Offs		= H"208";  -- Link_IFace_Offs[13..0] = LinkIFace_Offse
 Constant FIFO_OpCode_offset		= H"0824";  -- #2084 = 2048+36
 Constant FIFO_InData_offset		= H"0825";  -- #2085 = 2048+37
 
---Constant SelCommdList			= H"0BB8";	-- #3000 - Select the CommandList (read-only register)
+Constant SelCommdList			= H"0BB8";	-- #3000 - Select the CommandList (read-only register)
 Constant CommdList_Offset		= H"0C00";	-- #3072  RAM block containing the Command Lists
 Constant CommdList_Size			= 1024;		-- #3072..#4095
+
+Constant EtherRAM_Offset		= H"0E00";	-- #3584
+Constant EtherRAM_Size			= 256;
 
 Constant ADC_RAM_Offset 		= H"1000";	-- #4096 RAM of ADC1 #5120 RAM of ADC2 #6144 RAM of ADC3
 											-- #7168 RAM of ADC4 #8192 RAM of ADC5 #9216 RAM of ADC6
 Constant ADC_RAM_Size			= 1024;		-- ?acia? iaeanoe iia ea?aue eaiae
 Constant Compres_Offset			= H"4000";
-
-Constant EtherRAM_Offset		= H"5000";	-- #20480
-Constant EtherRAM_Size			= 1024;
-
 Constant WF_RAM_Offset			= H"6000";	-- #24576
 Constant WF_RAM_Size			= 768;
 Constant WF_RAM_SE_Ctrl			= H"6800";	-- #26624
@@ -109,7 +104,7 @@ Constant TestRAM_Size			= 256;		-- 256words * 16bits
 Constant ADC_Bits				= 12;	-- Number of ADC bits
 Constant NUM_CH					= 4;	-- Number of channels on the board
 CONSTANT TA_Bits				= 10;	-- Number of transfered bits to IPT_LXe
-Constant WriteWFDelayTime		= 65;	-- Delay of WForm_copying_to_ExternalRAM after LinkMessage (1mks), чтобы Линк успел распознать номер события.
+constant WriteWFDelayTime		= 100;	-- Time for write Waveform after LinkMessage (1mks)
 
 -- Map of Objects' addresses in Ethernet 
 
@@ -173,7 +168,7 @@ SerClk						: output;  -- oaeoiaue neaiae Serializer-a
 FLink_Sync					: input;  -- neaiae neio?iiecaoee Serializer-a/Deserializer-a
 TAWF_DataStrobe				: output;
 
--- 3. Ethernet Controller's ports     LXT972
+-- 3. Ethernet Phy device ports     LXT972
 CRS							: input;    -- Carrier_Sense                    <- Pin126
 RxClk						: input;    --                                  <- Pin137
 RxDV						: input;    -- Data_Valid                       <- Pin139
@@ -207,18 +202,18 @@ ExtRAM_UpByteControl	: output;
 -- 6. Test signal
 ExtReset			: input = GND;  -- external Reset (tied to GND --VCC)   <- Pin
 
-Test_in[16..0]		: input;
+Test_in				: input;
 Test[10..2]			: output;
 )
 
 VARIABLE
 --============================================================================
 --******** 1. Reference clock's & Frequency Control **************************
-PLL				: Pll_TA12;  -- PLL:  Fin=25MHz, PLL.c0=(25MHz shift=0), PLL.c1=(100MHz shift=0)
+PLL								: Pll_TA12;  -- PLL:  Fin=25MHz, PLL.c0=(25MHz shift=0), PLL.c1=(100MHz shift=0)
 Clk12_5			: node; -- This is Global Node
 Clk25			: node; -- This is Global Node 
---Clk37_5			: node; -- This is Global Node 
---Clk75			: node; -- This is Global Node
+Clk37_5			: node; -- This is Global Node 
+Clk75			: node; -- This is Global Node
 Clk100			: node; -- This is Global Node
 Clk300_adc		: node; -- This is Global Node
 
@@ -289,143 +284,42 @@ TestLinkCt					: lpm_counter with (lpm_width = 20, lpm_direction="up"); -- oanoi
 
 FLink_Error					: node;
 
---============================================================================
---******** 5. Processor, RAM blocks and registers ****************************
---CPU             : Processor ;
-CPU             : Processor2m ;
-BaseAd[7..0]    : node; -- address of the beginning of selected Program
-BaseAddr[7..0]  : node; -- address of the beginning of selected Program, registered
-
---ADC_RAM belongs to "Digitizer_TA6" unit, and is defined there
-MainRAM         : RAMmain;  -- RAM  256words * 16bits, 1-port
---ProgRAM belongs to "Processor" unit, and is defined there
-CommandRAM      : RAMcommd; -- RAM 1024words * 16bits, 1-port
-SetupRAM        : RAMsetup; -- RAM 256words * 8bits, 2-port
-
--- Register contains Base Address of Program to be started
-Reg_BaseAddr    : LPM_SHIFTREG with (lpm_width=8, lpm_direction="left");
-
---============================================================================
---******** 6. Digitizing data / Processing ******************************************************
-ADCfeed_Init		: node; -- initializes the procedure of feeding the Setup data to ADCs
-ADCfeed_Beg1		: node; -- intermediate signal, for change from Clk100 to Clk12_5
-ADCfeed_Beg2		: node; -- Strobe: makes ADCfeed_BitCt and ADCfeed_Reg to load initial data
-ADCfeed_Cycle1		: node; -- flips to =1 in 1/2 Clk12_5 after ADCfeed_Beg2 (by _/ of Clk12_5)
-ADCfeed_Cycle2		: node; -- flips to =1 in  1  Clk12_5 after ADCfeed_Beg2 (by \_ of Clk12_5)
-
-ADCfeed_NxtB		: node; --logic signal for deriving the Strobe (see the next line)
-ADCfeed_NextB		: node; --Strobe: makes ADCfeed_Reg to load the next DWord, =then= makes the ADCfeed_AddrCt to increment
-
-ADCfeed_WordEnd		: node; -- strobe at the end of sending of each 24-bit word to ADC
-ADCfeed_End  		: node; -- strobe, resets ADCtest_Cycle1 to =0 at the End of sending all 24-bit words to ADC
-
-ADCfeed_En			: node; -- Enable signal for ADC (to be inverted into active LOW)
-
-ADCfeed_AddrCt		: LPM_COUNTER  with (lpm_width=8, lpm_direction="up" ); --
-ADCfeed_WordCt		: LPM_COUNTER  with (lpm_width=4, lpm_direction="down", lpm_svalue=10 );
-ADCfeed_BitCt		: LPM_COUNTER  with (lpm_width=5, lpm_direction="down", lpm_svalue=25 );
-
-ADCfeed_Reg			: LPM_SHIFTREG with (lpm_width=8,   -- converts 8-bit DWords into series
-										 lpm_direction="left"); --shift: q0 -> q[MSB]
-%
-ADCtest_reg			: lpm_shiftreg with (lpm_width=102, lpm_DIRECTION="left",  -- actually, this reg is SETUP !
---					  lpm_svalue = b"010000000000011000000001000100000000000001111111110001000001001101000010100000010000000111101000000010"); -- 
---					  lpm_svalue = b"010000000000011000000001000100000000000001111111110001000001001101000010100000010000000111101000000010"); -- 
---									"01						 0001					   0001						 0001					   "
---									"set	addr	 data		set		addr	 data		 set	addr		data		set		addr	 data"
---									 2bit	14bit	 8bit		2bit	14bit	 8bit		 2bit	14bit		8bit		2bit	14bit	 8bit
---									reg H"06" / reg H"01" / reg H"134" / reg H"122"
---									010000000000011000000001000100000000000001111111110001000001001101000010100000010000000111101000000010
---									reg H"0E" / reg H"0F" / reg H"0A" / reg H"06"
---									010000000000111011111011000100000000001111111000000001000000000010100101010100010000000000011000000010
---											reg H"05" 00000000000101 00000001	Output data are transmitted on 1/2-wires
---											reg H"06" 00000000000110 00000011	TEST PATTERN EN / RESET
---					  						reg H"0A" 00000000001010 01010101	(1&2ch) Custom pattern
---											reg H"0B" 00000000001011 01010101	(3&4ch) Custom pattern
---											reg H"0E" 00000000001110 10100011	Custom pattern [11:4] 101000110011
---											reg H"0F" 00000000001111 00110000	Custom pattern [3 :0] 111110111110
-		lpm_svalue = b"010000000000000111111111000100000100110100001010000001000001001000100000001000110000010011010000000000"); -- SETUP sequence
---		lpm_svalue = b"0100000000000001 11111111 00 0100000100110100 00101000 00 0100000100100010 00000010 00 1100000100110100 00000000"); -- 
---					   W     0   0   1  Dith=OFF    W     1   3   4  DithA=OFF   W     1   2   2  ChopA=OFF   R     1   3   4             
---
---ADCsetup_reg		: lpm_shiftreg with (lpm_width=50,  -- actually, this reg is TEST !
---					  lpm_svalue = b"01000000000001010000000100010000000000011000000010",lpm_DIRECTION="left"); -- 
---											reg H"05" 00000001			reg H"06" 00000010 Output data are transmitted on 1/2-wires 	TEST PATTERN EN
---									"set	addr		data	set		addr	 data"
---									 2bit	14bit		8bit	2bit	14bit	 8bit
-%
-
-TA12Channel[NUM_CH-1..0]			: Digitizer_TA6;
---ADC_clk								: node;
-DDR_InLVDS[NUM_CH-1..0][1..0]		: DDR_In;
-DDR_Reg_pos[NUM_CH-1..0][1..0]		: lpm_shiftreg with (lpm_width=3,lpm_DIRECTION="left");
-DDR_Reg_neg[NUM_CH-1..0][1..0]		: lpm_shiftreg with (lpm_width=3,lpm_DIRECTION="left");
-InData[NUM_CH-1..0]			: node;
-InData_RegMix[NUM_CH-1..0]	: lpm_shiftreg with (lpm_width=ADC_Bits,lpm_DIRECTION="unused"); -- 
-InData_Reg[NUM_CH-1..0]		: lpm_shiftreg with (lpm_width=ADC_Bits,lpm_DIRECTION="unused"); -- 
-
-TAWF_HistRAM				: WFTA_HistRAM;
-TAWF_RAM_cs					: node;
-TAWF_HistRAM_Cnt			: lpm_counter with (lpm_width = 11, lpm_direction="up");
-
---Compres						: DataSelect_V2;
-
--- External memory
-
---DataCnt				: lpm_counter with (lpm_width = 8, lpm_direction="up" ); -- 
---ChannelCnt			: lpm_counter with (lpm_width = 2, lpm_direction="up" ); -- 
---ShiftWriteEnCt		: lpm_counter with (lpm_width = 10, lpm_direction="up" ); -- 
-WriteWFEnd			: node;
-DelayWriteWFEnd		: DFF;
-WriteWFCt			: lpm_counter with (lpm_width = 7, lpm_direction="up" ); -- 
-EnWriteWFHist		: SRFF;
-WriteDATA			: lpm_shiftreg with (lpm_width = 16, lpm_direction="unused");
-WrRdExtRAMAddr		: lpm_shiftreg with (lpm_width = 16, lpm_direction="unused");
-Write_ExtRamCt		: lpm_counter with (lpm_width = 16, lpm_direction="up" ); -- 
-StopWrite			: node;
-
-Read_time			: SRFF;
-DelayReadTime[1..0]	: DFF;
-Read_TimeCt			: lpm_counter with (lpm_width = 12, lpm_direction="up" ); -- 
-Read_Ram			: ReadRam;
-Read_ExtRamCt		: lpm_counter with (lpm_width = 9, lpm_direction="up" ); -- 
-EnRead_ExtRamCt		: lpm_counter with (lpm_width = 16, lpm_direction="up" ); -- 
-Addr_Ram			: AddrRam;
-WrRdAddr_Reg		: lpm_shiftreg with (lpm_width = 16, lpm_direction="unused");
-DelayWorkTime[1..0]	: DFF;
-WrAddrCnt			: lpm_counter with (lpm_width = 6, lpm_direction="up" ); -- 
-ReadAddrCnt			: lpm_counter with (lpm_width = 6, lpm_direction="up" ); -- 
-
-ReadCnt			: lpm_counter with (lpm_width = 1, lpm_direction="up" ); -- for testing double read of ExtMem
-
-ReadExtMem			: node;
-StopRead_ExtRam		: node;
-
---EtherTxEn			: DFFE;
-
-Write_IntRamCt		: lpm_counter with (lpm_width = 10, lpm_direction="up" ); -- 
-
-Compres				: DataSelect_V2;
-
 --==============================================================================
---************ 9. Control Unit  ************************************************
+--************ 4. Control Unit  ************************************************
 
-StartOne        : node; -- Trigger of One-Shot_Start
-St_One          : node; -- 1*Clk100 _/^^\_ for resetting StartMulti
-StartMulti      : node; -- Trigger of Multiple_Start
-St_Multi        : node; -- 1*Clk100 _/^^\_ for resetting StartOne
+St_Compuls,             -- Compulsive start by CAMAC command
+St_One,                 -- One-shot start by external "Start"
+St_Multi        : node; -- Multiple start by external "Start"
+St_Load         : node; -- start of Loading Att.Coeff-s & Masks
+Reset_all       : node; -- Reset_all by CAMAC command
+Confirm         : node; -- flag: "Command accepted for execution"
+
+Delay_StCompuls : DelayLine with (DelayCode = 600,  -- to delay the real Start of Digitizing
+                                  DurationCode= 4); --  after CAMAC-cycle
+Delay_StOne     : DelayLine with (DelayCode = 600,  -- to delay the real Start of Digitizing
+                                  DurationCode= 4); --  after CAMAC-cycle
+Delay_StMulti   : DelayLine with (DelayCode = 600,  -- to delay the real Start of Digitizing
+                                  DurationCode= 4); --  after CAMAC-cycle
+
+StartOne        : node;         -- Trigger of One-Shot_Start
+StartOne_En     : EdgeSensing;  -- _/~\_ sets StartOne to =1
+StartMulti      : node;         -- Trigger of Multiple_Start
+StartMulti_En   : EdgeSensing;  -- _/~\_ sets StartMulti to =1
 
 EtherCMD3mode   : node; -- Trigger, enables "CMD3" mode of Ethernet
 EtherUDPmode    : node; -- Trigger, enables "UDP" mode of Ethernet
 
 --Start_Link      : PulseShaper with (DurationCode=4);--Start whatever by Link command
 Start_Link[4..1]: node; --triggers for generating a 4*Clk100 pulse, for common use
+--SelCommdList_Reg: lpm_shiftreg with (lpm_width=16, lpm_direction="unused");
+--SelCommdList_Count: lpm_counter with (lpm_width = 1, lpm_direction="up");
+--SelCommdList_cs	: node;
 
 St_ADC_Link     : node;
 StartADC_Link   : node;
 --StartADC_Link   : PulseShaper with (DurationCode=4);--Start Digitizer by Link command
 --StartADC_Ext    : PulseShaper with (DurationCode=4);-- Start ADC by external Start pulse
---StartADC        : node; -- all sources of Start ADC combined
+StartADC        : node; -- all sources of Start ADC combined
 
 StartWFTx		: node;
 
@@ -442,8 +336,8 @@ StartProc       : node; -- all sources of Start_Processor combined
 --********  INITIALIZE  Ethernet Tx_cycles upon Link-Commands  *****************
 CommdStReg_Ini, 
 CommdOther_Ini  : node;
-OutData_rdy     : DFFE; --Request for sending Output_Data via Ethernet
---OutData_rdy     : DelayLine with (DelayCode=200, DurationCode=2);
+--OutData_rdy     : node; --Request for sending Output_Data via Ethernet
+OutData_rdy     : DelayLine with (DelayCode=200, DurationCode=2);
 CommdPut_en     : node; --initial strobe for loading of Link-Command'_Attrib-s into FIFO
 
 CommdPut_init   : node; -- sets the FIFO' registers in loading mode
@@ -465,9 +359,10 @@ InData1_bit[16..1]  : DFFE; -- 16-bit "register" - Cell#1 of FIFO, for InData
 InData2_bit[16..1]  : DFFE; -- 16-bit "register" - Cell#2 of FIFO, for InData
 InData3_bit[16..1]  : DFFE; -- 16-bit "register" - Cell#3 of FIFO, for InData
 InData4_bit[16..1]  : DFFE; -- 16-bit "register" - Cell#4 of FIFO, for InData
-Contin[4..1]        : DFFE; -- "Continue to send Packets" when executing "StartRegular" Link-Command
 
 EtherTxRq_Link  : node; --(request for) Start of an Ether' Tx cycle (UDP or CMD3) by Link
+
+Reg_Block		: lpm_shiftreg with (lpm_width=1, lpm_direction="unused", lpm_svalue = b"0");
 
 --PhSwErr_Ct      : lpm_counter with (lpm_width=16, lpm_direction="up") ; -- counts PhaseSwitch's flips
 --LinkErr_Ct      : lpm_counter with (lpm_width=16, lpm_direction="up") ; -- counts Link's errors
@@ -475,16 +370,24 @@ EtherTxRq_Link  : node; --(request for) Start of an Ether' Tx cycle (UDP or CMD3
 Busy            : node; -- flag: Action in progress (Digitizing, Link cycle, ...)
 Error           : node;
 RESET           : node; -- main RESET, i.e. =RESET all=  
-Reset2          : node; -- partial reset :  keeps basic settings
-RSTdel          : node; -- delay for forming RESET and Reset2 pulses
 
 --============================================================================
---******** 10. Error counter
-ErrorCounters_IFace			: ErrorCounters with (Width = 7);
-ErrorCounters_IFace_CS		: node;
+--******** 5. Processor, RAM blocks and registers ****************************
+--CPU             : Processor ;
+CPU             : Processor2m ;
+BaseAd[7..0]    : node; -- address of the beginning of selected Program
+BaseAddr[7..0]  : node; -- address of the beginning of selected Program, registered
+
+--ADC_RAM belongs to "Digitizer_TA6" unit, and is defined there
+MainRAM         : RAMmain;  -- RAM  256words * 16bits, 1-port
+--ProgRAM belongs to "Processor" unit, and is defined there
+CommandRAM      : RAMcommd; -- RAM 1024words * 16bits, 1-port
+
+-- Register contains Base Address of Program to be started
+Reg_BaseAddr    : LPM_SHIFTREG with (lpm_width=8, lpm_direction="left");
 
 --============================================================================
---******** 11. Internal Bus of Project **************************************** 
+--******** 6. Internal Bus of Project **************************************** 
 --    Address recognition and devise selection
 RW				: node; -- RW=1 - a (master)unit will output data 
 AddrBus[15..0]	: node; -- 16 bit address
@@ -492,13 +395,8 @@ DataBus[15..0]	: node; -- 16 bit bidir Data Line
 --Data[15..0]		: NODE; -- 16 bit bidir Data Line
 
 --Bus_Arbiter		: Arbiter with (DeviceMaxNumber=4%,TimeOut=6%);
-AcsRqDetect		: node; -- =new= "AccessReq" detected
-AccessGrtd		: node; -- by 1clk after AccessReq, =1 during whole Operation
 AddrSettled		: node; -- Arbiter asserts this signal at next clock after Request Granted
 AddrValid		: node; -- OR'ed Address Comparator's output, dff-strobed
-BusOper1,
-BusOper2,
-BusOper3		: node; -- delay by 3 clocks 
 DataStrobe		: node; --Strobe: latch data into the destination object, and finish the Bus Oper-n
 --  signals of Address Comparators
 DevSel[17..1]	: DFF ; -- Registered Addr_Comparator outputs for Selection
@@ -506,7 +404,6 @@ DevSel[17..1]	: DFF ; -- Registered Addr_Comparator outputs for Selection
 MainRAM_cs		: node; -- select for Rd/Wr from/to MainRAM
 ProgRAM_cs		: node; -- ProgRAM is declared in Processor module 
 CommandRAM_cs	: node; -- select for Rd/Wr from/to CommandList
-SetupRAM_cs		: node; -- select for Rd/Wr from/to SetupRAM
 EtherRAM_cs		: node; -- select for Rd/Wr from/to TestRAM
 
 Link_cs			: node;
@@ -524,6 +421,89 @@ Compres_cs		: node;
 
 ZERO_cs			: node; 
 
+--******** =Local= bus for the ETHETNET module, "Bus Handler"
+RdWr			: node; -- RdWr=1 ("Write") => Data: MainProj -> Ethernet
+AcsRqDetect		: node; -- =new= "AccessReq" detected
+AccessGrtd		: node; -- by 1clk after AccessReq, =1 during whole Operation
+Addr_Settled	: node; -- Flag: Address is (reliably) settled at AddrBus
+BusOper1,
+BusOper2,
+BusOper3		: node; -- delay by 3 clocks 
+Data_Strobe		: node; -- Strobe: latch data into the destination object, and finish the Bus Oper-n
+
+--============================================================================
+--******** 7. Digitizing data / Processing ******************************************************
+ADCtest_bit_count	: lpm_counter with (lpm_width=7, lpm_direction="up" );
+ADCtest_Bit_write	: node;
+ADCtest_CSB_trig	: DFFE;
+ADCtest_SDIO_trig	: DFFE;
+ADCtest_reg			: lpm_shiftreg with (lpm_width=102,
+					  lpm_svalue = b"010000000000011000000001000100000000000110000000100011000000000001100010001000110000000000101100100010",lpm_DIRECTION="left"); -- 
+--					  						reg H"0A" 01000100(1&2ch) 	reg H"0B" 01000100(3&4ch) = Digital ramp: data increment by 1 LSB every clock cycle from code 0 to 4095.
+--									 01 00000000000101 00000000 00 01 00000000000110 00000010 00 01 00000000001010 01010101 00 01 00000000001011 01100110
+--									 01 00000000001010 01010101 00 01 00000000001011 01100110 00 01 00000000001110 10100011 00 01 00000000001111 00110000
+--									"set	addr		data		set		addr	 data		 set	addr		data		set		addr	 data"
+--									 2bit	14bit		8bit		2bit	14bit	 8bit		 2bit	14bit		8bit		2bit	14bit	 8bit
+ADCsetup_reg		: lpm_shiftreg with (lpm_width=50,
+					  lpm_svalue = b"01000000000001010000000100010000000000011000000010",lpm_DIRECTION="left"); -- 
+--											reg H"05" 00000001			reg H"06" 00000010 Output data are transmitted on 1/2-wires 	TEST PATTERN EN
+--									"set	addr		data	set		addr	 data"
+--									 2bit	14bit		8bit	2bit	14bit	 8bit
+
+TA12Channel[NUM_CH-1..0]			: Digitizer_TA6;
+ADC_clk								: node;
+DDR_InLVDS[NUM_CH-1..0][1..0]		: DDR_In;
+DDR_Reg_pos[NUM_CH-1..0][1..0]		: lpm_shiftreg with (lpm_width=3,lpm_DIRECTION="left");
+DDR_Reg_neg[NUM_CH-1..0][1..0]		: lpm_shiftreg with (lpm_width=3,lpm_DIRECTION="left");
+InData[NUM_CH-1..0]			: node;
+InData_RegMix[NUM_CH-1..0]	: lpm_shiftreg with (lpm_width=ADC_Bits,lpm_DIRECTION="unused"); -- 
+InData_Reg[NUM_CH-1..0]		: lpm_shiftreg with (lpm_width=ADC_Bits,lpm_DIRECTION="unused"); -- 
+
+TAWF_HistRAM				: WFTA_HistRAM;
+TAWF_RAM_cs					: node;
+TAWF_HistRAM_Cnt			: lpm_counter with (lpm_width = 11, lpm_direction="up");
+
+--Compres						: DataSelect_V2;
+
+-- External memory
+
+DataCnt				: lpm_counter with (lpm_width = 8, lpm_direction="up" ); -- 
+ChannelCnt			: lpm_counter with (lpm_width = 2, lpm_direction="up" ); -- 
+--ShiftWriteEnCt		: lpm_counter with (lpm_width = 10, lpm_direction="up" ); -- 
+WriteWFEnd			: node;
+DelayWriteWFEnd		: DFF;
+WriteWFCt			: lpm_counter with (lpm_width = 7, lpm_direction="up" ); -- 
+EnWriteWFHist		: SRFF;
+WriteDATA			: lpm_shiftreg with (lpm_width = 16, lpm_direction="unused");
+Write_ExtRamCt		: lpm_counter with (lpm_width = 16, lpm_direction="up" ); -- 
+StopWrite			: node;
+
+Read_time			: SRFF;
+DelayReadTime[1..0]	: DFF;
+Read_TimeCt			: lpm_counter with (lpm_width = 12, lpm_direction="up" ); -- 
+Read_Ram			: ReadRam;
+Read_ExtRamCt		: lpm_counter with (lpm_width = 9, lpm_direction="up" ); -- 
+EnRead_ExtRamCt		: lpm_counter with (lpm_width = 16, lpm_direction="up" ); -- 
+Addr_Ram			: AddrRam;
+WrRdAddr_Reg		: lpm_shiftreg with (lpm_width = 16, lpm_direction="unused");
+DelayWorkTime[1..0]	: DFF;
+WrAddrCnt			: lpm_counter with (lpm_width = 6, lpm_direction="up" ); -- 
+ReadAddrCnt			: lpm_counter with (lpm_width = 6, lpm_direction="up" ); -- 
+
+ReadExtMem			: node;
+StopRead_ExtRam		: node;
+
+Write_IntRamCt		: lpm_counter with (lpm_width = 10, lpm_direction="up" ); -- 
+
+Compres				: DataSelect_V2;
+
+--============================================================================
+--******** 8. Error counter
+ErrorCounters_IFace			: ErrorCounters with (Width = 7);
+ErrorCounters_IFace_CS		: node;
+Sync_ES						: EdgeSensing;
+PLL_PS						: PulseShaper;
+
 --==============================================================================
 --******** 9. ETHERNET ********************************************************
 ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
@@ -537,22 +517,14 @@ Typ_CMD3, TypeCMD3	: node; -- fast|registered flag :  "CMD3" packet received
 Typ_IP, TypeIP	: node; -- fast|registered flag :  IP  packet received
 Typ_ARP,TypeARP	: node; -- fast|registered flag :  ARP packet received
 
---******** =Local= bus for the ETHETNET module, "Bus Handler"
-RdWr			: node; -- RdWr=1 ("Write") => Data: MainProj -> Ethernet
-Eth_AcsRqDetect	: node; -- =new= "AccessReq" detected
-Eth_AccessGrtd	: node; -- by 1clk after AccessReq, =1 during whole Operation
-Eth_AddrSettled	: node; -- Flag: Address is (reliably) settled at AddrBus
-Eth_BusOper1,
-Eth_BusOper2,
-Eth_BusOper3	: node; -- delay by 3 clocks 
-Eth_DataStrobe	: node; -- Strobe: latch data into the destination object, and finish the Bus Oper-n
-
 --------------------------------
 --Подготовка данных для Ethernet
 
-StartWFTx_Eth	: node;
+StartWFTx_Eth	:node;
 St_EthTx_Ether	: node;
 St_Ether_Link	: node;
+Delay_StEthTx	: DelayLine with (DelayCode = 200,  -- to delay the real start of Processor 
+                                  DurationCode= 4); --  after CAMAC-cycle
 TxWFhist_Eth			: SRFF;
 Delay_EthMessage		: DFF;
 DelayWriteWFhist_Eth	: DelayLine with (DelayCode = 90,  -- to delay the real END of Write WFHist
@@ -605,9 +577,9 @@ RxAdrSet3b		: node; -- flips  0->1, 1->0  when TxAdrSet3 has =garanteedly= settl
 RxAdrSet4a,
 RxAdrSet4b		: node; -- flips  0->1, 1->0  when TxAdrSet4 has =garanteedly= settled.
 RxAdrSet5a,
-RxAdrSet5b		: node; -- flips  0->1, 1->0  when TxAdrSet5 has =garanteedly= settled.
+RxAdrSet5b		: node; -- flips  0->1, 1->0  when TxAdrSet4 has =garanteedly= settled.
 RxAdrSet6a,
-RxAdrSet6b		: node; -- flips  0->1, 1->0  when TxAdrSet6 has =garanteedly= settled.
+RxAdrSet6b		: node; -- flips  0->1, 1->0  when TxAdrSet4 has =garanteedly= settled.
 EthAdrInit		: node; -- strobe : set the initial addr for storing DataBlock
 EthNextAdr[6..1]: DFFE; -- initial addr for storing data during the next Stage of receiving
 EthAddrLd[2..1]	: node; -- "request" for loading next InitAddr into EtherAdrCt
@@ -711,8 +683,8 @@ Ether_TxUDPcycle: node; -- flag: UDP-packet is being transmitted
 
 TxCMD_Rq_StReg  : node; --request for starting a CMD3-Tx_cycle in reply for Link "StartNormal" Commd
 TxCMD_Rq_Other  : node; --request for starting a CMD3-Tx_cycle in reply for Link Commd other than "StartNormal"
-InitCMD_StReg   : node; -- flag: CMD3 Tx_cycle upon "StartRegular" is to be started
-InitCMD_Other   : node; -- flag: CMD3 Tx_cycle upon any other Command is to be started
+InitCMD_StReg   : SRFF; -- flag: CMD3 Tx_cycle upon "StartRegular" is to be started
+InitCMD_Other   : SRFF; -- flag: CMD3 Tx_cycle upon any other Command is to be started
 InitCMD         : node; -- initializes CMD3 Tx_cycle
 Ether_TxCMDcycle: node; -- flag : CMD3-Link-Command is being executed
 StartEthTx      : PulseShaper with (DurationCode=4);--Start any Ether' Tx_cycle
@@ -792,15 +764,15 @@ ADC_SCLK		= GND;
 WriteDATA.data[] = GND;
 
 ExtRAM_Addr[15..0]		= GND;
-ExtRAM_OutEn			= VCC;
-ExtRAM_CEn				= VCC;
-ExtRAM_WriteEn			= VCC;
-ExtRAM_LowerByteControl	= VCC;
-ExtRAM_UpByteControl	= VCC;
+ExtRAM_OutEn			= GND;
+ExtRAM_CEn				= GND;
+ExtRAM_WriteEn			= GND;
+ExtRAM_LowerByteControl	= GND;
+ExtRAM_UpByteControl	= GND;
 
 Compres.buffer_DATA[11..0] = GND;
 Compres.reset_n = VCC;
-ReadExtMem = VCC;
+ReadExtMem = GND;
 
 REN		= GND; -- aee??eou/auee??eou auoiau Deserializer  
 DEN		= VCC; -- aee??eou/auee??eou auoiau Serializer
@@ -808,7 +780,7 @@ RPWDN	= GND; -- aee??eou/auee??eou Deserializer
 TPWDN	= VCC; -- aee??eou/auee??eou Serializer
 FLink_Error = GND;
 
-StProc_Link  = GND; St_ADC_Link = GND; St_One = GND; St_Multi = VCC;
+StProc_Link  = GND; St_ADC_Link = GND;
 
 TypeCMD3   = GND;   TypeIP = GND;       TypeARP  = GND; 
 RxIPheader.D = GND; RxIP_Saddr.D = GND; RxIP_Daddr.D = GND; RxUDPDBlck = GND;
@@ -927,13 +899,13 @@ LinkData    = TRI (!Link_IFace.LinkData_out, Link_IFace.TxRx);-- Output to Pin
 Link_IFace.LinkData_in = !LinkData ;                          -- Input from Pin
 LinkTxRx    =  ( Link_IFace.TxRx );     -- Tx/Rx control, High => Tx
 %
-b2v_inst5.(datain, datain_b) = (LinkData_p, LinkData_n);    -- pins LinkData_p -> diffin.datain   \_single-
---														    --      LinkData_n -> diffin.datain_b / -ended
-Link_IFace.LinkData_in = (b2v_inst5.dataout AND !Link_IFace.TxRx);  -- RECEIVING data
+Link_IFace.LinkData_in = (b2v_inst5.dataout AND !Link_IFace.TxRx);
 
-b2v_inst2.i = Link_IFace.LinkData_out;                     -- pdo
-b2v_inst3.(datain, oe) = (b2v_inst2.o,    Link_IFace.TxRx); -- seio - Serial IO ?
-b2v_inst4.(datain, oe) = (b2v_inst2.obar, Link_IFace.TxRx); -- seio - Serial IO ?
+b2v_inst2.i = !Link_IFace.LinkData_out;
+b2v_inst3.(datain, oe) = (b2v_inst2.o, Link_IFace.TxRx);
+b2v_inst4.(datain, oe) = (b2v_inst2.obar, Link_IFace.TxRx);
+b2v_inst5.(datain, datain_b) = (LinkData_p, LinkData_n);
+
 LinkData_p = b2v_inst3.dataout;
 LinkData_n = b2v_inst4.dataout;
 
@@ -1018,7 +990,7 @@ EtherRAM.(clock_b, enable_b)= (Clk100, VCC);
 If DevSel[9] == VCC Then EtherRAM.(address_b[9..0], data_b[], wren_b) = 		  --\ for common
 								  (AddrBus[9..0],   DataBus[],(DataStrobe & RW)); -- > access
 					Else EtherRAM.(address_b[9..0], data_b[], wren_b) = 
-								  (Write_IntRamCt.q[], ExtRAM_Data[], (Read_time.q));
+								  (Write_IntRamCt.q[], ExtRAM_Data[], (Read_time.q and !EtherBusy));
 End if;
 --      = EtherRAM.q_b[];     -- connected in DataBus section       --/ (except "Ethernet")
 
@@ -1041,20 +1013,20 @@ Ether.Clock = Clk100; -- Clock Frequency MUST BE > 50MHz !!!!
 --    = Ether.IORq;             -- Connected at "Bus Handler" sub-section
 --    = Ether.RdWr_out;         -- Connected at "Bus Handler" sub-section
 --Ether.DataBus_in[15..0] = EtherRAM.q_a[];   -- data:  connected in "START of an ETHERNET Tx Cycle" sub-section
-Ether.Select  = Eth_AddrSettled;   -- Ethernet is selected for local data reading/writing
-Ether.RdWr_in = RdWr;              -- RdWr=0 => data: EtherRAM <- Ethernet / RdWr=1 => data: EtherRAM -> Ethernet
-Ether.DataStrobe = Eth_DataStrobe; -- input data must be latched while DataStrobe=1 
+Ether.Select  = Addr_Settled;   -- Ethernet is selected for local data reading/writing
+Ether.RdWr_in = RdWr;   -- RdWr=0 => data: EtherRAM <- Ethernet / RdWr=1 => data: EtherRAM -> Ethernet
+Ether.DataStrobe = Data_Strobe; -- input data must be latched while DataStrobe=1 
 --    = Ether.DataBus_out[];    -- data:  Ethernet -> EtherRAM (connected at "Ethernet Memory" sub-section)
 
 --************ (Local)Bus Handler : ********************************************
-Eth_AcsRqDetect = EdgeSensing(.D=Ether.IORq, .clk=Clk100, .reset=RESET);
-Eth_AccessGrtd	=SRFF(.S=Eth_AcsRqDetect,.clk=Clk100,.R=Eth_DataStrobe, .clrn=!RESET); --=1 during whole Operation
-Eth_AddrSettled=SRFF(.S=(Eth_AccessGrtd & !Eth_AddrSettled),                          --flag; enables "DevSel[]" triggers
-                    .clk=Clk100, .R=Eth_DataStrobe, .clrn=!RESET); 
-Eth_BusOper1    = DFF(.D=Eth_AddrSettled, .clk=Clk100,.clrn=!(RESET OR Eth_DataStrobe));-- delay by 1 clock
-Eth_BusOper2    = DFF(.D=Eth_BusOper1,    .clk=Clk100,.clrn=!(RESET OR Eth_DataStrobe));-- delay by 1 clock
-Eth_BusOper3    = DFF(.D=Eth_BusOper2,    .clk=Clk100,.clrn=!(RESET OR Eth_DataStrobe));-- delay by 1 clock
-Eth_DataStrobe  = DFF(.D=Eth_BusOper3,    .clk=Clk100,.clrn=!RESET); -- 1-clk pulse
+AcsRqDetect = EdgeSensing(.D=Ether.IORq, .clk=Clk100, .reset=RESET);
+AccessGrtd	=SRFF(.S=AcsRqDetect,.clk=Clk100,.R=Data_Strobe, .clrn=!RESET); --=1 during whole Operation
+Addr_Settled=SRFF(.S=(AccessGrtd & !Addr_Settled),                          --flag; enables "DevSel[]" triggers
+                    .clk=Clk100, .R=Data_Strobe, .clrn=!RESET); 
+BusOper1    = DFF(.D=Addr_Settled,.clk=Clk100,.clrn=!(RESET OR Data_Strobe));-- delay by 1 clock
+BusOper2    = DFF(.D=BusOper1,    .clk=Clk100,.clrn=!(RESET OR Data_Strobe));-- delay by 1 clock
+BusOper3    = DFF(.D=BusOper2,    .clk=Clk100,.clrn=!(RESET OR Data_Strobe));-- delay by 1 clock
+Data_Strobe = DFF(.D=BusOper3,    .clk=Clk100,.clrn=!RESET); -- 1-clk pulse
 
 -- Ether.RW_out=0 => Data: MainProj -> Ethernet ("write") => RdWr=1 
 -- Ether.RW_out=1 => Data: MainProj <- Ethernet ("read")  => RdWr=0
@@ -1113,9 +1085,9 @@ End IF;
 
 --Strobe for incrementation EtherRAM' Addr when storing all DWords 
 --  of the =entire Frame= (Daddr,Saddr,PkLenType,DataBlock) into EtherRAM
-EthWord_Rd  = (!RdWr & Eth_DataStrobe);    -- RdWr=0 => "Read" ETHERNET -> EtherRAM
+EthWord_Rd  = (!RdWr & Data_Strobe);    -- RdWr=0 => "Read" ETHERNET -> EtherRAM
 --Strobe for incrementation EtherRAM' Addr when reading out all DWords requested by ETHERNET
-EthWord_Wr  = ( RdWr & Eth_DataStrobe);    -- RdWr=1 => "Write" EtherRAM -> ETHERNET
+EthWord_Wr  = ( RdWr & Data_Strobe);    -- RdWr=1 => "Write" EtherRAM -> ETHERNET
 
 --Signal for incrementing/setting the EtherAdrCt in the proper time :
 EthAdrCt_en = DFF(.clk=Clk100,          --\_strobe for operating EtherAdrCt =after= .. 
@@ -1492,7 +1464,7 @@ CMD3command     = SRFF(.S=CMD3OpCode_save,
 
 --Only for test
 --============================================================================
--- Im_ADC - a RAM which contains data substituted for the ADC data
+-- Im_ADC - a RAM which contains data substituted for the ADC data (Oanoiaay iaiyou aey i?iaa?ee aeai?eoia)
 %	Im_ADC.data_a[] = GND;
 	Im_ADC.(address_a[], clock_a, wren_a) = (Im_ADCCt.q[7..0], ADC_Clock, GND);
 	
@@ -1506,78 +1478,43 @@ CMD3command     = SRFF(.S=CMD3OpCode_save,
 --	Im_ADCCt.cnt_en = GN;
 --	Im_RAMAddrBus[7..0] = AddrBus_In[7..0] + Im_ADCCt.q[7..0]; -- aunoaaeaiea aa?ana a 0 aey oaeouaai iaai?a FOR-ia
 %
-
---******** 6a. SET-UP of the external ADCs ************************************
-ADC_Reset		= PwrUpReset;
-
---Strobe: makes ADCfeed_AddrCt to load InitAddr, and makes ADCfeed_WordCt to load N_of_Words
-ADCfeed_Init	= DevSel[8] &(AddrBus[2..0]==2)  --\_AddrBus[] == 2050, ..
-				  AND (DataStrobe & RW) ;        --/ ..and "write" is conducted
-
---Counter: latches the InitAddr and then counts the Addr of the selected portion of data
-ADCfeed_AddrCt.data[]	= DataBus[7..0];        -- 8-bit InitAddr is asserted at 8..1 bits 
-ADCfeed_AddrCt.(clock, clk_en)	= (Clk100, VCC);
-ADCfeed_AddrCt.cnt_en	= EdgeSensing(.D=ADCfeed_NxtB, .clk=Clk100);
-ADCfeed_AddrCt.sload	= ADCfeed_Init;         -- loads InitAddr before the Beg_of_Cycle
-ADCfeed_AddrCt.sclr		= PwrUpSet1 OR RESET ;  -- at Power-Up self-setting the InitAddr=#0
-
-ADCfeed_Beg1= SRFF(.S=((ADCfeed_Init            --\_When an InitAddr has been written, ..
-					OR PwrUpSet1)              --/ .. OR by PwrUpSet1
-					 AND !ADCfeed_Cycle1 ),     -- .S=1 until the Cycle has really started
-				.R=ADCfeed_Cycle1,              -- reset when the Cycle has really started
-				.clk=Clk100, .clrn=!RESET );
-
-ADCfeed_Beg2= DFF(.D=(ADCfeed_Beg1 & !ADCfeed_Cycle1),  --\_    _/^^^^\_ 1*Clk12_5,
-				  .clk=!Clk12_5);                         --/ flips by \_ of Clk12_5
-
-ADCfeed_Cycle1 = SRFF(.S=ADCfeed_Beg2, .R=ADCfeed_End, .clrn=!RESET,
-					  .clk=Clk12_5 );   -- flips in advance by 1/2 * Clk12_5
-ADCfeed_Cycle2 =  DFF(.D=ADCfeed_Cycle1, .clk=!Clk12_5);  -- 
-
-ADCfeed_WordEnd = DFF(.D=(ADCfeed_BitCt.eq0 & !ADCfeed_WordCt.eq0), .clk=!Clk12_5);
-ADCfeed_End		= DFF(.D=(ADCfeed_BitCt.eq0 &  ADCfeed_WordCt.eq1), .clk=!Clk12_5);
-
---Counter counts the bits of each Word being fed ( [from 25 down to 0] = 24bits + 2-clock pause )
-ADCfeed_BitCt.sset = (ADCfeed_Beg2 #                       --\_loads #25 before Cycle
---                      (ADCfeed_WordEnd & !ADCfeed_End) );   --/ loads #25 for each [24bits+pause]
-					  ADCfeed_WordEnd );                    --/ loads #25 for each [24bits+pause]
-ADCfeed_BitCt.cnt_en= (ADCfeed_Cycle2  & !ADCfeed_WordEnd);
-ADCfeed_BitCt.(clock, clk_en) = (Clk12_5, VCC);
-
---Strobe makes the ADCfeed_Reg to load the next DWord, and =then= makes the ADCfeed_AddrCt to increment
-ADCfeed_NxtB    =  ADCfeed_BitCt.eq0            --\  1st 8-bit DWord \
-                  #(ADCfeed_BitCt.q[]==18)      -- > 2nd 8-bit DWord  >  to be fed 
-                  # ADCfeed_BitCt.eq10 ;        --/  3rd 8-bit DWord /  to the ADCs
-ADCfeed_NextB   = DFF(.D=ADCfeed_NxtB, .clk=!Clk12_5);  -- strobe, registered
-
---Counter counts the number of Word being written (from N down to 1)
-ADCfeed_WordCt.data[]  = DataBus[11..8];-- N_of_Words is asserted at 12..9 bits 
-ADCfeed_WordCt.(clock, clk_en) = (Clk100, VCC); 
-ADCfeed_WordCt.cnt_en  = EdgeSensing(.D=    --increments =after= all actions related to current Word
-						( ADCfeed_WordEnd & !DFF(.D=ADCfeed_WordEnd, .clk=Clk12_5) ),
-						.clk=Clk100); 
-ADCfeed_WordCt.sset = PwrUpSet1 ;           -- loads N_of_words at Power-Up self-setting
-ADCfeed_WordCt.sload= ADCfeed_Init;     -- loads N_of_words at normal operation
-
---Reg: latches a 8-bit Data from SetupRAM and outputs the bits serially
-ADCfeed_Reg.data[] = SetupRAM.q_a[] ;
-ADCfeed_Reg.load= ADCfeed_Beg2 OR ADCfeed_NextB; --initial and regular "load" of ADCfeed_Reg
-ADCfeed_Reg.(clock,enable) = (Clk12_5, VCC);
-
-ADCfeed_En = ADCfeed_Cycle2 AND !DFF(.D=(ADCfeed_BitCt.eq1 # ADCfeed_BitCt.eq0), .clk=!Clk12_5);
-
---Signals which handle the ADC via serial interface :
-ADC_SEN[2..0] = !ADCfeed_En ;                   -- active LOW  ^^^^^\______________
-ADC_SCLK      = Clk12_5 AND ADCfeed_En ;        --             ________/^^\__/^^\__
-ADC_SDATA[0]  = DFF(.D=ADCfeed_Reg.shiftout, .clk=!Clk12_5, .clrn=ADCfeed_Cycle1);
-
---Registers: load serial data (from ADC' SDOUT) and convert it into a 8-bit DWord :
---For i in 1 to 3  GENERATE
---    ADCdata_Reg[i].shiftin = ADC_SDOUT[i-1] ;
---    ADCdata_Reg[i].(clk,enable,load) = (Clk12_5, ADCfeed_Cycle2, GND);
---End GENERATE;
-
+--ADC setup
 --============================================================================
+	-- Test mode
+	
+	ADC_Reset		= PwrUpReset;
+	
+%	ADCtest_bit_count.sclr = !PowerUp2;
+	ADCtest_bit_count.(clock, cnt_en, clk_en) = (Clk12_5, ADCtest_Bit_write, VCC);
+	
+	IF ADCtest_bit_count.q[] < b"1101000" Then ADCtest_Bit_write = VCC;
+										  Else ADCtest_Bit_write = GND;
+	END IF;
+	
+	ADCtest_reg.(clock,enable) = (Clk12_5, VCC);
+	--ADCreset_reg.(clock,enable) = (Clk12_5, VCC);
+	IF ((ADCtest_bit_count.q[] >= b"0000001") AND (ADCtest_bit_count.q[] < b"1101000")) Then ADCtest_reg.sset = GND;
+																						   ADC_SDATA[0] = ADCtest_SDIO_trig.q;
+																					  Else ADCtest_reg.sset = VCC;
+																						   ADC_SDATA[0] = GND;
+	END IF;
+	IF (((ADCtest_bit_count.q[] >= b"0000001") AND (ADCtest_bit_count.q[] < b"0011001")) OR ((ADCtest_bit_count.q[] >= b"0011011") AND (ADCtest_bit_count.q[] < b"0110011")) OR
+		((ADCtest_bit_count.q[] >= b"0110101") AND (ADCtest_bit_count.q[] < b"1001101")) OR ((ADCtest_bit_count.q[] >= b"1001111") AND (ADCtest_bit_count.q[] < b"1100111"))) Then 
+		ADCtest_CSB_trig.d = GND;
+		ADC_SCLK = !Clk12_5;
+	ELSE 
+		ADCtest_CSB_trig.d = VCC;
+		ADC_SCLK = GND;
+	END IF;
+	ADCtest_CSB_trig.clk = Clk12_5;
+	ADCtest_SDIO_trig.clk = Clk12_5;
+	ADCtest_SDIO_trig.d = ADCtest_reg.shiftout;
+	--ADCtest_SDIO_trig.d = ADCreset_reg.shiftout;
+
+	ADC_SEN[2..0] = ADCtest_CSB_trig.q;
+%
+--============================================================================
+
 --ADC_clk = LATCH()
 
 FOR i IN 0 TO (NUM_CH-1) GENERATE
@@ -1608,14 +1545,14 @@ FOR i IN 0 TO (NUM_CH-1) GENERATE
 								InData_RegMix[i].q[11],InData_RegMix[i].q[6],InData_RegMix[i].q[1],InData_RegMix[i].q[2],
 								InData_RegMix[i].q[3],InData_RegMix[i].q[4],InData_RegMix[i].q[5],InData_RegMix[i].q[0]);
 
-	TA12Channel[i].ADCdata[]		 = InData_Reg[i].q[];--(GND,GND,GND,GND,GND,WriteWFCt.q);--
+	TA12Channel[i].ADCdata[]		 = InData_Reg[i].q[];
 	TA12Channel[i].DataBus_In[15..0] = DataBus[15..0];
 	TA12Channel[i].AddrBus_In[9..0]  = AddrBus[9..0] ;
 
 	TA12Channel[i].DataBusStrobe		= DataStrobe ;
 	TA12Channel[i].DirectIn			= RW;
 	TA12Channel[i].Select			= DevSel[11+i].q ;
-	TA12Channel[i].LinkMessage		= Link_IFace.LinkMessage OR Test_in[0];--St_ADC_Link;--
+	TA12Channel[i].LinkMessage		= Link_IFace.LinkMessage OR Test_in;--;
 	TA12Channel[i].WriteRAM			= VCC;--SelCommdList_Trig.q;--SelCommdList_Count.q;
 
 END GENERATE;
@@ -1649,20 +1586,8 @@ End generate;
 
 --Compres.(trigger, CLOCK_100) = (Test_in%Link_IFace.LinkMessage%, Clk100); -- Iiniio?aou eeie aiaoiae iaiyoe ii aieoiaioo!!!
 
-WriteWFCt.(clock,cnt_en,clk_en,sclr) = (Clk100, (!WriteWFEnd AND StartWFTx_Eth), VCC, !StartWFTx_Eth); -- sets to #00 in the Beg-g_of_Cycle
+WriteWFCt.(clock,cnt_en,clk_en,sclr) = (Clk100, !WriteWFEnd AND (StartWFTx_Eth OR Test_in), VCC, !(StartWFTx_Eth OR Test_in)); -- sets to #00 in the Beg-g_of_Cycle
 
---IF (TA12Channel[0].Working OR TA12Channel[1].Working) 
---	Then 
---		IF ((WriteWFCt.q[] >= WriteWFDelayTime) AND (TA12Channel[0].WriteWFEnd == VCC OR TA12Channel[1].WriteWFEnd == VCC))   -- 
---			Then WriteWFEnd = VCC;     --
---			Else WriteWFEnd = GND;     --
---		END IF;
---	Else 
---		IF (WriteWFCt.q[] >= WriteWFDelayTime)
---			Then WriteWFEnd = VCC;     --
---			Else WriteWFEnd = GND;     --
---		END IF;
---End IF;
 IF ((WriteWFCt.q[] == WriteWFDelayTime) %AND (LinkMessage == GND )%)   -- 
 	Then WriteWFEnd = VCC;     --
 	Else WriteWFEnd = GND;     --
@@ -1680,8 +1605,8 @@ END GENERATE;
 Delay_EthMessage.(D,clk) = (!EnWriteWFHist.q%DelayWriteWFhist_Eth.q%, Clk100);
 TxWFhist_Eth.(S, clk, R, clrn) = (!EnWriteWFHist.q%DelayWriteWFhist_Eth.q% AND !Delay_EthMessage.q, Clk100, GND, !StopCount_Eth);
 
-DataCount_Eth.(clock, cnt_en, sclr) = (Clk100, TxWFhist_Eth.q, OutData_rdy.q%!EnWriteWFHist.q AND !Delay_EthMessage.q%%!DelayWriteWFhist_Eth.q%);
-ChannelCount_Eth.(clock, cnt_en, sclr) = (Clk100, DataCount_Eth.cout AND !StopCount_Eth, OutData_rdy.q%!EnWriteWFHist.q AND !Delay_EthMessage.q% %DelayWriteWFhist_Eth.q%);
+DataCount_Eth.(clock, cnt_en, sclr) = (Clk100, TxWFhist_Eth.q, !EnWriteWFHist.q AND !Delay_EthMessage.q%!DelayWriteWFhist_Eth.q%);
+ChannelCount_Eth.(clock, cnt_en, sclr) = (Clk100, DataCount_Eth.cout AND !StopCount_Eth, !EnWriteWFHist.q%DelayWriteWFhist_Eth.q% AND !Delay_EthMessage.q);
 IF (ChannelCount_Eth.q[] == b"11" AND DataCount_Eth.q[] == VCC)
 	THEN StopCount_Eth = VCC;
 	ELSE StopCount_Eth = GND;
@@ -1718,7 +1643,7 @@ END Case;
 %
 CASE ChannelCount_Eth.q[] IS 
 	When b"00" => -- Channel 1
-					CASE DataCount_Eth.q[] is
+					CASE DataCount_Eth.q is
 						When 0 => WriteDATA.data[15..0] = (ChannelCount_Eth.q[],b"000000",Eth_Reg_LinkOpCode.q[7..0]);
 						When 1 => WriteDATA.data[15..0] = Eth_Reg_LinkEvNumber.q[];
 						When others => WriteDATA.data[11..0] = TA12Channel[0].DAQDataBusOut_Eth[11..0];
@@ -1728,7 +1653,7 @@ CASE ChannelCount_Eth.q[] IS
 					TA12Channel[0].DAQAddrBus_Eth_In[8] = GND;
 					TA12Channel[0].ReadWFhist_Eth			= TxWFhist_Eth.q;
 	When b"01" => -- Channel 2
-					CASE DataCount_Eth.q[] is
+					CASE DataCount_Eth.q is
 						When 0 => WriteDATA.data[15..0] = (ChannelCount_Eth.q[],b"000000",Eth_Reg_LinkOpCode.q[7..0]);
 						When 1 => WriteDATA.data[15..0] = Eth_Reg_LinkEvNumber.q[];
 						When others => WriteDATA.data[11..0] = TA12Channel[1].DAQDataBusOut_Eth[11..0];
@@ -1738,7 +1663,7 @@ CASE ChannelCount_Eth.q[] IS
 					TA12Channel[1].DAQAddrBus_Eth_In[8] = GND;
 					TA12Channel[1].ReadWFhist_Eth			= TxWFhist_Eth.q;
 	When b"10" => -- Channel 3
-					CASE DataCount_Eth.q[] is
+					CASE DataCount_Eth.q is
 						When 0 => WriteDATA.data[15..0] = (ChannelCount_Eth.q[],b"000000",Eth_Reg_LinkOpCode.q[7..0]);
 						When 1 => WriteDATA.data[15..0] = Eth_Reg_LinkEvNumber.q[];
 						When others => WriteDATA.data[11..0] = TA12Channel[2].DAQDataBusOut_Eth[11..0];
@@ -1748,7 +1673,7 @@ CASE ChannelCount_Eth.q[] IS
 					TA12Channel[2].DAQAddrBus_Eth_In[8] = GND;
 					TA12Channel[2].ReadWFhist_Eth			= TxWFhist_Eth.q;
 	When b"11" => -- Channel 4
-					CASE DataCount_Eth.q[] is
+					CASE DataCount_Eth.q is
 						When 0 => WriteDATA.data[15..0] = (ChannelCount_Eth.q[],b"000000",Eth_Reg_LinkOpCode.q[7..0]);
 						When 1 => WriteDATA.data[15..0] = Eth_Reg_LinkEvNumber.q[];
 						When others => WriteDATA.data[11..0] = TA12Channel[3].DAQDataBusOut_Eth[11..0];
@@ -1800,63 +1725,56 @@ DelayWorkTime[1..0].(clk) = Clk100;
 DelayWorkTime0.d = TxWFhist_Eth.q;
 DelayWorkTime1.d = DelayWorkTime0.q;
 
-OutData_rdy.(d,clk) = ((DelayWorkTime1.q AND !DelayWorkTime0.q), Clk100);
+DelayReadTime[1..0].(clk) = Clk100;
+DelayReadTime0.d = !TxWFhist_Eth;
+DelayReadTime1.d = DelayReadTime0.q;
 
---Addr_Ram.clock = Clk100;
---Addr_Ram.(wren, wraddress[], data[15..0]) = ((DelayWorkTime0.q AND TxWFhist_Eth.q), WrAddrCnt.q[], Write_ExtRamCt.q[15..0]);
---Addr_Ram.(rden, rdaddress[]) = ((Read_time.q AND !ReadExtMem), ReadAddrCnt.q[]);
---
---WrAddrCnt.(clock, clk_en, cnt_en) = (Clk100, VCC, (DelayWorkTime0.q AND !TxWFhist_Eth.q));
---ReadAddrCnt.(clock, clk_en, cnt_en) = (Clk100, VCC, (Read_time.q AND ReadExtMem));
+Addr_Ram.clock = Clk100;
+Addr_Ram.(wren, wraddress[], data[15..0]) = ((DelayWorkTime0.q AND TxWFhist_Eth.q), WrAddrCnt.q[], Write_ExtRamCt.q[15..0]);
+Addr_Ram.(rden, rdaddress[]) = ((Read_time.q AND !ReadExtMem), ReadAddrCnt.q[]);
 
-Write_ExtRamCt.(clock, clk_en, cnt_en, aclr) = (Clk100, VCC, TxWFhist_Eth.q OR DelayWorkTime0.q, PwrUpSet2 # Reset);
+WrAddrCnt.(clock, clk_en, cnt_en) = (Clk100, VCC, (DelayWorkTime0.q AND !TxWFhist_Eth.q));
+ReadAddrCnt.(clock, clk_en, cnt_en) = (Clk100, VCC, (Read_time.q AND ReadExtMem));
 
-WrRdExtRAMAddr.(clock, enable, load) = (Clk100, VCC, VCC);
+Write_ExtRamCt.(clock, clk_en, cnt_en) = (Clk100, VCC, TxWFhist_Eth.q);
 
-If	(TxWFhist_Eth.q OR DelayWorkTime0.q) == VCC Then 
-	WrRdExtRAMAddr.data[15..0]	= Write_ExtRamCt.q[15..0];
-	ExtRAM_OutEn				= GND;
-	ExtRAM_CEn					= GND;
-	ExtRAM_WriteEn				= GND;
-	ExtRAM_LowerByteControl		= GND;--Clk50;--
-	ExtRAM_UpByteControl		= GND;--Clk50;--
+If	TxWFhist_Eth.q == VCC Then 
+	ExtRAM_Addr[15..0]		= Write_ExtRamCt.q[15..0];
+	ExtRAM_OutEn			= GND;
+	ExtRAM_CEn				= GND;
+	ExtRAM_WriteEn			= GND;
+	ExtRAM_LowerByteControl	= GND;--Clk50;--
+	ExtRAM_UpByteControl	= GND;--Clk50;--
 Elsif ((Read_time.q == VCC) and (EtherLinkMessage.q == GND)) Then 
-	WrRdExtRAMAddr.data[15..0]	= EnRead_ExtRamCt.q[];
-	ExtRAM_OutEn				= GND;
-	ExtRAM_CEn					= GND;
-	ExtRAM_WriteEn				= VCC;
-	ExtRAM_LowerByteControl		= GND;--Clk50;--
-	ExtRAM_UpByteControl		= GND;--Clk50;--
+	ExtRAM_Addr[15..0]		= EnRead_ExtRamCt.q[];
+	ExtRAM_OutEn			= GND;
+	ExtRAM_CEn				= GND;
+	ExtRAM_WriteEn			= VCC;
+	ExtRAM_LowerByteControl	= GND;--Clk50;--
+	ExtRAM_UpByteControl	= GND;--Clk50;--
 							Else
-	ExtRAM_OutEn				= VCC;
-	ExtRAM_CEn					= VCC;
-	ExtRAM_WriteEn				= VCC;
-	ExtRAM_LowerByteControl		= VCC;
-	ExtRAM_UpByteControl		= VCC;
-	WriteDATA.aclr				= VCC;
-	WrRdExtRAMAddr.aclr			= VCC;
+	ExtRAM_OutEn			= VCC;
+	ExtRAM_CEn				= VCC;
+	ExtRAM_WriteEn			= VCC;
+	ExtRAM_LowerByteControl	= VCC;
+	ExtRAM_UpByteControl	= VCC;
 End IF;
 
-	ExtRAM_Addr[] = WrRdExtRAMAddr.q[];
 For i in 0 to 15 generate
 	ExtRAM_Data[i] = TRI (WriteDATA.q[i],TxWFhist_Eth.q);
 End generate;
 
-ReadCnt.(clock, clk_en, cnt_en) = (Clk100, VCC, (DelayReadTime0.q and !Read_time.q));
+Read_time.(S, clk, R) = ((!DelayWorkTime0.q AND DelayWorkTime1.q), Clk100, StopRead_ExtRam);
 
-Read_time.(S, clk, R) = (Tx_Rq_StReg.q, Clk100, !ReadExtMem); -- чтение внешней памяти по команде готовности передачи в изернет
---ReadExtMem_Rq.(S, clk, R) = (Tx_Rq_StReg.q, Clk100, !ReadExtMem); -- ?oaiea aiaoiae iaiyoe ii eiiaiaa aioiaiinoe ia?aaa?e a eca?iao
---Read_time.(S, clk, R) = ((ReadExtMem_Rq.q AND !(TxWFhist_Eth.q OR DelayWorkTime0.q)), Clk100, !ReadExtMem); -- ?oaiea aiaoiae iaiyoe ii eiiaiaa aioiaiinoe ia?aaa?e a eca?iao
+--Read_Ram.data[15..0]	= ExtRAM_Data[15..0];
+--Read_Ram.(address[], wren, clock) = (Write_IntRamCt.q[], Read_time.q and !EtherLinkMessage.q, Clk100);
 
-DelayReadTime[1..0].(clk) = Clk100;
-DelayReadTime0.d = Read_time.q;
-DelayReadTime1.d = DelayReadTime0.q;
+WrRdAddr_Reg.(data[], clock, enable, load) = (Write_ExtRamCt.q, Clk100, (DelayWorkTime1.q AND !DelayWorkTime0.q), VCC);
 
 Read_ExtRamCt.clock = Clk100;
 Read_ExtRamCt.clk_en  = VCC;
-Read_ExtRamCt.cnt_en = DelayReadTime0.q AND ReadExtMem;
-Read_ExtRamCt.sclr = DelayReadTime1.q AND !DelayReadTime0.q;
-Read_ExtRamCt.aclr = PwrUpSet2 # Reset;
+Read_ExtRamCt.cnt_en = Read_time.q and !EtherLinkMessage.q;
+Read_ExtRamCt.sclr = StopRead_ExtRam;
 
 IF ((Read_ExtRamCt.q[] == VCC)) Then --StopRead_ExtRam = VCC;
 									 ReadExtMem = GND;
@@ -1864,12 +1782,9 @@ IF ((Read_ExtRamCt.q[] == VCC)) Then --StopRead_ExtRam = VCC;
 									 ReadExtMem = VCC;
 END IF;
 
-WrRdAddr_Reg.(data[], clock, enable, load, aclr) = (Write_ExtRamCt.q, Clk100, (DelayWorkTime1.q AND !DelayWorkTime0.q), VCC, PwrUpSet2 # Reset);
-
 EnRead_ExtRamCt.clock = Clk100;
 EnRead_ExtRamCt.clk_en  = VCC;
-EnRead_ExtRamCt.cnt_en = Read_time.q AND !StopRead_ExtRam AND ReadExtMem;
-EnRead_ExtRamCt.aclr  = PwrUpSet2 # Reset;
+EnRead_ExtRamCt.cnt_en = Read_time.q and !EtherLinkMessage.q;
 
 IF ((EnRead_ExtRamCt.q[] == WrRdAddr_Reg.q[15..0])) Then StopRead_ExtRam = VCC;
 														 --ReadExtMem = GND;
@@ -1877,18 +1792,19 @@ IF ((EnRead_ExtRamCt.q[] == WrRdAddr_Reg.q[15..0])) Then StopRead_ExtRam = VCC;
 														 --ReadExtMem = VCC;
 END IF;
 
---OutData_rdy.(d,clk) = (!StopRead_ExtRam AND !ReadExtMem AND (DelayReadTime1.q AND !DelayReadTime0.q), Clk100);
-
 Write_IntRamCt.clock = Clk100;
 Write_IntRamCt.clk_en  = VCC;
-Write_IntRamCt.sload = Tx_Rq_StReg.q;--OutData_rdy.q OR !ReadExtMem%!TxWFhist_Eth.q AND DelayWorkTime0.q%;
+Write_IntRamCt.sload = !TxWFhist_Eth.q AND DelayWorkTime0.q;
 Write_IntRamCt.data = EtherRam_DataAddr;
-Write_IntRamCt.cnt_en = DelayReadTime1.q AND !Write_IntRamCt.cout;
---Write_IntRamCt.sclr = !Read_time.q;
-
+Write_IntRamCt.cnt_en = Read_time.q AND !Write_IntRamCt.cout;
+Write_IntRamCt.sclr = TxWFhist_Eth.q;
 
 --============================================================================
---******** 7. Fast LINK's Interface *******************************************
+--******** 7. Fust LINK's Interface *******************************************
+
+--FLink_Sync = TestCt.q[25];
+
+--************************** Ia?aaa?a aaiiuo a IPT ***************************** 
 
 FLink_Reg_LinkOpCode.data[(CommandSize+Pause-1)..0]= Link_IFace.OpCode_out[(CommandSize+Pause-1)..0];
 FLink_Reg_LinkOpCode.(clock, enable, load)= (Clk100, Link_IFace.RxOpCode_ld, VCC); -- catch data when RxOpCodeReload=1 
@@ -2041,9 +1957,11 @@ CPU.DataIn[]        = DataBus[];        -- Data Bus - input
 --            = CPU.DataOut[15..0]        -- /                       section
 
 --            = CPU.AccessReq ;           -- connected in "Internal Bus" section
---            = CPU.RdWr;                 -- connected in "Internal Bus" section
-CPU.AccessGranted   = AccessGrtd;       -- issued by "BusHandler" upon every "AccessReq"
-CPU.DataStrobe      = DataStrobe;       -- issued by "BusHandler"
+--                    = CPU.RdWr;         -- connected in "Internal Bus" section
+--CPU.AccessGranted   = AccessGtd;        -- connected in "Internal Bus" section
+--CPU.DataStrobe      = DataStrobe;       -- connected in "Internal Bus" section
+--CPU.AccessGranted   = Bus_Arbiter.BAGD[1] ;
+--CPU.DataStrobe      = DataStrobe ;
 
 --            = CPU.Working;      -- connected below, in "Control Unit" section
 --            = CPU.Error;        -- connected below, in "Control Unit" section
@@ -2067,22 +1985,11 @@ MainRAM.(address[7..0], data[],    clock,    wren                     ) =
 CommandRAM.(address[9..0], data[], clock,    wren                     ) =
         (AddrBus[9..0], DataBus[], Clk100,(DataStrobe & DevSel[3] & RW)); 
 
---************ SetupRAM contains data for ADCs setup *************************
-SetupRAM.(clock_a)  = Clk100 ;
-SetupRAM.(address_a[7..0],       data_a[],        wren_a )= --\ for local access 
-		 (ADCfeed_AddrCt.q[7..0],B"00000000",      GND   ); --/ from inside of "SET-UP of.." sub-section
---		 (ADCfeed_AddrCt.q[7..0],ADCdata_reg1.q[],  GND   ); --/ from inside of "SET-UP of.." sub-section
---		= SetupRAM.q_a[];     -- connected in "SET-UP of the external ADCs" sub-section
-SetupRAM.(clock_b) = Clk100 ;
-SetupRAM.(address_b[7..0],data_b[],      wren_b                      )=--\ for access 
-		 (AddrBus[7..0],  DataBus[7..0],(DataStrobe & DevSel[7] & RW));--/ from the MainProject
---		= SetupRAM.q_b[];     -- connected in "Internal Bus of Project .." sub-section
-
 --Ethernet Memory is for use by Ethernet Section ONLY, and is defined there
 
 Reg_BaseAddr.data[7..0] = DataBus[7..0];
 Reg_BaseAddr.clock      = Clk100;
-Reg_BaseAddr.enable     = ( DevSel[8] & (AddrBus[2..0]==1)  --AddrBus[]== Addr_of_thisReg
+Reg_BaseAddr.enable     = ( DevSel[6] & (AddrBus[2..0]==1)  --AddrBus[]== Addr_of_thisReg
                         AND (DataStrobe & RW) );            --.. and "write" is conducted
 Reg_BaseAddr.(load, aclr)   = (VCC, RESET);
 
@@ -2096,43 +2003,43 @@ Reg_BaseAddr.(load, aclr)   = (VCC, RESET);
 --Link_IFace.OpCode_out[] changes from =00 to valid OpCode simultaneously with _/ of LinkMessage
 IF (Link_IFace.LinkMessage == VCC)  then -- If VALID command received, 
     CASE  Link_IFace.OpCode_out[(CommandSize+Pause-1)..0] is -- recognizing the particular Operation :
-        WHEN  Read   => BaseAd[]        = 50;   --#145-"Read" (=<8words) from Objects 
+        WHEN  Read     => BaseAddr[]    = 80;   --#145-"Read" (=<8words) from Objects 
                         StProc_Link     = VCC;
-        WHEN  Write  => BaseAd[]        =126;   --#154-"Write"(=<4words) to Objects
+        WHEN  Write    => BaseAddr[]      =192; --#154-"Write"(=<4words) to Objects
                         StProc_Link     = VCC;
-        WHEN  Read62 => BaseAd[]        =158;   --#130-"Read62": Read 62words from Object(s)
+        WHEN  Read62 => BaseAd[]        =  2;   --#130-"Read62": Read 62words from Object(s)
                         StProc_Link     = VCC;
-        WHEN  Write8 => BaseAd[]        =174;   --#137-"Write8": Write 8 words  to Object(s)
+        WHEN  Write8 => BaseAd[]        =160;   --#137-"Write8": Write 8 words  to Object(s)
                         StProc_Link     = VCC;
 
         WHEN  StartRegul     =>     -- #193-"START_Regular"        (Read   Lst0)
-                        BaseAd[]        =  2;           --Program: CommdList_Rd000
+                        BaseAd[]        = 24;           --Program: CommdList_Rd000
                         StProc_Link     = VCC;          --Start up the Program
                         St_ADC_Link     = VCC;          --Start up ADC
         WHEN  CommdLst_Wr001 =>     -- #202-"Blocking_Begin"       (Write  Lst1)
-                        BaseAd[]        = 72;           --Program: CommdList_Wr001
+                        BaseAd[]        =100;           --Program: CommdList_Wr001
                         StProc_Link     = VCC;          --Start up the Program
 
         WHEN  StartAlter     =>     -- #210-"START_Alternative"    (Read   Lst2)
-                        BaseAd[]        =  6;           --Program: CommdList_Rd010
+                        BaseAd[]        = 28;           --Program: CommdList_Rd010
                         StProc_Link     = VCC;          --Start up the Program
                         --St_ADC_Link     = VCC;          --Start up ADC
         WHEN  CommdLst_Wr011 =>     -- #217-"Blocking_End"         (Write  Lst3)
-                        BaseAd[]        = 78;           --Program: CommdList_Wr011
+                        BaseAd[]        =106;           --Program: CommdList_Wr011
                         StProc_Link     = VCC;          --Start up the Program
 
         WHEN  CommdLst_Rd100 =>     -- #226-"Read  by CommdLst100" (Read   Lst4)
-                        BaseAd[]        = 10;           --Program: CommdList_Rd100
+                        BaseAd[]        = 32;           --Program: CommdList_Rd100
                         StProc_Link     = VCC;          --Start up the Program
         WHEN  CommdLst_Wr101 =>     -- #233-"Write by CommdLst101" (Write  Lst5)
-                        BaseAd[]        = 84;           --Program: CommdList_Wr101
+                        BaseAd[]        =112;           --Program: CommdList_Wr101
                         StProc_Link     = VCC;          --Start up the Program
 
         WHEN  CommdLst_Rd110 =>     -- #241-"Read  by CommdLst110" (Read   Lst6)
-                        BaseAd[]        = 14;           --Program: CommdList_Rd110;
+                        BaseAd[]        = 36;           --Program: CommdList_Rd110;
                         StProc_Link     = VCC;          --Start up the Program
         WHEN  CommdLst_Wr111 =>     -- #250-"Write by CommdLst111" (Write  Lst7)
-                        BaseAd[]        = 90;           --Program: CommdList_Wr111
+                        BaseAd[]        =118;           --Program: CommdList_Wr111
                         StProc_Link     = VCC;          --Start up the Program
 
         WHEN  Rd_SelCommdLst =>     -- #198-"Read  by CommdLst_selected_by_InData"
@@ -2156,37 +2063,32 @@ Start_Link4 = DFF(.D=Start_Link3,            .clk=Clk100);
 StartProc_Link  = DFF(.D=(StProc_Link & !Start_Link4), .clk=Clk100);--4*Clk100 _/^^^\_
 StartADC_Link   = DFF(.D=(St_ADC_Link & !Start_Link4), .clk=Clk100);--4*Clk100 _/^^^\_
 
-
 --************ Circuit which handles execution of the Link-Commands ************
 --IF "StartRegul", then its [OPCode, InData] is to be be entered into FIFO .. 
 --    ..when the OutData is ready for Tranfer from external RAM into EtherRAM (indicated by OutData_rdy) ;
 --IF any other Commd, then its [OPCode, InData] is to be entered into FIFO .. 
 --    ..when Link_IFace.InData_out[] is asserted (indicated by Link_IFace.RxInData_ld).
 
---OutData_rdy.(D, clk,reset)=(Link_IFace.LinkMessage, --\_Emulation of "OutData_Rdy" - 
---                 Clk25, (RESET # Reset2));          --/ - for TEST ONLY !
+OutData_rdy.(D, clk,reset)=(Link_IFace.LinkMessage, --\_Emulation of "OutData_Rdy" - 
+                 Clk25, (RESET # Reset2));          --/ - for TEST ONLY !
 
-CommdStReg_Ini  = SRFF(.S= StartADC_Link,
---!!!!For the SERIES-SENDING_TEST, comment the statement above and uncomment the statement below ;  
---CommdStReg_Ini  = SRFF(.S=(StartADC_Link AND UDPtstSeries),
-                       .R=OutData_rdy.q,
-  --For NORMAL operation, remove ".q"^^
+--CommdStReg_Ini  = SRFF(.S= StartADC_Link, .R=OutData_rdy,
+--!!!!For the SERIES-SENDING_TEST, comment the statement above and uncomment the statement below.
+CommdStReg_Ini  = SRFF(.S=(StartADC_Link AND UDPtstSeries), .R=OutData_rdy.q,
                        .clrn=!(RESET # Reset2), .clk=Clk100);
 CommdOther_Ini  = SRFF(.S=(StartProc_Link & !StartADC_Link),--set by any Commd except "StartRegul"
                        .R=Link_IFace.RxInData_ld,
                        .clrn=!(RESET # Reset2), .clk=Clk100);
---Select the Strobe, correspondent to the Command; 2*Clk100 pulse, NOT longer!
+--Select the Strobe, correspondent to the Command; 1*Clk100 pulse, NOT longer!
 CommdPut_en =( (CommdStReg_Ini & OutData_rdy.q)            --to put "StartRegul" into FIFO
-  --For NORMAL operation, remove ".q"-------^^
             OR (CommdOther_Ini & Link_IFace.RxInData_ld) ) --to put any other Commd into FIFO
            AND (StartOne # StartMulti); --IF allowed (can be commented for specific TEST)
 
 CommdMov_int= SRFF(.S=((Ether_TxUDPcycle # Ether_TxCMDcycle)--IF a (UDP or CMD3)-Tx_cycle is performed, ..
-                   AND EtherPauseCt.eq4),           --\_4*Clk100 interval before..
-                   .R=CommdMov_en, .clk=Clk100);    --/ ..moving the FIFO
-CommdMov_en  = DFF(.D=((CommdMov_int & !Contin1)    --\ shift occurs only when execution ..
-                   AND EtherPauseCt.eq2),           -- >..of =this= Commd has been completed, ..
-                   .clk=Clk100 ) ;                  --/ .. 1*Clk100 _/^^\_
+                   AND EtherPauseCt.eq4),               --\_4*Clk100 interval before..
+                   .R=CommdMov_en, .clk=Clk100);        --/ ..moving the FIFO
+CommdMov_en  = DFF(.clk=Clk100,                         --\_
+               .D=(CommdMov_int & EtherPauseCt.eq2));   --/ 1*Clk100 _/^^\_
 
 --IF CommdPut_en and CommdMov_en arrived simultaneously, 
 --  then MOVE is accomplished =first=, and PUT must wait until MOVing is done.
@@ -2214,8 +2116,7 @@ StackCt.cnt_en  = CommdPut_ld OR (CommdMov_en & !StackCt.eq0);
 --                OR (CommdMov_en & !StackCt.eq0));
 StackCt.sclr    = RESET # Reset2;
 
--- FIFO of length=4 : each "cell" consists of 
---  8-bit "reg" for "OpCode", 16-bit "reg" for "InData", + 1 trigger for sending 2 packets per "StartNorm"
+-- FIFO of length=4 : 8-bit for "OpCode" words, 16-bit for "InData" words
 FOR i in 1 to 8 GENERATE
     OpCode1_bit[i].D= ( CommdPut_init & Link_IFace.OpCode_out[i-1]) -- get a new Command
                     OR(!CommdPut_init & OpCode2_bit[i] ) ;          -- shift previous Command
@@ -2239,44 +2140,24 @@ End GENERATE;
 
 FOR i in 1 to 16 GENERATE
     InData1_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]) -- get a new Command
-                    OR(!CommdPut_init & InData2_bit[i] ) ;          -- shift Commands sequence 
+                    OR(!CommdPut_init & InData2_bit[i] ) ;          -- shift previous Command
     InData1_bit[i].ena  = Commd_ld1 # CommdMov_en ;
     InData1_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
 
     InData2_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]) -- get a new Command
-                    OR(!CommdPut_init & InData3_bit[i] ) ;          -- shift Commands sequence
-    InData2_bit[i].ena  = Commd_ld2 # (CommdMov_en & !Contin1) ;
+                    OR(!CommdPut_init & InData3_bit[i] ) ;          -- shift previous Command
+    InData2_bit[i].ena  = Commd_ld2 # CommdMov_en ;
     InData2_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
 
     InData3_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]) -- get a new Command
-                    OR(!CommdPut_init & InData4_bit[i] ) ;          -- shift Commands sequence
-    InData3_bit[i].ena  = Commd_ld3 # (CommdMov_en & !Contin1) ;
+                    OR(!CommdPut_init & InData4_bit[i] ) ;          -- shift previous Command
+    InData3_bit[i].ena  = Commd_ld3 # CommdMov_en ;
     InData3_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
 
     InData4_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]);-- get a new Command
-    InData4_bit[i].ena  = Commd_ld4 # (CommdMov_en & !Contin1) ;
+    InData4_bit[i].ena  = Commd_ld4 # CommdMov_en ;
     InData4_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
 End GENERATE;
-
---Triggers: =1 => Continue to send Packets, when executing "StartRegular" Command.
-    Contin1.D  = ( CommdPut_init & St_ADC_Link)         --Get "=1" @"StartRegular" / "=0" @ Others
-               OR(!CommdPut_init & Contin2 ) ;          --Shift the "Contin" sequence
-    Contin1.ena= Commd_ld1 OR                           --enables Getting "=1" / "=0"
-         DFF(.D=(CommdMov_int AND EtherPauseCt.eq2),--\_enables [Shift "Contin" sequence] / ..
-             .clk=Clk100 ) ;                        --/../ [flip to =0 after sending 1st Packet @ "StartReg"]
-
-    Contin2.D  = ( CommdPut_init & St_ADC_Link)         --Get "=1" @"StartRegular" / "=0" @ Others
-               OR(!CommdPut_init & Contin3 ) ;          --Shift the "Contin" sequence
-    Contin2.ena= Commd_ld2 # CommdMov_en ;              --enables Getting "=1" / "=0"
-
-    Contin3.D  = ( CommdPut_init & St_ADC_Link)         --Get "=1" @"StartRegular" / "=0" @ Others
-               OR(!CommdPut_init & Contin4 ) ;          --Shift the "Contin" sequence
-    Contin3.ena= Commd_ld2 # CommdMov_en ;              --enables Getting "=1" / "=0"
-
-    Contin4.D  = ( CommdPut_init & St_ADC_Link) ;       --Get "=1" @"StartRegular" / "=0" @ Others
-    Contin4.ena= Commd_ld2 # CommdMov_en ;              --enables Getting "=1" / "=0"
-
-    Contin[4..1].(clk, clrn) = (Clk100, !(RESET # Reset2) );
 
 --**** Request for initializing a Tx_cycle correspondent to the Link-Command.. 
 --..which is currently asserted at the outputs of FIFO' cell#1 :
@@ -2324,7 +2205,7 @@ UDPtstSeries= SRFF(.S=(RxUDPDBlck AND           --\_Sets when a UDP packet ..
 
 UDPtstSerCt.(clock, clk_en) = (Clk25, VCC);     -- 
 UDPtstSerCt.cnt_en  = (UDPtstSeries & !UDPtstSerCt.eq0) 
-            AND EdgeSensing(.D=(Ether_TxUDPcycle # Ether_TxCMDcycle), .clk=Clk25) ; 
+                    AND EdgeSensing(.D=Ether_TxUDPcycle, .clk=Clk25) ; 
 UDPtstSerCt.sset    = !UDPtstSeries ;           -- counts down from =12 to =0
 
 
@@ -2362,38 +2243,40 @@ End IF;
 --When CMD3-Type "WRITE" command => EtherWRITE=1 => write to EtherRAM enabled 
 EtherWRITE  = DFF(.D=Eth_WRITE, .clk=Clk100, .clrn=!(Ether.RxEndFrame # RESET)); 
 --EtherWR_we  = EtherWRITE    -- Upon "CMD3"-type "WRITE" command, enables ETHERNET -> TestRAM
---            AND(Eth_AddrSettled & !RdWr & Eth_DataStrobe);-- RdWr=0 => "Read" from ETHERNET
+--            AND(Addr_Settled & !RdWr & Data_Strobe);-- RdWr=0 => "Read" from ETHERNET
 
 ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
 --****************  ENABLING of Action_Initializing  ***************************
+Delay_StOne.(d,clk,reset)   = (St_One,    Clk100,RESET);    -- Delay of one-shot START
+Delay_StMulti.(d,clk,reset) = (St_Multi,  Clk100,RESET);    -- Delay of multiple START
 
+StartOne_En.(d,clk,reset)   =(Delay_StOne.q,Clk100,RESET);  -- 1-clk _/^\_ by F25A1 
 StartOne    = SRFF(.clk=Clk100,                 --<< One-shot Start >>
-        .S=( DataBus[0] AND                                 -- by 1st_bit=1
+        .S=(StartOne_En.q OR                                -- by F25A1, or..
+            (DataBus[0] AND                                 -- by 1st_bit=1
              DevSel[8] & (AddrBus[2..0]==0) AND             --\_AddrBus[]== Addr_of_thisReg
-             DataStrobe & RW ),                             --/ ..and "write" is conducted
+             DataStrobe & RW) ),                            --/ ..and "write" is conducted
         .R=(%Digitizer.Working OR%                          -- Reset by actual start, or..
            Ether.TX_EN  OR                                  -- by ETNERNET' TX Cycle 
-          (%St_Compuls #% St_Multi) OR                      -- by other Mode of Start 
-          (!DataBus[0] AND                                  -- by 1st_bit=0
+          (St_Compuls # St_Multi) OR                        -- by other Mode of Start 
+          (!DataBus[0] AND                                  -- by 2nd_bit=0
              DevSel[8] & (AddrBus[2..0]==0) AND             --\_AddrBus[]== Addr_of_thisReg
              DataStrobe & RW) OR                            --/ ..and "write" is conducted
-          RESET),                                           -- by RESET command 
-        .clrn= !(RESET # PwrUpSet2) );						-- by default =0
+          RESET) );                                         -- by RESET command 
 
-St_One  = StartOne & !DFF(.D=StartOne, .clk=Clk100);        -- _/^^\_ for resetting StartMulti
-
+StartMulti_En.(d,clk,reset) =((Delay_StMulti.q OR PwrUpSet2), -- 1-clk _/^\_ ..
+                    Clk100, RESET);             -- .. by F25A2 or by PwrUpSet2
 StartMulti  = SRFF(.clk=Clk100,                 --<< Multi-shot Start >>
-        .S=( DataBus[1] AND                                 -- by 2nd_bit=1
+        .S=( StartMulti_En.q OR                             -- by F25A2, or..
+            (DataBus[1] AND                                 -- by 2nd_bit=1
              DevSel[8] & (AddrBus[2..0]==0) AND             --\_AddrBus[]== Addr_of_thisReg
-             DataStrobe & RW ),                             --/ ..and "write" is conducted
+             DataStrobe & RW) ),                            --/ ..and "write" is conducted
         .R=(%Digitizer.Working OR%                          -- NO Reset by actual start 
-          (%St_Compuls #% St_One) OR                        -- by other Mode of Start, or.. 
+          (St_Compuls # St_One) OR                          -- by other Mode of Start, or.. 
            (!DataBus[1] AND                                 -- by 2nd_bit=0
              DevSel[8] & (AddrBus[2..0]==0) AND             --\_AddrBus[]== Addr_of_thisReg
              DataStrobe & RW) OR                            --/ ..and "write" is conducted
-          RESET),                                           -- by RESET command 
-        .prn =!(RESET # PwrUpSet2) );           			-- by default =1);
-St_Multi= StartMulti & !DFF(.D=StartMulti, .clk=Clk100);    -- _/^^\_ for resetting StartOne
+          RESET) );                                         -- by RESET command 
 
 EtherCMD3mode   = DFFE(.D=DataBus[2], .clk=Clk100,          -- 3rd_bit, "CMD3_Mode"
                     .ena= ( DevSel[8] & (AddrBus[2..0]==0)  --\_AddrBus[]== Addr_of_thisReg
@@ -2406,19 +2289,6 @@ EtherUDPmode    = DFFE(.D=DataBus[3], .clk=Clk100,          -- 4th_bit, "UDP_Mod
                     .prn = !(RESET # PwrUpSet2) );          -- by default =1
                     --.clrn= !(RESET # PwrUpSet2) );          -- by default =0
 
-Reset2  = SRFF(.clk=Clk100,                 --<< Partial Reset >>
-        .S=( DataBus[10] AND                                -- by 11th_bit=1
-             DevSel[8] & (AddrBus[2..0]==0) AND             --\_AddrBus[]== Addr_of_thisReg
-             DataStrobe & RW ),                             --/ ..and "write" is conducted
-        .R=DFF(.D=RSTdel, .clk=Clk100));                    -- 4*Clk100 _/^^^^\_
-RESET   = SRFF(.clk=Clk100,                 --<< FULL RESET >>
-        .S=( DataBus[11] AND                                -- by 12th_bit=1
-             DevSel[8] & (AddrBus[2..0]==0) AND             --\_AddrBus[]== Addr_of_thisReg
-             DataStrobe & RW ),                             --/ ..and "write" is conducted
-        .R=DFF(.D=RSTdel, .clk=Clk100));                    -- 4*Clk100 _/^^^^\_
-RSTdel  = DFF(.D=DFF(.D=(RESET # Reset2), .clk=Clk100), .clk=Clk100);  -- delay
-
-
 ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8
 --**************** START of a PROCESSOR operation ******************************
 
@@ -2426,7 +2296,7 @@ For i in 0 to 7  GENERATE
 BaseAddr[i] = DFF(.D=BaseAd[i], .clk=Clk100);
 End GENERATE;
 
-StartProc   = StartProc_Link  -- .. or Start by Link, if allowed
+StartProc   = ((StartOne # StartMulti)& StartProc_Link)  -- .. or Start by Link, if allowed
     AND !CPU.Working                    -- if Processor is NOT working
     %AND !Digitizer.Working%;           -- if Digitizing is NOT in progress 
 
@@ -2555,13 +2425,13 @@ IF  InitUDP  Then
 End IF;
 
 --When starting a CMD3 Tx_cycle :
-IF    InitCMD_StReg  Then  -- IF OpCode=193, ..
+IF    InitCMD_StReg.q  Then  -- IF OpCode=193, ..
     Ether.TxLenTyp[16..1]  = H"CDCC";   -- Type="CMD3", value to be transmitted
     --Length of DataBlock = DBlkLengthRg.q[], and ..
     Ether.TxLength[12..1]  = (B"0", DBlkLengthRg[11..1].q); --.. Frame=(DataBlock+18B)
     -- Init.addr=60 => after sending OpCode and InData, the addr will be =62 =>
     EthNextAdr[].D=  60;    -- .. => entire DataBlock (Event' data) will be sent
-ELSIF InitCMD_Other  Then -- IF there is any other Command present, ..
+ELSIF InitCMD_Other.q  Then -- IF there is any other Command present, ..
     Ether.TxLenTyp[16..1]  = H"CDCC";   -- Type="CMD3", value to be transmitted
     Ether.TxLength[12..1]  = 46;        -- Length of DBlock, Frame=(DBlock+18B)
     -- Init.addr=42 => after sending OpCode and InData, the addr will be =44 =>
@@ -2594,17 +2464,11 @@ DBlkLengthRg[11..1].clk = Clk100;
 --DBlkLengthRg[ 3].clrn   = !(RESET);-- # Reset2);    --  > .. so that ..
 --DBlkLengthRg[ 2].prn    = !(RESET);-- # Reset2);    -- / ..the total length .. 
 --DBlkLengthRg[ 1].clrn   = !(RESET);-- # Reset2);    --/  ..of Frame is 64B (MIN)
-
---DBlkLengthRg[11..7].clrn= !(RESET);-- # Reset2);    --\  For Mode = "CMD3" :
---DBlkLengthRg[ 6].prn    = !(RESET);-- # Reset2);    -- \  Default value = 46, ..
---DBlkLengthRg[ 5].clrn   = !(RESET);-- # Reset2);    --  > .. so that ..
---DBlkLengthRg[ 4..2].prn = !(RESET);-- # Reset2);    -- / ..the total length .. 
---DBlkLengthRg[ 1].clrn   = !(RESET);-- # Reset2);    --/  ..of Frame is 64B (MIN)
-
---DBlkLengthRg[11].prn	 = !(RESET);-- # Reset2);    --\  For Mode = "CMD3" :
-DBlkLengthRg[11].clrn = !(RESET);-- # Reset2);    -- \  Default value = 46, ..
-DBlkLengthRg[10].prn	 = !(RESET);-- # Reset2);    --  > .. so that ..
-DBlkLengthRg[9..1].clrn = !(RESET);-- # Reset2);    -- / ..the total length .. 
+DBlkLengthRg[11..7].clrn= !(RESET);-- # Reset2);    --\  For Mode = "CMD3" :
+DBlkLengthRg[ 6].prn    = !(RESET);-- # Reset2);    -- \  Default value = 46, ..
+DBlkLengthRg[ 5].clrn   = !(RESET);-- # Reset2);    --  > .. so that ..
+DBlkLengthRg[ 4..2].prn = !(RESET);-- # Reset2);    -- / ..the total length .. 
+DBlkLengthRg[ 1].clrn   = !(RESET);-- # Reset2);    --/  ..of Frame is 64B (MIN)
 
 --Adder which calculates and holds the Length of IP DataBlock to be transmitted :
 IPlength.dataa[10..0]   = DBlkLengthRg[11..1].q;
@@ -2850,9 +2714,9 @@ RESET	= DFF(.D=(PwrUpReset OR ExtReset), .clk=Clk100) ;
 -- 11. Internal Bus of Project & Data transfer control ************************
 
 AddrBus[15..0]		= CPU.AddrOut[15..0];   -- CPU is the only Master, rules forever
-RW					= CPU.RdWr ;        -- 0=[Read: Object->CPU] / 1=[Write: CPU->Object]
---CPU.AccessGranted   = AccessGrtd;       -- connected in "8. Processor" section
---CPU.DataStrobe      = DataStrobe;       -- connected in "8. Processor" section
+RW					= CPU.RdWr ;            -- эряЁртыхэшх яхЁхфрўш
+CPU.AccessGranted	= AccessGrtd;       -- 
+CPU.DataStrobe		= DataStrobe;       -- connected in "Control Unit" section
 
 -- Bus Handler : 
 AcsRqDetect	= EdgeSensing(.D=CPU.AccessReq, .clk=Clk100, .reset=RESET);
@@ -2883,17 +2747,12 @@ IF ((AddrBus[15..0] >=  CommdList_Offset ) AND
     then  CommandRAM_cs = VCC;          -- Address belongs to CommandRAM
     else  CommandRAM_cs = GND;
 End IF;
-IF ((AddrBus[15..0] >=  SetupRAM_Offset ) AND 
-    (AddrBus[15..0] <= (SetupRAM_Offset + SetupRam_Size - 1))) 
-    then  SetupRAM_cs   = VCC;          -- Address belongs to SetupRAM
-    else  SetupRAM_cs   = GND;
-End IF;
 
 -- 2) Registers and similar objects
 IF ((AddrBus[15..0] >= Servo_offset) AND            --\_(#[2048..(2048+7)]
     (AddrBus[15..0] <= Servo_offset+Servo_size-1 )) --/ addr range for various Reg-s
-    Then Servo_CS   = VCC;
-    Else Servo_CS   = GND ;
+    Then Servo_CS    = VCC;
+    Else Servo_CS    = GND ;
 End IF ;
 IF (AddrBus[15..0] == FIFO_OpCode_offset)   -- FIFO-Cell#1 :  OpCode reg (Read only)
 	Then FIFO_OpCode_cs = VCC;
@@ -2957,7 +2816,8 @@ DevSel[ 3].d    = CommandRAM_cs ;
 DevSel[ 4].d    = Link_cs ;             -- Link's I/O port, InData_out, OpCode_out
 DevSel[ 5].d    = FIFO_OpCode_cs ;      -- FIFO-Cell#1 :  OpCode reg
 DevSel[ 6].d    = FIFO_InData_cs ;      -- FIFO-Cell#1 :  InData reg
-DevSel[ 7].d    = SetupRAM_cs ;
+--DevSel[ 7].d    = SelCommdList_cs ;     -- SelCommdList reg
+DevSel[ 7].d    = Servo_cs ;    -- added just to prevent Quartus from deleting DevSel[7]
 DevSel[ 8].d    = Servo_cs ;            -- ServoMUX for several Registers
 DevSel[ 9].d    = EtherRAM_cs ;         -- EtherRAM
 --DevSel[10].d	= EthOpCode_cs ;        -- Reg_EthOpCode
@@ -2975,20 +2835,20 @@ FOR i in 1 to 17 % with ErCount must be 28 % GENERATE
 END GENERATE; 
 
 AddrValid = DevSel[ 1].q OR  -- MainRAM
-            DevSel[ 2].q OR  -- ProgRAM
-            DevSel[ 3].q OR  -- CommandRAM
-            DevSel[ 4].q OR  -- Link's I/O port, InData_out, OpCode out
-            DevSel[ 5].q OR  -- FIFO-Cell#1 :  OpCode reg
-            DevSel[ 6].q OR  -- FIFO-Cell#1 :  InData reg
-            DevSel[ 7].q OR  -- SetupRAM
-            DevSel[ 8].q OR  -- ServoMUX for several Registers
-            DevSel[ 9].q OR  -- EtherRAM
---            DevSel[10].q OR  -- Reg_EthOpCode
-            DevSel[11].q OR DevSel[12].q OR DevSel[13].q OR DevSel[14].q OR DevSel[15].q OR DevSel[16].q OR --\ [1-6] ADC channels
-            DevSel[17].q %OR DevSel[18].q OR DevSel[19].q OR DevSel[20].q OR DevSel[21].q OR DevSel[22].q OR --/ [7-12] ADC channels
-            DevSel[23].q OR
-            DevSel[24].q OR
-            DevSel[25].q%;   -- Something?? :  ZERO word
+			  DevSel[ 2].q OR  -- ProgRAM
+			  DevSel[ 3].q OR  -- CommandRAM
+			  DevSel[ 4].q OR  -- Link's I/O port, InData_out, OpCode out
+			  DevSel[ 5].q OR  -- FIFO-Cell#1 :  OpCode reg
+			  DevSel[ 6].q OR  -- FIFO-Cell#1 :  InData reg
+--			  DevSel[ 7].q OR  -- SelCommdList reg
+			  DevSel[ 8].q OR  -- ServoMUX for several Registers
+			  DevSel[ 9].q OR  -- EtherRAM
+--			  DevSel[10].q OR  -- Reg_EthOpCode
+			DevSel[11].q OR DevSel[12].q OR DevSel[13].q OR DevSel[14].q OR DevSel[15].q OR DevSel[16].q OR --\ [1-6] ADC channels
+			DevSel[17].q %OR DevSel[18].q OR DevSel[19].q OR DevSel[20].q OR DevSel[21].q OR DevSel[22].q OR --/ [7-12] ADC channels
+			DevSel[23].q OR
+			DevSel[24].q OR
+			DevSel[25].q%;   -- Something?? :  ZERO word
 
 --AddrSettled = Bus_Arbiter.AddressSettled; --In 1clock after "AccessGranted"..
 	-- ..address is expected to be set on the Addr.bus, and Arbiter produces 
@@ -2998,9 +2858,8 @@ AddrValid = DevSel[ 1].q OR  -- MainRAM
 
 -- Multiplexer of Data Bus among "Servo" Registers
 CASE  AddrBus[2..0] is
-	When 0  => Servo_Mux[16..1] = (H"000", EtherUDPmode,EtherCMD3mode, StartMulti,StartOne);
+	When 0  => Servo_Mux[16..1] = (H"000", EtherUDPmode,EtherCMD3mode, B"00");
 	When 1  => Servo_Mux[16..1] = (B"00000000", Reg_BaseAddr.q[7..0]);
-	When 2  => Servo_Mux[16..1] = (B"0000", ADCfeed_WordCt.q[3..0], ADCfeed_AddrCt.q[7..0]);
 	When 4  => Servo_Mux[16..1] = (B"00000",  DBlkLengthRg[11..1].q);
 	When 5  => Servo_Mux[16..1] = (UDP_PackCt.q[15..0]);
 	When 6  => Servo_Mux[16..1] = (B"000000", EtherPauseRg[10..1].q); 
@@ -3021,12 +2880,12 @@ Else					-- Master will read from
             When 1 => DataBus[]    = Link_IFace.DataBus_out[];
             When 2 => DataBus[7..0]= Link_IFace.OpCode_out[];
             End CASE;
-        WHEN b"00000000000010000" => DataBus[ 7..0] = OpCode1_bit[ 8..1].q;-- FIFO Cell#1' OpCode
-        WHEN b"00000000000100000" => DataBus[15..0] = InData1_bit[16..1].q;-- FIFO Cell#1' InData
-        WHEN b"00000000001000000" => DataBus[ 7..0] = SetupRAM.q_b[];
-        WHEN b"00000001010000000" => DataBus[]      = Servo_Mux[16..1];     -- various Reg-s
-                  -- ^^^^- DevSel[10] is made SAME as DevSel[8] !
-		WHEN b"00000000100000000" => DataBus[]      = EtherRAM.q_b[];       --MainProj <- EtherRAM 
+        WHEN b"00000000000010000" => DataBus[ 7..0]= OpCode1_bit[ 8..1].q;-- FIFO Cell#1' OpCode
+        WHEN b"00000000000100000" => DataBus[15..0]= InData1_bit[16..1].q;-- FIFO Cell#1' InData
+--        WHEN b"00000001000000" => DataBus[]     = SelCommdList_Reg.q[];
+        WHEN b"00000001011000000" => DataBus[]     = Servo_Mux[16..1];     -- various Reg-s
+                -- ^^^^- DevSel[7], DevSel[10] are made SAME as DevSel[8] !
+		WHEN b"00000000100000000" => DataBus[]     = EtherRAM.q_b[];       --MainProj <- EtherRAM 
 --		WHEN b"0000000000000001000000000" => DataBus[7..0]	= Reg_EthOpCode[8..1];				--Ether's OpCode
 		WHEN b"00000010000000000" => DataBus[]		= TA12Channel[0].DataBusOut[];
 		WHEN b"00000100000000000" => DataBus[]		= TA12Channel[1].DataBusOut[];
@@ -3062,20 +2921,20 @@ TestRAM.(address[7..0], data[],    clock,    wren                     ) =
 
 --    TestTrg1 = SRFF(.S=DFF(.D=(TypeIP & (Ether.RxDataCt[] == 6)), .clk=Clk100), 
 --                    .R=Ether.RxEndFrame, .clk=Clk100) ;
-    TestTrg2 = DFF(.D=(AddrBus[]==2080), .clk=Clk100);
-    TestTrg3 = DFF(.D=(AddrBus[]==2081), .clk=Clk100);
---    TestTrg4 = DFF(.D=((Ether.RxDestAddr # Ether.RxSourAddr) 
---                    & (EtherAdrCt.q[9..0] > 8)), .clk=RxClk);
+--    TestTrg2 = DFF(.D=(Ether.RxEndFrame # Ether.TxEndFrame), .clk=Clk100);
+--    TestTrg3 = DFF(.D=TestTrg2, .clk=Clk100);
+    TestTrg4 = DFF(.D=((Ether.RxDestAddr # Ether.RxSourAddr) 
+                    & (EtherAdrCt.q[9..0] > 8)), .clk=RxClk);
 
---Test1 = TxPreamble;   --Ether.test[1];    --Ether.TX_EN;      -- Pin236
-Test2 = StartProc;--DDR_InLVDS[1][1].dataout_l;        --EthAddrLd2;       -- Pin238
-Test3 = Link_IFace.IOrq;        --ADCfeed_Beg1;      --EnWriteWFHist.q; --TxUDP_Rq;           --Ether.RxSourAddr; -- Pin239
-Test4 = CPU.AccessReq;          --ADCfeed_Beg2;      --TxWFhist_Eth.q;  --InitUDP;            --Ether.RxPkLenTyp; -- Pin240
-Test5 = DevSel[ 1].q;           --ADCfeed_Cycle1;    --ReadExtMem;      --EtherBusy;          --Ether.test[6];    -- Pin__4
-Test6 = DevSel[ 4].q;           --ADCfeed_Cycle2;    --Ether.IORq;      --EtherPauseCt.eq0;   --Ether.test[7];    -- Pin__5
-Test7 = (AddrBus[]>=3072);      --ADCfeed_NextB;     --Ether_TxCMDcycle;--EthBusyEnd;         --Ether.test[8];    -- Pin__6
-Test8 = (AddrBus[15..6]==H"C"); --AddrBus = 0000 0011 00xx xxxx = [768..768+63]      --ADCfeed_WordEnd;   --Contin1.q;
-Test9 = TestTrg2;               --EthOpCode_saved;                      -- Pin__9
-Test10= TestTrg3;               --OutData_rdy.q;--DataStrobe;         --DataIn_TA[0][9];                      -- Pin
+--Test1 = Ether.TxPreamble;   --Ether.test[1];    --Ether.TX_EN;      -- Pin236
+Test2 = EnWriteWFHist.q;--DDR_InLVDS[1][1].dataout_h;--Ether.IORq;         --Ether.RxWaitSFD;  --Ether.TxStFrmDel; -- Pin237
+Test3 = Delay_EthMessage.q;--DDR_InLVDS[1][1].dataout_l;--EthAddrLd2;         --Ether.RxDestAddr; --Ether.test[2];    -- Pin238
+Test4 = TxWFHist_Eth.q;--InData_Reg[1].q[6];--TxUDP_Rq;           --Ether.RxSourAddr; --Ether.test[3];    -- Pin239
+Test5 = Read_time.q;--InData_Reg[1].q[7];--InitUDP;            --Ether.RxPkLenTyp; --Ether.test[4];    -- Pin240
+Test6 = StopCount_Eth;--EtherBusy;          --Ether.test[4];    --Ether.test[6];    -- Pin__4
+Test7 = InData_Reg[1].q[9];--EtherPauseCt.eq0;   --Ether.test[5];    --Ether.test[7];    -- Pin__5
+Test8 = InData_Reg[1].q[10];--EthBusyEnd;         --Ether.test[6];    --Ether.test[8];    -- Pin__6
+Test9 = InData_Reg[1].q[11];--Ether.TxEndFrame;   --EthOpCode_saved;                      -- Pin__9
+Test10= ADC_FrameClk[0];--DataStrobe;         --DataIn_TA[0][9];                      -- Pin
 
 END;

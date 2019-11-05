@@ -526,7 +526,7 @@ AccessReq   = DFF (.d=AcsReq2, .clk=Clock           -- sets together with DataMU
                    %.clrn=AcsReq2%);                  -- resets just after data transfer 
 
 RdWr    = SRFF(.S=(RW & AcsReq2), .clk=Clock,       -- when Write => RdWr=1
-    .R=(DataStrobe & AccessGranted),.clrn=!Reset);  -- resets just after data transfer 
+    .R=(DataStrobe & AccessGranted),.clrn=!Reset);  -- resets just after data transfer
 
 -- Data Receiving chronogram
 LoadEn  = DFF(.D=LdEn, .clk=Clock, .clrn=!Reset)    -- at "Read" Oper-n enables Reg-s ..
@@ -538,26 +538,19 @@ DTransfDone = (DataStrobe & AccessGranted)          -- flag: data transfer done
 
 --============================================================================
 --**************** Testing circuitry *****************************************
-test[1] = ProgCt_load;          --Reg1_load ;   -- 
-test[2] = ProgCt_Cen;           --Reg2_load ;   -- 
-test3   = LastStage ;           --
-test4   = OpCode_en ;           --
+test[1] = ProgCt_load;          --Reg1_load ;   --
+test[2] = ProgCt_Cen;           --Reg2_load ;   --
+test[3] = LastStage ;           --
+test[4] = OpCode_en ;           --
 
-test5   = OpCode[13];           -- 
-test6   = OpCode[14];           --
-test7   = OpCode[15];           -- 
-test8   = OpCode[16];           --
+test[5] = OpCode[13];           --( ProgCt.q[]==18 );   --
+test[6] = OpCode[14];           --( Reg1.q[]==2080 );   --
+test[7] = OpCode[15];           --ProgCt.q0;    --
+test[8] = OpCode[16];           --ProgCt.q1;    --
 
-    --IF  (OpCode[16..13] == B"0111")  -- if 
-    --IF  (AddrOut[15..0] == 800 )  -- if 
-    --IF ( ProgCt.q[] == 80 )
-    --IF ( Reg1.q[] == 2080 )
---        Then  test9 = VCC;  Else  test9 = GND;  
---    End IF;
-test9   = PassCt_load;          --DataMUX_addr[1]; 
-
-test10  = LastStg;              --DataMUX_addr[2]; 
-test11  = DTransfDone;          --Condition; 
-test12  = ProgEnd; 
+test9   = DataMUX_addr[1];      --ProgCt.q2; 
+test10  = DataMUX_addr[2];      --ProgCt.q3; 
+test11  = Condition;            --ProgCt.q4; 
+test12  = DTransfDone;          --ProgCt.q5; 
 
 END;

@@ -1,6 +1,6 @@
 TITLE "ErrorCounters";
 INCLUDE "lpm_counter.inc";
-INCLUDE "Edge_Sensing.inc" ;
+INCLUDE "EdgeSensing.inc" ;
 
 --Constant Width=11;
 CONSTANT Word_Width = 16;
@@ -24,7 +24,7 @@ ErrorInputs[Width-1..0]	: input;
 )
 
 VARIABLE
-    Edge_of_Error_Input[Width-1..0]			: Edge_Sensing;
+    Edge_of_Error_Input[Width-1..0]			: EdgeSensing;
     Reg_of_Error[Width-1..0]				: SRFF	;
     Counter_of_Error[Width-1..0]		 	: lpm_counter with (lpm_width=16);
     Clear_Reg, Clear_Counters, C_R,C_C		: node;
