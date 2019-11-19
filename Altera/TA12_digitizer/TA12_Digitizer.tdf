@@ -356,7 +356,8 @@ ADCtest_reg			: lpm_shiftreg with (lpm_width=102, lpm_DIRECTION="left",  -- actu
 %
 
 TA12Channel[NUM_CH-1..0]			: Digitizer_TA6;
---ADC_clk								: node;
+ADC_DataClk_Gl[2..0]				: node;
+ADC_DataClk_D						: node;
 DDR_InLVDS[NUM_CH-1..0][1..0]		: DDR_In;
 DDR_Reg_pos[NUM_CH-1..0][1..0]		: lpm_shiftreg with (lpm_width=3,lpm_DIRECTION="left");
 DDR_Reg_neg[NUM_CH-1..0][1..0]		: lpm_shiftreg with (lpm_width=3,lpm_DIRECTION="left");
@@ -874,7 +875,7 @@ Clk100		= GLOBAL(PLL.c1);   -- 100MHz = (Fin x 4)    from PLL.c1
 Clk12_5		= GLOBAL(PLL.c2);   -- 150MHz = (Fin x 2)    from PLL.c1
 --Clk75		= GLOBAL(PLL.c4);   -- 75MHz = (Fin x 3)    from PLL.c1
 Clk300_adc	= GLOBAL(PLL.c4);
-PLL_ExtOut	= PLL.c3;           --  25MHz -> outside of Altera
+PLL_ExtOut	= PLL.c0; --PLL.c3;           --  25MHz -> outside of Altera
 --PLL1.pfdena = VCC;--!Reset;
 --        = PLL.locked;           -- connected below
 
@@ -1578,9 +1579,55 @@ ADC_SDATA[0]  = DFF(.D=ADCfeed_Reg.shiftout, .clk=!Clk12_5, .clrn=ADCfeed_Cycle1
 --End GENERATE;
 
 --============================================================================
---ADC_clk = LATCH()
+ADC_DataClk_Gl[0] = GLOBAL(ADC_DataClk[0]);
+ADC_DataClk_Gl[1] = GLOBAL(ADC_DataClk[1]);
+ADC_DataClk_Gl[2] = GLOBAL(ADC_DataClk[2]);
+
+ADC_DataClk_D = DFF(.d = ADC_DataClk[0], .clk = (ADC_DataClk_Gl[0] XOR ADC_DataClk_D)); --lcell(ADC_DataClk[0]);
+
+FOR i IN 0 TO 1 GENERATE
+	FOR j in 0 to 1 GENERATE
+
+		DDR_InLVDS[i][j].(datain, inclock%, aclr%) = (ADC_In_Data[i][j], ADC_DataClk_Gl[0]%, RESET%);
+		DDR_Reg_pos[i][j].(shiftin, clock, enable, load) = (DDR_InLVDS[i][j].dataout_h, ADC_DataClk_Gl[0], VCC, GND);
+		DDR_Reg_neg[i][j].(shiftin, clock, enable, load) = (DDR_InLVDS[i][j].dataout_l, !ADC_DataClk_Gl[0], VCC, GND);
+
+	END GENERATE;
+END GENERATE;
+
+FOR i IN 2 TO 3 GENERATE
+	FOR j in 0 to 1 GENERATE
+
+		DDR_InLVDS[i][j].(datain, inclock%, aclr%) = (ADC_In_Data[i][j], ADC_DataClk_Gl[0]%, RESET%);
+		DDR_Reg_pos[i][j].(shiftin, clock, enable, load) = (DDR_InLVDS[i][j].dataout_h, ADC_DataClk_Gl[0], VCC, GND);
+		DDR_Reg_neg[i][j].(shiftin, clock, enable, load) = (DDR_InLVDS[i][j].dataout_l, !ADC_DataClk_Gl[0], VCC, GND);
+
+	END GENERATE;
+END GENERATE;
+
+-- Защелкивание битов в определенной последовательности.
+	InData_RegMix[0].data[11..0] = (DDR_Reg_neg[0][1].q[2],DDR_Reg_pos[0][1].q[2],DDR_Reg_neg[0][1].q[1],DDR_Reg_pos[0][1].q[1],DDR_Reg_neg[0][1].q[0],DDR_Reg_pos[0][1].q[0],
+									DDR_Reg_neg[0][0].q[2],DDR_Reg_pos[0][0].q[2],DDR_Reg_neg[0][0].q[1],DDR_Reg_pos[0][0].q[1],DDR_Reg_neg[0][0].q[0],DDR_Reg_pos[0][0].q[0]);
+	InData_RegMix[1].data[11..0] = (DDR_Reg_neg[1][1].q[2],DDR_Reg_pos[1][1].q[2],DDR_Reg_neg[1][1].q[1],DDR_Reg_pos[1][1].q[1],DDR_Reg_neg[1][1].q[0],DDR_Reg_pos[1][1].q[0],
+									DDR_Reg_neg[1][0].q[2],DDR_Reg_pos[1][0].q[2],DDR_Reg_neg[1][0].q[1],DDR_Reg_pos[1][0].q[1],DDR_Reg_neg[1][0].q[0],DDR_Reg_pos[1][0].q[0]);
+	InData_RegMix[2].data[11..0] = (DDR_Reg_neg[2][1].q[2],DDR_Reg_pos[2][1].q[2],DDR_Reg_neg[2][1].q[1],DDR_Reg_pos[2][1].q[1],DDR_Reg_neg[2][1].q[0],DDR_Reg_pos[2][1].q[0],
+									DDR_Reg_neg[2][0].q[2],DDR_Reg_pos[2][0].q[2],DDR_Reg_neg[2][0].q[1],DDR_Reg_pos[2][0].q[1],DDR_Reg_neg[2][0].q[0],DDR_Reg_pos[2][0].q[0]);
+	InData_RegMix[3].data[11..0] = (DDR_Reg_neg[3][1].q[2],DDR_Reg_pos[3][1].q[2],DDR_Reg_neg[3][1].q[1],DDR_Reg_pos[3][1].q[1],DDR_Reg_neg[3][1].q[0],DDR_Reg_pos[3][1].q[0],
+									DDR_Reg_neg[3][0].q[2],DDR_Reg_pos[3][0].q[2],DDR_Reg_neg[3][0].q[1],DDR_Reg_pos[3][0].q[1],DDR_Reg_neg[3][0].q[0],DDR_Reg_pos[3][0].q[0]);
+-- Защелкивание битов в определенной последовательности.
+	InData_Reg[0].data[11..0] = (InData_RegMix[0].q[7],InData_RegMix[0].q[6],InData_RegMix[0].q[9],InData_RegMix[0].q[8],InData_RegMix[0].q[11],InData_RegMix[0].q[10],
+								 InData_RegMix[0].q[0],InData_RegMix[0].q[3],InData_RegMix[0].q[2],InData_RegMix[0].q[5],InData_RegMix[0].q[4],InData_RegMix[0].q[1]);
+	InData_Reg[1].data[11..0] = (InData_RegMix[1].q[6],InData_RegMix[1].q[9],InData_RegMix[1].q[8],InData_RegMix[1].q[11],InData_RegMix[1].q[10],InData_RegMix[1].q[7],
+								 InData_RegMix[1].q[0],InData_RegMix[1].q[3],InData_RegMix[1].q[2],InData_RegMix[1].q[5],InData_RegMix[1].q[4],InData_RegMix[1].q[1]);
+	InData_Reg[2].data[11..0] = (InData_RegMix[2].q[7],InData_RegMix[2].q[6],InData_RegMix[2].q[9],InData_RegMix[2].q[8],InData_RegMix[2].q[11],InData_RegMix[2].q[10],
+								 InData_RegMix[2].q[0],InData_RegMix[2].q[3],InData_RegMix[2].q[2],InData_RegMix[2].q[5],InData_RegMix[2].q[4],InData_RegMix[2].q[1]);
+	InData_Reg[3].data[11..0] = (InData_RegMix[3].q[6],InData_RegMix[3].q[9],InData_RegMix[3].q[8],InData_RegMix[3].q[11],InData_RegMix[3].q[10],InData_RegMix[3].q[7],
+								 InData_RegMix[3].q[0],InData_RegMix[3].q[3],InData_RegMix[3].q[2],InData_RegMix[3].q[5],InData_RegMix[3].q[4],InData_RegMix[3].q[1]);
 
 FOR i IN 0 TO (NUM_CH-1) GENERATE
+
+	InData_RegMix[i].(clock, enable, load) = (!ADC_FrameClk[0], VCC, VCC);
+	InData_Reg[i].(clock, enable, load) = (Clk100, VCC, VCC);
 
 	TA12Channel[i].Bus_Clock		= Clk100; -- Clock 100MHz
 	TA12Channel[i].ADC_Clock		= Clk100; -- Clock 100MHz
@@ -1590,32 +1637,14 @@ FOR i IN 0 TO (NUM_CH-1) GENERATE
 	TA12Channel[i].RegInit			= PwrUpSet1;
 	TA12Channel[i].Reset			= RESET; -- reset by MainRESET
 
-	FOR j in 0 to 1 GENERATE
-
-		DDR_InLVDS[i][j].(datain, inclock%, aclr%) = (ADC_In_Data[i][j], ADC_DataClk[0]%, RESET%);
-		DDR_Reg_pos[i][j].(shiftin, clock, enable, load) = (DDR_InLVDS[i][j].dataout_h, ADC_DataClk[0], VCC, GND);
-		DDR_Reg_neg[i][j].(shiftin, clock, enable, load) = (DDR_InLVDS[i][j].dataout_l, !ADC_DataClk[0], VCC, GND);
-
-	END GENERATE;
-
-	InData_RegMix[i].(clock, enable, load) = (!ADC_FrameClk[0], VCC, VCC);
--- Защелкивание битов в определенной последовательности.
-	InData_RegMix[i].data[11..0] = (DDR_Reg_neg[i][1].q[2],DDR_Reg_pos[i][1].q[2],DDR_Reg_neg[i][1].q[1],DDR_Reg_pos[i][1].q[1],DDR_Reg_neg[i][1].q[0],DDR_Reg_pos[i][1].q[0],
-									DDR_Reg_neg[i][0].q[2],DDR_Reg_pos[i][0].q[2],DDR_Reg_neg[i][0].q[1],DDR_Reg_pos[i][0].q[1],DDR_Reg_neg[i][0].q[0],DDR_Reg_pos[i][0].q[0]);
-	InData_Reg[i].(clock, enable, load) = (Clk100, VCC, VCC);
--- Защелкивание битов в определенной последовательности.
-	InData_Reg[i].data[11..0] = (!InData_RegMix[i].q[7],InData_RegMix[i].q[8],InData_RegMix[i].q[9],InData_RegMix[i].q[10],
-								InData_RegMix[i].q[11],InData_RegMix[i].q[6],InData_RegMix[i].q[1],InData_RegMix[i].q[2],
-								InData_RegMix[i].q[3],InData_RegMix[i].q[4],InData_RegMix[i].q[5],InData_RegMix[i].q[0]);
-
 	TA12Channel[i].ADCdata[]		 = InData_Reg[i].q[];--(GND,GND,GND,GND,GND,WriteWFCt.q);--
 	TA12Channel[i].DataBus_In[15..0] = DataBus[15..0];
 	TA12Channel[i].AddrBus_In[9..0]  = AddrBus[9..0] ;
 
-	TA12Channel[i].DataBusStrobe		= DataStrobe ;
+	TA12Channel[i].DataBusStrobe	= DataStrobe ;
 	TA12Channel[i].DirectIn			= RW;
 	TA12Channel[i].Select			= DevSel[11+i].q ;
-	TA12Channel[i].LinkMessage		= Link_IFace.LinkMessage OR Test_in[0];--St_ADC_Link;--
+	TA12Channel[i].LinkMessage		= Link_IFace.LinkMessage;-- OR Test_in[0];--St_ADC_Link;--
 	TA12Channel[i].WriteRAM			= VCC;--SelCommdList_Trig.q;--SelCommdList_Count.q;
 
 END GENERATE;
@@ -2601,10 +2630,10 @@ DBlkLengthRg[11..1].clk = Clk100;
 --DBlkLengthRg[ 4..2].prn = !(RESET);-- # Reset2);    -- / ..the total length .. 
 --DBlkLengthRg[ 1].clrn   = !(RESET);-- # Reset2);    --/  ..of Frame is 64B (MIN)
 
---DBlkLengthRg[11].prn	 = !(RESET);-- # Reset2);    --\  For Mode = "CMD3" :
-DBlkLengthRg[11].clrn = !(RESET);-- # Reset2);    -- \  Default value = 46, ..
-DBlkLengthRg[10].prn	 = !(RESET);-- # Reset2);    --  > .. so that ..
-DBlkLengthRg[9..1].clrn = !(RESET);-- # Reset2);    -- / ..the total length .. 
+DBlkLengthRg[11].prn	 = !(RESET);-- # Reset2);    --\  For Mode = "CMD3" :
+--DBlkLengthRg[11].clrn = !(RESET);-- # Reset2);    -- \  Default value = 46, ..
+--DBlkLengthRg[10].prn	 = !(RESET);-- # Reset2);    --  > .. so that ..
+DBlkLengthRg[10..1].clrn = !(RESET);-- # Reset2);    -- / ..the total length .. 
 
 --Adder which calculates and holds the Length of IP DataBlock to be transmitted :
 IPlength.dataa[10..0]   = DBlkLengthRg[11..1].q;
@@ -3067,15 +3096,15 @@ TestRAM.(address[7..0], data[],    clock,    wren                     ) =
 --    TestTrg4 = DFF(.D=((Ether.RxDestAddr # Ether.RxSourAddr) 
 --                    & (EtherAdrCt.q[9..0] > 8)), .clk=RxClk);
 
---Test1 = TxPreamble;   --Ether.test[1];    --Ether.TX_EN;      -- Pin236
-Test2 = StartProc;--DDR_InLVDS[1][1].dataout_l;        --EthAddrLd2;       -- Pin238
-Test3 = Link_IFace.IOrq;        --ADCfeed_Beg1;      --EnWriteWFHist.q; --TxUDP_Rq;           --Ether.RxSourAddr; -- Pin239
-Test4 = CPU.AccessReq;          --ADCfeed_Beg2;      --TxWFhist_Eth.q;  --InitUDP;            --Ether.RxPkLenTyp; -- Pin240
-Test5 = DevSel[ 1].q;           --ADCfeed_Cycle1;    --ReadExtMem;      --EtherBusy;          --Ether.test[6];    -- Pin__4
-Test6 = DevSel[ 4].q;           --ADCfeed_Cycle2;    --Ether.IORq;      --EtherPauseCt.eq0;   --Ether.test[7];    -- Pin__5
-Test7 = (AddrBus[]>=3072);      --ADCfeed_NextB;     --Ether_TxCMDcycle;--EthBusyEnd;         --Ether.test[8];    -- Pin__6
-Test8 = (AddrBus[15..6]==H"C"); --AddrBus = 0000 0011 00xx xxxx = [768..768+63]      --ADCfeed_WordEnd;   --Contin1.q;
-Test9 = TestTrg2;               --EthOpCode_saved;                      -- Pin__9
-Test10= TestTrg3;               --OutData_rdy.q;--DataStrobe;         --DataIn_TA[0][9];                      -- Pin
+--Test1 = TxPreamble;                                                     --Ether.TX_EN;      -- Pin236
+Test2 = InData_Reg[3].q[3];	--DDR_Reg_neg[1][0].q[1]; --StartProc;  --DDR_InLVDS[1][1].dataout_l;   --EthAddrLd2;       --Ether.test[1];    -- Pin238
+Test3 = InData_Reg[3].q[4];	--DDR_Reg_pos[1][0].q[2]; --Link_IFace.IOrq;        --ADCfeed_Beg1;     --TxUDP_Rq;         --Ether.RxSourAddr; -- Pin239
+Test4 = InData_Reg[3].q[5];	--DDR_Reg_neg[1][0].q[2];	--CPU.AccessReq;          --TxWFhist_Eth.q;   --InitUDP;          --Ether.RxPkLenTyp; -- Pin240
+Test5 = InData_Reg[3].q[6];	--DDR_Reg_pos[1][1].q[0];	--DevSel[ 1].q;           --ReadExtMem;       --EtherBusy;        --Ether.test[6];    -- Pin__4
+Test6 = InData_Reg[3].q[7];	--DDR_Reg_neg[1][1].q[0];	--DevSel[ 4].q;           --Ether.IORq;       --EtherPauseCt.eq0; --Ether.test[7];    -- Pin__5
+Test7 = InData_Reg[3].q[8];	--DDR_Reg_pos[1][1].q[1];	--ADCfeed_Beg2;           --Ether_TxCMDcycle; --EthBusyEnd;       --Ether.test[8];    -- Pin__6
+Test8 = InData_Reg[3].q[9];	--DDR_Reg_neg[1][1].q[1];	--ADCfeed_Cycle1;         --CommdPut_ld;
+Test9 = InData_Reg[3].q[10];	--DDR_Reg_pos[1][1].q[2];	--ADCfeed_NextB;          --OutData_rdy.q;                        -- Pin__9
+Test10= InData_Reg[3].q[11];	--DDR_Reg_neg[1][1].q[2];	--ADCfeed_WordEnd;        --Contin1.q;        --DataStrobe;       --DataIn_TA[0][9];  -- Pin
 
 END;

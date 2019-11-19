@@ -52,25 +52,25 @@ CONTENT  BEGIN
 
 --********  TEST PATTRN of bits : 
   64        : 01000000; -- W100 0000\ W to 
-  65        : 00001010; -- 0000 1010 >    Reg#00A
-  66        : 01010101; -- 0101 0101/ CH"A" TEST PATTERN CH"B" TEST PATTERN
+  65        : 00001010; -- 0000 1010 >    Reg#00A			    	CUSTOM	     Digital ramp
+  66        : 01000100; -- 0101 0101/ CH"A" TEST PATTERN CH"B" TEST PATTERN 01010101 (85) OR 01000100 (68)
   67        : 01000000; -- W100 0000\ W to 
-  68        : 00001011; -- 0000 1011 >    Reg#00B
-  69        : 01010101; -- 0101 0101/ CH"C" TEST PATTERN CH"D" TEST PATTERN
+  68        : 00001011; -- 0000 1011 >    Reg#00B			    	CUSTOM	      Digital ramp
+  69        : 01000100; -- 0101 0101/ CH"C" TEST PATTERN CH"D" TEST PATTERN 01100110 (102) OR 01000100 (68)
 
   70        : 01000000; -- W100 0000\ W to 
   71        : 00001110; -- 0000 1110 >    Reg#00E
-  72        : 10100011; -- 10100011/ CUSTOM PATTERN[11:4]
+  72        : 10001110; -- 1000 1110/ CUSTOM PATTERN[11:4] 10001110 OR 10100011
   73        : 01000000; -- W100 0000\ W to 
   74        : 00001111; -- 0000 1111 >    Reg#00F
   75        : 00110000; -- 0011 ..../ CUSTOM PATTERN[3:0]
 
   76        : 01000000; -- W100 0000\ W to 
   77        : 00000110; -- 0000 0110 >    Reg#006
-  78        : 00000010; -- .... ..1./ Dithering Ch_D =OFF
+  78        : 00000010; -- .... ..1./ TEST PATTERN EN = ON
   79        : 11000000; -- R100 0000\ R to 
   80        : 00000110; -- 0000 0110 >    Reg#006
-  81        : 00000000; -- .... ..../ Chopper   Ch_D =OFF
+  81        : 00000000; -- .... ..../ data are readout
 
 [ 82..191]  : 00000000; --
 
