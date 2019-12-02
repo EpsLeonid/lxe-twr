@@ -52,7 +52,7 @@ CONTENT  BEGIN
 
 --********  TEST PATTRN of bits : 
   64        : 01000000; -- W100 0000\ W to 
-  65        : 00001010; -- 0000 1010 >    Reg#00A			    	CUSTOM	     Digital ramp
+  65        : 00001010; -- 0000 1010 >    Reg#00A 			    	CUSTOM	     Digital ramp
   66        : 01000100; -- 0101 0101/ CH"A" TEST PATTERN CH"B" TEST PATTERN 01010101 (85) OR 01000100 (68)
   67        : 01000000; -- W100 0000\ W to 
   68        : 00001011; -- 0000 1011 >    Reg#00B			    	CUSTOM	      Digital ramp
