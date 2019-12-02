@@ -1,0 +1,388 @@
+-- Since  Quartus refused to generate the .mif-file autmatically, 
+-- I had to make it by hand from a .mif-file generated before.
+-- Hand-made Memory Initialization File (.mif)
+
+WIDTH =	16;
+DEPTH = 1024;
+
+ADDRESS_RADIX = Dec;
+DATA_RADIX	 = Dec;
+
+CONTENT  BEGIN
+
+--============================================================================
+--************  "CommdLst_Rd000" Operation     *******************************
+--************    = "Start_Regul" Operation    *******************************
+--  Read  62words from ADC's RAM
+--	0	:	4520;
+--	1	:	4524;
+--	2	:	4528;
+--	3	:	4532;
+--	4	:	4536;
+--	5	:	4540;
+--	6	:	4544;
+--	7	:	4548;
+--	8	:	4552;
+--	9	:	4556;
+--	10	:	4560;
+--	11	:	4564;
+--	12	:	4897;
+--	13	:	4870;
+--	14	:	4872; 
+--	15	:	4871; 
+--	16	:	4572;
+--	17	:	4576;
+--	18	:	4580;
+--	19	:	4584;
+--	20	:	4588;
+--	21	:	4592;
+--	22	:	4596;
+--	23	:	4600;
+--	24	:	4604;
+--	25	:	4608;
+--	26	:	4612;
+--	27	:	4616;
+--	28	:	4620;
+--	29	:	4624;
+--	30	:	4628;
+--	31	:	4632;
+
+--	32	:	4740;
+--	33	:	4744;
+--	34	:	4748;
+--	35	:	4752;
+--	36	:	4756;
+--	37	:	4760;
+--	38	:	4764;
+--	39	:	4768;
+--	40	:	4772;
+--	41	:	4776;
+--	42	:	4780;
+--	43	:	4784;
+--	44	:	4788;
+--	45	:	4792;
+--	46	:	4796;
+--	47	:	4800;
+--	48	:	4804;
+--	49	:	4808;
+--	50	:	4812;
+--	51	:	4816;
+--	52	:	4820;
+--	53	:	4824;
+--	54	:	4828;
+--	55	:	4832;
+--	56	:	4836;
+--	57	:	4840;
+--	58	:	4844;
+--	59	:	4848;
+--	60	:	4852;
+--	61	:	4856;
+    --^^^^^^^^^^^^^^^^^^^^^^^^ temporarily substituted with EtherRAM
+   0        :     8254;
+   1        :     8255;
+   2        :     8256;
+   3        :     8257;
+   4        :     8258;
+   5        :     8259;
+   6        :     8260;
+   7        :     8261;
+   8        :     8262;
+   9        :     8263;
+  10        :     8264;
+  11        :     8265;
+  12        :     8266;
+  13        :     8267;
+  14        :     8268; 
+  15        :     8269; 
+  16        :     8270;
+  17        :     8271;
+  18        :     8272;
+  19        :     8273;
+  20        :     8274;
+  21        :     8275;
+  22        :     8276;
+  23        :     8277;
+  24        :     8278;
+  25        :     8279;
+  26        :     8280;
+  27        :     8281;
+  28        :     8282;
+  29        :     8283;
+  30        :     8284;
+  31        :     8285;
+
+  32        :     8286;
+  33        :     8287;
+  34        :     8288;
+  35        :     8289;
+  36        :     8290;
+  37        :     8291;
+  38        :     8292;
+  39        :     8293;
+  40        :     8294;
+  41        :     8295;
+  42        :     8296;
+  43        :     8297;
+  44        :     8298;
+  45        :     8299;
+  46        :     8300;
+  47        :     8301;
+  48        :     8302;
+  49        :     8303;
+  50        :     8304;
+  51        :     8305;
+  52        :     8306;
+  53        :     8307;
+  54        :     8308;
+  55        :     8309;
+  56        :     8310;
+  57        :     8311;
+  58        :     8312;
+  59        :     8313;
+  60        :     8314;
+  61        :     8315;
+
+[ 62.. 63]  :    65535; -- B"1111111111111111"
+
+
+--============================================================================
+--************ "CommdLst_Wr001" Operation ************************************
+--************    = "Block_Begin" Operation    *******************************
+--  Write  2 words:  MainRAM     @#769 == OpCode==202
+--                   ControlStatus Reg == B"1010" (default value)
+--  Herein the Addresses to be re-written are listed; 
+--      correspondent data are stored at addresses (512+ 64), ... , (512+127)
+
+  64        :      769; -- store OpCode (for test)
+  65        :     2048; -- write default value into CSR (for nothing)
+
+  66        :      770; -- write  #16 (for test)
+  67        :      771; -- write  #32 (for test)
+  68        :      772; -- write  #64 (for test)
+  69        :      773; -- write #128 (for test)
+
+  70        :    65535; -- B"1111111111111111"
+  71        :    65535; -- B"1111111111111111"
+[ 72..127]  :    65535; -- B"1111111111111111"
+
+
+--============================================================================
+--************  "CommdLst_Rd010" Operation     *******************************
+--************    = "Start_Alter" Operation    *******************************
+--  Without sening a new Ethernet Packet, just read the contents of the EtherRAM
+--  Read  CSReg, "UDPlength", "UDP_PkNum", "EthPause"
+
+ 128        :     2048; -- CSReg
+ 129        :     2052; -- "UDPlength"
+ 130        :     2053; -- "UDP_PkNum"
+ 131        :     2054; -- "EthPause"
+
+-- Read  ARP-Request/Reply data
+ 132        :     8200; --\  EtherRAM addr=008
+ 133        :     8201; -- | EtherRAM addr=009
+ 134        :     8202; -- | EtherRAM addr=010
+ 135        :     8203; -- | EtherRAM addr=011
+ 136        :     8204; -- | EtherRAM addr=012 \ MSByte, 2nd Byte  \ ThisDev'
+ 137        :     8205; -- \ EtherRAM addr=013  >                   >Address
+ 138        :     8206; --  \EtherRAM addr=014 / 5th Byte, LSByte  / ( MAC )
+ 139        :     8207; --  /EtherRAM addr=015 \_1st Byte, 2nd Byte\_ThisDev'
+ 140        :     8208; -- / EtherRAM addr=016 / 3rd Byte, 4th Byte/ IP-addr
+ 141        :     8209; -- | EtherRAM addr=017 \ MSByte, 2nd Byte  \ Comp's 
+ 142        :     8210; -- | EtherRAM addr=018  >                   >Address
+ 143        :     8211; -- | EtherRAM addr=019 / 5th Byte, LSByte  / ( MAC )
+ 144        :     8212; -- | EtherRAM addr=020 \_1st Byte, 2nd Byte\_ThisDev'
+ 145        :     8213; --/  EtherRAM addr=021 / 3rd Byte, 4th Byte/ IP-addr
+
+-- Read  UDP-header' data
+ 146        :     8224; --   EtherRAM addr=032  IP-header' data  = H"4500
+ 147        :     8225; --   EtherRAM addr=033  IP_length  (default) = 46
+ 148        :     2053; --   UDP_PackCt.q[]     UDP-packet' Number
+ 149        :     8227; --   EtherRAM addr=035  UDP-header' data = H"4000
+ 150        :     8228; --   EtherRAM addr=036  Type = UDP:        H"8011
+ 151        :     8229; --   EtherRAM addr=037  IP-hdr'CRC(default)  =  0
+ 152        :     8250; --   EtherRAM addr=058  UDP-SourPort
+ 153        :     8251; --   EtherRAM addr=059  UDP-DestPort
+ 154        :     2052; --   UDPlength_Reg[].q  UDP_length   
+ 155        :     8235; --   EtherRAM addr=043  UDP-hdr'CRC          == 0
+-- Read  UDP-packet DataBlock
+ 156        :     8254; --\  UDP packet' DWord00
+ 157        :     8255; -- \ UDP packet' DWord01
+ 158        :     8256; --  |
+ 159        :     8257; --  |
+ 160        :     8258;
+ 161        :     8259;
+ 162        :     8260;
+ 163        :     8261;
+ 164        :     8262;
+ 165        :     8263;
+ 166        :     8264;
+ 167        :     8265;
+ 168        :     8266;
+ 169        :     8267;
+ 170        :     8268; 
+ 171        :     8269; 
+ 172        :     8270;
+ 173        :     8271;
+ 174        :     8272;
+ 175        :     8273;
+ 176        :     8274;
+ 177        :     8275;
+ 178        :     8276;
+ 179        :     8277;
+ 180        :     8278;
+ 181        :     8279;
+ 182        :     8280;
+ 183        :     8281;
+ 184        :     8282; --  |
+ 185        :     8283; --  |
+ 186        :     8284; -- / UDP packet' DWord31
+ 187        :     8285; --/  UDP packet' DWord32
+
+ 188        :     8286; --   UDP packet' DWord33
+ 189        :     8287; --   UDP packet' DWord34
+
+[190..191]  :    65535; -- B"1111111111111111"
+
+
+--============================================================================
+--************  "CommdLst_Wr011" Operation  **********************************
+--************    = "Block_End" Operation      *******************************
+--  Write  2 words:  MainRAM     @#769 == OpCode==217
+--                   ControlStatus Reg == B"1010" (default value)
+--      correspondent data are stored at addresses (512+192), ... , (512+255)
+
+ 192        :      769; -- store OpCode (for test)  == 217
+ 193        :     2048; -- write default value into CSR (for nothing)
+
+ 194        :      770; -- write  #256 (for test)
+ 195        :      771; -- write  #512 (for test)
+ 196        :      772; -- write #1024 (for test)
+ 197        :      773; -- write #2048 (for test)
+
+ 198        :    65535; -- B"1111111111111111"
+ 199        :    65535; -- B"1111111111111111"
+[200..255]  :    65535; -- B"1111111111111111"
+
+
+--============================================================================
+--************  "CommdLst_Rd100" Operation  **********************************
+--  Read configuration values:
+--    CSReg, "UDPlength", "UDP_PkNum", "EthPause", 
+--    ARP-Req/Rep data, UDP-header' data 
+--  Herein the Addresses to be readout are listed
+
+ 256        :     2048; -- ControlStatus Register
+ 257        :     2052; --"UDP length"
+ 258        :     2053; --"UDP_PkNum"
+ 259        :     2054; --"EthPause"
+
+-- Read  ARP-Request/Reply data
+ 260        :     8200; --\  EtherRAM addr=008
+ 261        :     8201; -- | EtherRAM addr=009
+ 262        :     8202; -- | EtherRAM addr=010
+ 263        :     8203; -- | EtherRAM addr=011
+ 264        :     8204; -- | EtherRAM addr=012 \ MSByte, 2nd Byte  \ ThisDev'
+ 265        :     8205; -- \ EtherRAM addr=013  >                   >Address
+ 266        :     8206; --  \EtherRAM addr=014 / 5th Byte, LSByte  / ( MAC )
+ 267        :     8207; --  /EtherRAM addr=015 \_1st Byte, 2nd Byte\_ThisDev'
+ 268        :     8208; -- / EtherRAM addr=016 / 3rd Byte, 4th Byte/ IP-addr
+ 269        :     8209; -- | EtherRAM addr=017 \ MSByte, 2nd Byte  \ Comp's 
+ 270        :     8210; -- | EtherRAM addr=018  >                   >Address
+ 271        :     8211; -- | EtherRAM addr=019 / 5th Byte, LSByte  / ( MAC )
+ 272        :     8212; -- | EtherRAM addr=020 \_1st Byte, 2nd Byte\_ThisDev'
+ 273        :     8213; --/  EtherRAM addr=021 / 3rd Byte, 4th Byte/ IP-addr
+ 
+-- Read  UDP-header' data
+ 274        :     8224; --   EtherRAM addr=032  IP-header' data  = H"4500
+ 275        :     8225; --   EtherRAM addr=033  IP_length  (default) = 46
+ 276        :     2053; --   UDP_PackCt.q[]     UDP-packet' Number
+ 277        :     8227; --   EtherRAM addr=035  UDP-header' data = H"4000
+ 278        :     8228; --   EtherRAM addr=036  Type = UDP:        H"8011
+ 279        :     8229; --   EtherRAM addr=037  IP-hdr'CRC(default)  =  0
+ 280        :     8250; --   EtherRAM addr=058  UDP-SourPort
+ 281        :     8251; --   EtherRAM addr=059  UDP-DestPort
+ 282        :     2052; --   UDPlength_Reg[].q  UDP_length   
+ 283        :     8235; --   EtherRAM addr=043  UDP-hdr'CRC          == 0
+
+
+[284..319]  :    65535; -- B"1111111111111111"
+
+
+--============================================================================
+--************  "CommdLst_Wr101" Operation  **********************************
+--  Write configuration values: 
+--  Herein the Addresses to be re-written are listed; 
+--      correspondent data are listed at addresses (512+320), ... , (512+383)
+
+[320..383]  :	 65535; -- B"1111111111111111"
+
+--============================================================================
+--************ "Read110" Operation *******************************************
+
+[384..447]  :	 65535; -- B"1111111111111111"
+
+
+
+--============================================================================
+--************ "Write111" Operation ******************************************
+--  Reserved Command for UFO32 module
+--		correspondent data are listed at addresses (512+448), ...
+
+[448..511]  :	 65535; -- B"1111111111111111"
+
+
+--============================================================================
+[512..575]  :	0; -- data correspondent to "Read000"
+
+--============================================================================
+--************  Data_Page for "CommdLst_Wr001" Operation  ********************
+--************    = "Block_Begin" Operation    *******************************
+--  Write  2 words:   OpCode      == 202 (this OpCode), 
+--                    CSR value   ==  10 (default value)
+	
+ 576        :      202; -- store OpCode==202 (for test)
+-- 577        :        8; -- write "Blocking" value into CSR (Mode="UDP", StartMulti=0)
+ 577        :        4; -- write "Blocking" value into CSR (Mode="CMD3", StartMulti=0)
+
+ 578        :       16; -- write  #16 (for test)
+ 579        :       32; -- write  #32 (for test)
+ 580        :       64; -- write  #64 (for test)
+ 581        :      128; -- write #128 (for test)
+
+ 582        :    65535; -- B"1111111111111111" into ZERO object
+ 583        :    65535; -- B"1111111111111111" into ZERO object
+[584..639]  :    65535; -- B"1111111111111111" into ZERO object
+
+--============================================================================
+[640..703]  :	0; -- data correspondent to "Read010"
+
+--============================================================================
+--************  Data_Page for "CommdLst_Wr011" Operation  ********************
+--************    = "Block_End" Operation      *******************************
+--  Write  2 words:   1 CSReg value (must be loaded same as in CommdLst_Wr101) 
+
+ 704        :      217; -- store OpCode (for test)  == 217
+-- 705        :       10; -- write default value into CSR (Mode="UDP", StartMulti=1)
+ 705        :        6; -- write default value into CSR (Mode="CMD3", StartMulti=1)
+
+ 706        :      256; -- write  #256 (for test)
+ 707        :      512; -- write  #512 (for test)
+ 708        :     1024; -- write #1024 (for test)
+ 709        :     2048; -- write #2048 (for test)
+
+[710..767]  :    65535; -- B"1111111111111111"
+
+
+--============================================================================
+[768..831]  :	0; -- data correspondent to "Read100"
+
+--============================================================================
+[832..895]  :	0; -- data correspondent to "Write101"
+
+--============================================================================
+[896..959]  :	0; -- data correspondent to "Read110"
+
+--============================================================================
+[960..1023] :	0; -- data correspondent to "Write111"
+
+END;

@@ -1,0 +1,323 @@
+-- Since  Quartus refused to generate the .mif-file autmatically, 
+-- I had to make it by hand from a .mif-file generated before.
+-- Hand-made Memory Initialization File (.mif)
+
+WIDTH =   16;
+DEPTH = 1024;
+
+ADDRESS_RADIX = Dec;
+DATA_RADIX    = Dec;
+
+CONTENT  BEGIN
+
+--============================================================================
+--************ "Read000" Operation *******************************************
+--  Read  40 words: (32 Att.codes), (4 Masks), (4 Mask_results) 
+--  Herein the Addresses to be readout are listed
+
+  00        :      512; -- \ 
+  01        :      513; --  \ 
+  02        :      514; --   |
+  03        :      515; --   |
+  04        :      516; --   |
+  05        :      517; --   |
+  06        :      518; --   \ 
+  07        :      519; --    \  Addresses for AttCodes
+  08        :      520; --    /    of Ch01 .. Ch16
+  09        :      521; --   /
+  10        :      522; --   |
+  11        :      523; --   |
+  12        :      524; --   |
+  13        :      525; --   |
+  14        :      526; --  / 
+  15        :      527; -- / 
+  16        :      528; --
+  17        :      529; --
+  18        :      530; --
+  19        :      531; --
+  20        :      532; --
+  21        :      533; --
+  22        :      534; --
+  23        :      535; --
+  24        :      536; --
+  25        :      537; --
+  26        :      538; --
+  27        :      539; --
+  28        :      540; --
+  29        :      541; --
+  30        :      542; --
+  31        :      543; --
+
+  32        :      544; -- Address of Mask_Code for Ch#01..16
+  33        :      545; -- Address of Mask_Code for Ch#17..32
+  34        :      548; -- Address of RETURNED Mask_Code for Ch#01..16
+  35        :      551; -- Address of RETURNED Mask_Code for Ch#17..32
+
+  36        :     2048; -- GateDur_offset
+  37        :     2049; -- GateDel_offset
+
+  38        :      574; -- special Addr to initiate "Loading" cycle
+[ 39.. 63]  :    65535; -- B"1111111111111111"
+
+--============================================================================
+--************ "Write001" Operation ******************************************
+--  Write 36 words: (32 Att.codes), (4 Masks)
+--  Herein the Addresses to be re-written are listed; 
+--      correspondent data are listed at addresses (512+64), ...
+
+	64    :   4866;
+	65    :   4867;
+  66        :      514; --                             |
+  67        :      515; --                             |
+  68        :      516; --                             |
+  69        :      517; --                             |
+  70        :      518; --                             \ 
+  71        :      519; --                              \ 
+  72        :      520; --                              / 
+  73        :      521; --                             / 
+  74        :      522; --                             |
+  75        :      523; --                             |
+  76        :      524; --                             |
+  77        :      525; --                             |
+  78        :      526; --                            / 
+  79        :      527; -- Addr of Att_Code of Ch#16 / 
+  80        :      528; -- Addr of Att_Code of Ch#17
+  81        :      529; -- 
+  82        :      530; -- 
+  83        :      531; -- 
+  84        :      532; --
+  85        :      533; --
+  86        :      534; --
+  87        :      535; --
+  88        :      536; --
+  89        :      537; --
+  90        :      538; --
+  91        :      539; --
+  92        :      540; --
+  93        :      541; --
+  94        :      542; --
+  95        :      543; -- Addr of Att_Code of Ch#32
+
+  96        :      544; -- Address of Mask_Code for Ch#01..16
+  97        :      545; -- Address of Mask_Code for Ch#17..32
+  98        :      546; -- Addr of MaskCode readout from ext.MskTrigs Ch#01..16
+  99        :      547; -- Addr of MaskCode readout from ext.MskTrigs Ch#01..16
+
+ 100        :     2048; -- GateDur_offset
+ 101        :     2049; -- GateDel_offset
+
+-- 102        :      574; -- special Addr to initiate "Loading" cycle
+ 102        :    65535; -- B"1111111111111111"
+[104..127]  :    65535; -- B"1111111111111111"
+
+--============================================================================
+--************ Start_Regular Operation ("Read010") ***************************
+--  Read  "GateDur", "GateDel", 6*"0", 32 words from ADC's RAM
+
+ 128        :     2048; -- GateDur_offset
+ 129        :     2049; -- GateDel_offset
+
+[130..135]  :    65535; -- B"1111111111111111", 6 times
+
+ 136        :      640; -- RAM_ADC addr#0 - Channel#01 Amplitude
+ 137        :      656; -- RAM_ADC addr#0 - Channel#17 Amplitude
+ 138        :      641; -- RAM_ADC addr#0 - Channel#02 Amplitude
+ 139        :      657; -- RAM_ADC addr#0 - Channel#18 Amplitude
+ 140        :      642; -- RAM_ADC addr#0 - Channel#03 Amplitude
+ 141        :      658; -- RAM_ADC addr#0 - Channel#19 Amplitude
+ 142        :      643; -- RAM_ADC addr#0 - Channel#04 Amplitude
+ 143        :      659; -- RAM_ADC addr#0 - Channel#20 Amplitude
+ 144        :      644; -- RAM_ADC addr#0 - Channel#05 Amplitude
+ 145        :      660; -- RAM_ADC addr#0 - Channel#21 Amplitude
+ 146        :      645; -- RAM_ADC addr#0 - Channel#06 Amplitude
+ 147        :      661; -- RAM_ADC addr#0 - Channel#22 Amplitude
+ 148        :      646; -- RAM_ADC addr#0 - Channel#07 Amplitude
+ 149        :      662; -- RAM_ADC addr#0 - Channel#23 Amplitude
+ 150        :      647; -- RAM_ADC addr#0 - Channel#08 Amplitude
+ 151        :      663; -- RAM_ADC addr#0 - Channel#24 Amplitude
+ 152        :      648; -- RAM_ADC addr#0 - Channel#09 Amplitude
+ 153        :      664; -- RAM_ADC addr#0 - Channel#25 Amplitude
+ 154        :      649; -- RAM_ADC addr#0 - Channel#10 Amplitude
+ 155        :      665; -- RAM_ADC addr#0 - Channel#26 Amplitude
+ 156        :      650; -- RAM_ADC addr#0 - Channel#11 Amplitude
+ 157        :      666; -- RAM_ADC addr#0 - Channel#27 Amplitude
+ 158        :      651; -- RAM_ADC addr#0 - Channel#12 Amplitude
+ 159        :      667; -- RAM_ADC addr#0 - Channel#28 Amplitude
+ 160        :      652; -- RAM_ADC addr#0 - Channel#13 Amplitude
+ 161        :      668; -- RAM_ADC addr#0 - Channel#29 Amplitude
+ 162        :      653; -- RAM_ADC addr#0 - Channel#14 Amplitude
+ 163        :      669; -- RAM_ADC addr#0 - Channel#30 Amplitude
+ 164        :      654; -- RAM_ADC addr#0 - Channel#15 Amplitude
+ 165        :      670; -- RAM_ADC addr#0 - Channel#31 Amplitude
+ 166        :      655; -- RAM_ADC addr#0 - Channel#16 Amplitude
+ 167        :      671; -- RAM_ADC addr#0 - Channel#32 Amplitude
+
+[168..191]  :    65535; -- B"1111111111111111"
+
+--============================================================================
+--************ "Write011" Operation ******************************************
+--  Invalid Command for UFO32 module
+--      correspondent data are listed at addresses (512+192), ...
+
+[192..255]  :    65535; -- B"1111111111111111"
+
+--============================================================================
+--************ Start_Alternative Operation ("Read100") ***********************
+--  Invalid Command for UFO32 module
+
+	256   :   4096; -- Im_ADC
+--	257   :   4097;
+	257   :   4128
+--	258   :   4098;
+	258   :   4160;
+--	259   :   4099;
+	259   :   4192;
+--	260   :   4100;
+	260   :   4224;
+--	261   :   4101;
+	261   :   4256;
+--	262   :   4102;
+	262   :   4288;
+--	263   :   4103;
+	263   :   4320;
+--	264   :   4104;
+	264   :   4352; -- Hist_ADC
+--	265   :   4105;
+	265   :   4384;
+--	266   :   4106;
+	266   :   4416;
+--	267   :   4107;
+	267   :   4448;
+--	268   :   4108;
+	268   :   4480;
+--	269   :   4109;
+	269   :   4512;
+--	270   :   4110;
+	270   :   4544;
+--	271   :   4111;
+	271   :   4576;
+--	272   :   4112;
+	272   :   4608; -- Test_ADC
+--	273   :   4113;
+	273   :   4640;
+--	274   :   4114;
+	274   :   4672;
+--	275   :   4115;
+	275   :   4704;
+--	276   :   4116;
+	276   :   4736;
+--	277   :   4117;
+	277   :   4768;
+--	278   :   4118;
+	278   :   4800;
+--	279   :   4119;
+	279   :   4832;
+
+--	280   :   4120;
+	280   :   4870; -- регистр номера "сэмпла" при пересечении нуля
+--	281   :   4121;
+	281   :   4871; -- регистр уточненного времени пересечения нуля
+--	282   :   4122;
+	282   :   4872; -- регистр значения амплитуды
+
+	283   :   4123;
+	284   :   4124;
+	285   :   4125;
+	286   :   4126;
+	287   :   4127;
+	288   :   4128;
+	289   :   4129;
+	290   :   4130;
+	291   :   4131;
+	292   :   4132;
+	293   :   4133;
+	294   :   4134;
+	295   :   4135;
+	296   :   4136;
+	297   :   4137;
+	298   :   4138;
+	299   :   4139;
+	300   :   4140;
+	301   :   4141;
+	302   :   4142;
+	303   :   4143;
+	304   :   4144;
+	305   :   4145;
+	306   :   4146;
+	307   :   4147;
+	308   :   4148;
+	309   :   4149;
+	310   :   4150;
+	311   :   4151;
+	312   :   4152;
+	313   :   4153;
+	314   :   4154;
+	315   :   4155;
+	316   :   4156;
+	317   :   4157;
+	318   :   4158;
+	319   :   4159;
+
+--============================================================================
+--************ "Write101" Operation ******************************************
+--  Invalid Command for UFO32 module
+--      correspondent data are listed at addresses (512+320), ...
+
+[320..383]  :    65535; -- B"1111111111111111"
+
+--============================================================================
+--************ "Read110" Operation *******************************************
+--  Invalid Command for UFO32 module
+
+[384..447]  :    65535; -- B"1111111111111111"
+
+--============================================================================
+--************ "Write101" Operation ******************************************
+--  Invalid Command for UFO32 module
+--      correspondent data are listed at addresses (512+448), ...
+
+[448..511]  :    65535; -- B"1111111111111111"
+
+
+--============================================================================
+[512..575]  :        0; -- data correspondent to "Read000"
+
+--============================================================================
+--************ Data array for "Write001" Operation ***************************
+--  Write 36 words: (32 Att.codes), (4 Masks)	
+	
+ 576	    :	    20;
+ 577	    :	    50;
+[578..607]  :       40; -- all Channels: Medium attenuation
+ 608        :      255; -- B"1111111111111111" -  Channels #01..#16 - "ON"
+ 609        :      255; -- B"1111111111111111" -  Channels #17..#32 - "ON"
+ 610        :        0; -- B"0000000000000000" - "wrong" data for subsequent re-writing
+ 611        :        0; -- B"0000000000000000" - "wrong" data for subsequent re-writing
+
+ 612        :      602; -- "Gate" duration, default = 600 (6.00us)
+ 613        :        2; -- "Gate" delay,    default =   4 (0.04us)
+
+ 614        :      202; -- Special data word, for test (to be written into #574)
+ 615        :        0;
+
+[616..639]  :        0;
+
+--============================================================================
+[640..703]  :        0; -- data correspondent to "Read010"
+
+--============================================================================
+[704..767]  :        0; -- data correspondent to "Write011"
+
+--============================================================================
+[768..831]  :        0; -- data correspondent to "Read100"
+
+--============================================================================
+[832..895]  :        0; -- data correspondent to "Write101"
+
+--============================================================================
+[896..959]  :        0; -- data correspondent to "Read110"
+
+--============================================================================
+[960..1023] :        0; -- data correspondent to "Write111"
+
+END;

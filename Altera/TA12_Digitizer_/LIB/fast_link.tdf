@@ -1,0 +1,97 @@
+TITLE "Fast link";
+
+INCLUDE "lpm_counter.inc" ;
+INCLUDE "lpm_shiftreg.inc";
+INCLUDE "Edge_Sensing.inc";
+INCLUDE "lpm_mux.inc" ;
+INCLUDE "FORs_RAM.inc";
+
+CONSTANT WORD_WIDTH       = 16; -- размер слова данных
+CONSTANT PrescalerModule6  = 6;  -- делим входную частоту в 6 раз
+CONSTANT PrescalerModule3  = 3;  -- делим входную частоту в 3 раза
+
+
+SUBDESIGN Fast_Link
+(
+--
+  --CommonStop                  : input;
+  Clock           			      : input;  -- входная частота 150 МГц, частота работы модуля
+  Bunch_Crossing_Data_Sample      : input;  -- частота оборота пучка, привязанная к общему стопу 
+  Bunch_Crossing_Fast_Link_Start  : input;  -- 12.5 MHz from Bunch Crossing of Fast Link
+ -- Reset						      : input = GND;  -- Common FPGA Reset
+  3xPH_Clk                        : output; -- тактовая частота для Serializer-а
+  
+-- Module specific signals
+  Data_To_Ser[19..0]              : input; -- 20-ти разрядное входное слово, отправляемое Serializer-ом
+   
+  SerDataOut[9..0]                : output; -- данные для Serializer-а 
+  NumberWord[1..0]                : output; -- номер слова
+ 
+  DataBus_In[15..0]			      : input;  -- отправляемые с Внутренней Шины в Линк данные
+  DataBusOut[15..0]     	      : output; -- выдаваемые на Внутреннюю Шину из Модуля данные (младшие 16бит шины R)
+   
+ 
+  Test1, Test2                    : output;
+ 
+)
+
+VARIABLE
+
+  Data_Reg                    : lpm_shiftreg with (LPM_WIDTH=20,LPM_DIRECTION="unused"); -- регистр данных
+  Tx_Buffer                   : lpm_shiftreg with (LPM_WIDTH=20,LPM_DIRECTION="unused"); -- регистр данных
+  NofB_Counter    	          : LPM_COUNTER with ( lpm_width=4, lpm_direction="up" );   -- счетчик-указатель управление номером слова (байта) 
+ 
+  MUX_W                       : LPM_MUX with ( lpm_size=2, lpm_width=10,lpm_widths=2 );  -- мультиплексор 24->10 разбиение 24 бит на 2 слова по 12 бит
+   
+  Send_Data_BUS[19..0]        : node; 
+ 
+BEGIN
+
+DEFAULTS
+	DataBusOut[] = GND;
+END DEFAULTS;
+
+----пробные выходы ----
+Test1 = Bunch_Crossing_Data_Sample;
+Test2 = Bunch_Crossing_Fast_Link_Start;
+
+--------------------
+
+--******************** Входные регистры ********************
+FOR i IN 0 TO 19 GENERATE
+   Send_Data_BUS[i]   = Data_To_Ser[i];--  AND !Mask_Reg.q[i];
+END GENERATE;
+
+Data_Reg.data[19..0]  = Send_Data_BUS[19..0];
+Data_Reg.clock        = Clock;   -- по такту защелкиваем информацию о сработавших секторах и энерговыделение
+Data_Reg.load         = VCC;     -- регистры всегда в параллельной загрузке
+Data_Reg.enable       = Bunch_Crossing_Data_Sample;  -- разрешаем защелкнуть состояние шины 
+
+Tx_Buffer.data[19..0]  = Data_Reg.q[19..0];
+Tx_Buffer.clock        = Clock;   -- по такту защелкиваем информацию о сработавших секторах и энерговыделение
+Tx_Buffer.load         = VCC;     -- регистры всегда в параллельной загрузке
+Tx_Buffer.enable       = Bunch_Crossing_Fast_Link_Start;  -- разрешаем защелкнуть состояние шины 
+
+
+-- разбиение 20 бит шины на 2 слова по 10 бит 
+FOR i IN 0 TO 1 GENERATE
+  MUX_W.data[0][2*i]    = Tx_Buffer.q[2*i];
+  MUX_W.data[0][2*i+1]  = !Tx_Buffer.q[2*i+1];
+
+  MUX_W.data[1][2*i]    = Tx_Buffer.q[2*i+10];
+  MUX_W.data[1][2*i+1]  = !Tx_Buffer.q[2*i+1+10];
+
+END GENERATE;
+MUX_W.sel[1..0]         = NofB_Counter.q[3..2]-1; 
+3xPH_Clk                = NofB_Counter.q[1];
+ 
+-- Счетчик-указатель номера слова (10 бит) NofB_Counter
+NofB_Counter.data[3..0]= B"1100";
+NofB_Counter.clock	   = Clock;
+NofB_Counter.sload	   = Bunch_Crossing_Fast_Link_Start;
+-- *********** Здесь описана структура соединений шин данных *************
+SerDataOut[9..0]      = MUX_W.result[9..0]; 
+NumberWord[1..0]       = NofB_Counter.q[3..2]; -- дополнительные 2 бита номера слова для Serializer
+
+
+END; -- End design
