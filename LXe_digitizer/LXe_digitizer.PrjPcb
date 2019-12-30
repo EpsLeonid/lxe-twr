@@ -32,7 +32,7 @@ DItemRevisionGUID=
 
 [Document1]
 DocumentPath=Main schem.SchDoc
-AnnotationEnabled=0
+AnnotationEnabled=1
 AnnotateStartValue=1
 AnnotationIndexControlEnabled=1
 AnnotateSuffix=
@@ -48,7 +48,7 @@ GenerateClassCluster=0
 
 [Document2]
 DocumentPath=Digit.SchDoc
-AnnotationEnabled=0
+AnnotationEnabled=1
 AnnotateStartValue=1
 AnnotationIndexControlEnabled=1
 AnnotateSuffix=
@@ -64,7 +64,7 @@ GenerateClassCluster=0
 
 [Document3]
 DocumentPath=Processing Unit.SchDoc
-AnnotationEnabled=0
+AnnotationEnabled=1
 AnnotateStartValue=1
 AnnotationIndexControlEnabled=1
 AnnotateSuffix=
@@ -80,7 +80,7 @@ GenerateClassCluster=0
 
 [Document4]
 DocumentPath=Timing Unit.SchDoc
-AnnotationEnabled=0
+AnnotationEnabled=1
 AnnotateStartValue=1
 AnnotationIndexControlEnabled=1
 AnnotateSuffix=
@@ -112,7 +112,7 @@ GenerateClassCluster=0
 
 [Document6]
 DocumentPath=Ethernet.SchDoc
-AnnotationEnabled=0
+AnnotationEnabled=1
 AnnotateStartValue=1
 AnnotationIndexControlEnabled=1
 AnnotateSuffix=
@@ -144,7 +144,7 @@ GenerateClassCluster=0
 
 [Document8]
 DocumentPath=In-Out.SchDoc
-AnnotationEnabled=0
+AnnotationEnabled=1
 AnnotateStartValue=1
 AnnotationIndexControlEnabled=1
 AnnotateSuffix=
@@ -160,7 +160,7 @@ GenerateClassCluster=0
 
 [Document9]
 DocumentPath=SRAM.SchDoc
-AnnotationEnabled=0
+AnnotationEnabled=1
 AnnotateStartValue=1
 AnnotationIndexControlEnabled=1
 AnnotateSuffix=
@@ -1182,7 +1182,7 @@ PhysicalNamingFormat=$ComponentPrefix$GlobalIndex
 GlobalIndexSortOrder=1
 UniqueIDPath0=\YPRBCSCL
 DocumentName0=Digit.SchDoc
-IsEnabled0=0
+IsEnabled0=1
 SelectionScope0=All
 Order0=2
 IndexEnabled0=1
@@ -1190,7 +1190,7 @@ IndexStartValue0=1
 Suffix0=
 UniqueIDPath1=\FAGAKGSA
 DocumentName1=Digit.SchDoc
-IsEnabled1=0
+IsEnabled1=1
 SelectionScope1=All
 Order1=3
 IndexEnabled1=1
@@ -1198,7 +1198,7 @@ IndexStartValue1=1
 Suffix1=
 UniqueIDPath2=\NSOAGTKF
 DocumentName2=Digit.SchDoc
-IsEnabled2=0
+IsEnabled2=1
 SelectionScope2=All
 Order2=4
 IndexEnabled2=1
@@ -1206,7 +1206,7 @@ IndexStartValue2=1
 Suffix2=
 UniqueIDPath3=\TBPQVUAD
 DocumentName3=Ethernet.SchDoc
-IsEnabled3=0
+IsEnabled3=1
 SelectionScope3=All
 Order3=7
 IndexEnabled3=1
@@ -1214,7 +1214,7 @@ IndexStartValue3=1
 Suffix3=
 UniqueIDPath4=\JYNVHTXF
 DocumentName4=In-Out.SchDoc
-IsEnabled4=0
+IsEnabled4=1
 SelectionScope4=All
 Order4=9
 IndexEnabled4=1
@@ -1222,7 +1222,7 @@ IndexStartValue4=1
 Suffix4=
 UniqueIDPath5=
 DocumentName5=Main schem.SchDoc
-IsEnabled5=0
+IsEnabled5=1
 SelectionScope5=All
 Order5=1
 IndexEnabled5=1
@@ -1230,7 +1230,7 @@ IndexStartValue5=1
 Suffix5=
 UniqueIDPath6=\YHPXHEVH
 DocumentName6=Processing Unit.SchDoc
-IsEnabled6=0
+IsEnabled6=1
 SelectionScope6=All
 Order6=5
 IndexEnabled6=1
@@ -1246,7 +1246,7 @@ IndexStartValue7=1
 Suffix7=
 UniqueIDPath8=\AJHDXKLD
 DocumentName8=SRAM.SchDoc
-IsEnabled8=0
+IsEnabled8=1
 SelectionScope8=All
 Order8=10
 IndexEnabled8=1
@@ -1254,7 +1254,7 @@ IndexStartValue8=1
 Suffix8=
 UniqueIDPath9=\ICDRIXYO
 DocumentName9=Timing Unit.SchDoc
-IsEnabled9=0
+IsEnabled9=1
 SelectionScope9=All
 Order9=6
 IndexEnabled9=1
