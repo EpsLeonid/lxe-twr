@@ -1,0 +1,19 @@
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=Digit_1|SchDesignator=Digit_1|FileName=Digit.SchDoc|SymbolType=Normal|RawFileName=Digit.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=Digit_2|SchDesignator=Digit_2|FileName=Digit.SchDoc|SymbolType=Normal|RawFileName=Digit.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=Digit_3|SchDesignator=Digit_3|FileName=Digit.SchDoc|SymbolType=Normal|RawFileName=Digit.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=Ethernet|SchDesignator=Ethernet|FileName=Ethernet.SchDoc|SymbolType=Normal|RawFileName=Ethernet.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=FPGA|SchDesignator=FPGA|FileName=Processing Unit.SchDoc|SymbolType=Normal|RawFileName=Processing Unit.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=In-Out|SchDesignator=In-Out|FileName=In-Out.SchDoc|SymbolType=Normal|RawFileName=In-Out.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=SRAM|SchDesignator=SRAM|FileName=SRAM.SchDoc|SymbolType=Normal|RawFileName=SRAM.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=Timing|SchDesignator=Timing|FileName=Timing Unit.SchDoc|SymbolType=Normal|RawFileName=Timing Unit.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=U_Ref&Supply unit|SchDesignator=U_Ref&Supply unit|FileName=Ref&Supply Unit.SchDoc|SymbolType=Normal|RawFileName=Ref&Supply Unit.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SubProject|ProjectPath=R
+Record=SubProject|ProjectPath=R
+Record=SubProject|ProjectPath=R
+Record=SubProject|ProjectPath=R
+Record=SubProject|ProjectPath=R
+Record=SubProject|ProjectPath=R
+Record=SubProject|ProjectPath=X
+Record=SubProject|ProjectPath=_38
+Record=TopLevelDocument|FileName=Main schem.SchDoc
+Record=FPGA_COMPONENT|BaseComponentDesignator=U4|DocumentName=Processing Unit.SchDoc|LibraryReference=EP4CE40F23C7|SubProjectPath= |Configuration= |Description=Cyclone IV Family FPGA, 2V Core, 328 I/O Pins, 4 PLLs, 484-Pin FBGA, Speed Grade 7, Commercial Grade|NexusDeviceId=EP4CE40F23C7|SubPartUniqueId1=CGREMCDA|SubPartDocPath1=Processing Unit.SchDoc|SubPartUniqueId2=GMERBRUB|SubPartDocPath2=Processing Unit.SchDoc|SubPartUniqueId3=NEVCLKOW|SubPartDocPath3=Processing Unit.SchDoc|SubPartUniqueId4=IHEEENQA|SubPartDocPath4=Processing Unit.SchDoc|SubPartUniqueId5=DRHWSBWK|SubPartDocPath5=Processing Unit.SchDoc|SubPartUniqueId6=MNXPDKPQ|SubPartDocPath6=Processing Unit.SchDoc|SubPartUniqueId7=YIAYGJTK|SubPartDocPath7=Processing Unit.SchDoc|SubPartUniqueId8=CSFFDYGX|SubPartDocPath8=Processing Unit.SchDoc|SubPartUniqueId9=VJOLTFUO|SubPartDocPath9=Processing Unit.SchDoc|SubPartUniqueId10=AYFXDLYI|SubPartDocPath10=Processing Unit.SchDoc|SubPartUniqueId11=KGRGPDNQ|SubPartDocPath11=Processing Unit.SchDoc|SubPartUniqueId12=YFNGNEEU|SubPartDocPath12=Processing Unit.SchDoc|SubPartUniqueId13=MBBWJYPE|SubPartDocPath13=Processing Unit.SchDoc
