@@ -4,7 +4,7 @@ JedecChain;
 	DefaultMfr(6E);
 
 	P ActionCode(Cfg)
-		Device PartName(EPCS16) Path("D:/Users/Leon/Work/CMD-3/el_lxe/Electronics/trunk/Altera/TA12_digitizer/") File("TA12_Digitizer.pof") MfrSpec(OpMask(3) Child_OpMask(1 3));
+		Device PartName(EPCS16) Path("D:/Leon/CMD-3/Electronics/trunk/Altera/TA12_digitizer/") File("TA12_Digitizer.pof") MfrSpec(OpMask(3) Child_OpMask(1 3));
 
 ChainEnd;
 
