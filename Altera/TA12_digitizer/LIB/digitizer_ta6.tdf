@@ -689,7 +689,7 @@ END IF;
 	WFhist_RAMAddrBus_Eth.(data[], clock, load, enable) = (WFhist_ADCCt_Eth.q[], ADC_Clock, VCC, WriteWFhist_Eth);
 	
 	WFhist_RAMAddrSUM[1..0].(clock, clken) = (ADC_Clock, VCC);
-	WFhist_RAMAddrSUM[0].(dataa,datab) = (WFhist_RAMAddrBus_Eth.q[8..0], b"011011100");
+	WFhist_RAMAddrSUM[0].(dataa,datab) = (WFhist_RAMAddrBus_Eth.q[8..0], b"011110000");
 	WFhist_RAMAddrSUM[1].(dataa,datab) = (WFhist_RAMAddrSUM[0].result[8..0], DAQAddrBus_Eth_In[8..0]);
 
 	WFhist_RAMAddr_Eth.(clock, load, enable) = (ADC_Clock, VCC, ReadWFhist_Eth);
