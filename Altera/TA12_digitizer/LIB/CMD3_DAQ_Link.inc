@@ -85,15 +85,15 @@ CONSTANT BitOfAnswerWindowEnd   = BitOfAnswerStart+10
 Constant CMDL_Cfg_Read		=	B"10000010";    -- Чтение памати редиректора
 Constant CMDL_Cfg_Write		=	B"10001001";	-- Запись в память редиректора
 
-Constant CMDL_Exe_Read_000	=	B"11000001";	-- Чтение 0
-Constant CMDL_Exe_Read_010	=	B"11010010";	-- Чтение 1  Start_Regular
-Constant CMDL_Exe_Read_100	=	B"11100010";	-- Чтение 2  Start_Alternative
-Constant CMDL_Exe_Read_110	=	B"11110001";	-- Чтение 3
+Constant CMDL_Exe_Read_000	=	B"11000001";	-- Чтение 0  #193
+Constant CMDL_Exe_Read_010	=	B"11010010";	-- Чтение 1  Start_Regular #210
+Constant CMDL_Exe_Read_100	=	B"11100010";	-- Чтение 2  Start_Alternative #226
+Constant CMDL_Exe_Read_110	=	B"11110001";	-- Чтение 3  #241
 
-Constant CMDL_Exe_Write_001	=	B"11001010";	-- Запись 0
-Constant CMDL_Exe_Write_011	=	B"11011001";	-- Запись 1
-Constant CMDL_Exe_Write_101	=	B"11101001";	-- Запись 2
-Constant CMDL_Exe_Write_111	=	B"11111010";	-- Запись 3
+Constant CMDL_Exe_Write_001	=	B"11001010";	-- Запись 0  #202
+Constant CMDL_Exe_Write_011	=	B"11011001";	-- Запись 1  #217
+Constant CMDL_Exe_Write_101	=	B"11101001";	-- Запись 2  #233
+Constant CMDL_Exe_Write_111	=	B"11111010";	-- Запись 3  #250
 -- CMDL is acronim of CoMmanD Layer
 % Первый бит (В6) (после стартового) определяет HIHG=> исполняемая команда LOW=>конфигурационная
 Два бита (В5 и В4) дают номер Командного Листа и, соответственно, бит В3 - тип Листа на чтение/запись.
