@@ -107,7 +107,7 @@ Constant TestRAM_Size			= 256;		-- 256words * 16bits
 -- Parameters of the TA12 Module
 
 Constant ADC_Bits				= 12;	-- Number of ADC bits
-Constant NUM_CH					= 4;	-- Number of channels on the board
+Constant NUM_CH					= 12;	-- Number of channels on the board
 Constant TA_Bits				= 10;	-- Number of transfered bits to IPT_LXe
 Constant WriteWFDelayTime		= 65;	-- Delay of WForm_copying_to_ExternalRAM after LinkMessage (1mks), чтобы Линк успел распознать номер события.
 
@@ -193,7 +193,7 @@ ADC_SEN[2..0]					: output;
 ADC_SDATA[2..0]					: output;
 ADC_SDOUT[2..0]					: input;
 ADC_SCLK						: output;
-ADC_Reset						: output;
+--ADC_Reset						: output;
 
 -- 5. Ext RAM  
 ExtRAM_Addr[15..0]		: output;
@@ -356,7 +356,7 @@ ADCtest_reg			: lpm_shiftreg with (lpm_width=102, lpm_DIRECTION="left",  -- actu
 %
 
 TA12Channel[NUM_CH-1..0]			: Digitizer_TA6;
-ADC_DataClk_Gl[2..0]				: node;
+ADC_DataClk_Gl[NUM_CH-1..0]			: node;
 --ADC_DataClk_D						: node;
 DDR_FrameClk[2..0]					: DDR_In;
 DDR_InLVDS[NUM_CH-1..0][1..0]		: DDR_In;
@@ -506,7 +506,7 @@ BusOper2,
 BusOper3		: node; -- delay by 3 clocks 
 DataStrobe		: node; --Strobe: latch data into the destination object, and finish the Bus Oper-n
 --  signals of Address Comparators
-DevSel[17..1]	: DFF ; -- Registered Addr_Comparator outputs for Selection
+DevSel[25..1]	: DFF ; -- Registered Addr_Comparator outputs for Selection
 
 MainRAM_cs		: node; -- select for Rd/Wr from/to MainRAM
 ProgRAM_cs		: node; -- ProgRAM is declared in Processor module 
@@ -1513,7 +1513,7 @@ CMD3command     = SRFF(.S=CMD3OpCode_save,
 %
 
 --******** 6a. SET-UP of the external ADCs ************************************
-ADC_Reset		= PwrUpReset;
+--ADC_Reset		= PwrUpReset;
 
 --Strobe: makes ADCfeed_AddrCt to load InitAddr, and makes ADCfeed_WordCt to load N_of_Words
 ADCfeed_Init	= DevSel[8] &(AddrBus[2..0]==2)  --\_AddrBus[] == 2050, ..
@@ -1583,29 +1583,30 @@ ADC_SDATA[0]  = DFF(.D=ADCfeed_Reg.shiftout, .clk=!Clk12_5, .clrn=ADCfeed_Cycle1
 --End GENERATE;
 
 --============================================================================
-ADC_DataClk_Gl[0] = GLOBAL(ADC_DataClk[0]);
-ADC_DataClk_Gl[1] = GLOBAL(ADC_DataClk[1]);
-ADC_DataClk_Gl[2] = GLOBAL(ADC_DataClk[2]);
 
 --ADC_DataClk_D = lcell(ADC_DataClk[0]);
+	ADC_DataClk_Gl[0] = GLOBAL(ADC_DataClk[0]);
+	ADC_DataClk_Gl[1] = GLOBAL(ADC_DataClk[1]);
+	ADC_DataClk_Gl[2] = GLOBAL(ADC_DataClk[2]);
 
-FOR i IN 0 TO 1 GENERATE
+--FOR i IN 0 TO 1 GENERATE
+FOR i IN 0 TO (NUM_CH-1) GENERATE
 	FOR j in 0 to 1 GENERATE
 
 		DDR_InLVDS[i][j].(datain, inclock%, aclr%) = (ADC_In_Data[i][j], ADC_DataClk_Gl[0]%, RESET%);
 		DDR_Reg_pos[i][j].(shiftin, clock, enable, load) = (DDR_InLVDS[i][j].dataout_h, ADC_DataClk_Gl[0], VCC, GND);
 		DDR_Reg_neg[i][j].(shiftin, clock, enable, load) = (DDR_InLVDS[i][j].dataout_l, !ADC_DataClk_Gl[0], VCC, GND);
 
-	END GENERATE;
-END GENERATE;
-
-FOR i IN 2 TO 3 GENERATE
-	FOR j in 0 to 1 GENERATE
-
-		DDR_InLVDS[i][j].(datain, inclock%, aclr%) = (ADC_In_Data[i][j], ADC_DataClk_Gl[0]%, RESET%);
-		DDR_Reg_pos[i][j].(shiftin, clock, enable, load) = (DDR_InLVDS[i][j].dataout_h, ADC_DataClk_Gl[0], VCC, GND);
-		DDR_Reg_neg[i][j].(shiftin, clock, enable, load) = (DDR_InLVDS[i][j].dataout_l, !ADC_DataClk_Gl[0], VCC, GND);
-
+--	END GENERATE;
+--END GENERATE;
+--
+--FOR i IN 2 TO 3 GENERATE
+--	FOR j in 0 to 1 GENERATE
+--
+--		DDR_InLVDS[i][j].(datain, inclock%, aclr%) = (ADC_In_Data[i][j], ADC_DataClk_Gl[0]%, RESET%);
+--		DDR_Reg_pos[i][j].(shiftin, clock, enable, load) = (DDR_InLVDS[i][j].dataout_h, ADC_DataClk_Gl[0], VCC, GND);
+--		DDR_Reg_neg[i][j].(shiftin, clock, enable, load) = (DDR_InLVDS[i][j].dataout_l, !ADC_DataClk_Gl[0], VCC, GND);
+--
 	END GENERATE;
 END GENERATE;
 
@@ -1631,6 +1632,15 @@ END GENERATE;
 								 InData_RegMix[2].q[0],InData_RegMix[2].q[3],InData_RegMix[2].q[2],InData_RegMix[2].q[5],InData_RegMix[2].q[4],InData_RegMix[2].q[1]);
 	InData_Reg[3].data[11..0] = (!InData_RegMix[3].q[6],InData_RegMix[3].q[9],InData_RegMix[3].q[8],InData_RegMix[3].q[11],InData_RegMix[3].q[10],InData_RegMix[3].q[7],
 								 InData_RegMix[3].q[0],InData_RegMix[3].q[3],InData_RegMix[3].q[2],InData_RegMix[3].q[5],InData_RegMix[3].q[4],InData_RegMix[3].q[1]);
+
+FOR i IN 4 TO (NUM_CH-1) GENERATE
+-- Защелкивание битов в определенной последовательности.
+	InData_RegMix[i].data[11..0] = (DDR_Reg_neg[i][1].q[2],DDR_Reg_pos[i][1].q[2],DDR_Reg_neg[i][1].q[1],DDR_Reg_pos[i][1].q[1],DDR_Reg_neg[i][1].q[0],DDR_Reg_pos[i][1].q[0],
+									DDR_Reg_neg[i][0].q[2],DDR_Reg_pos[i][0].q[2],DDR_Reg_neg[i][0].q[1],DDR_Reg_pos[i][0].q[1],DDR_Reg_neg[i][0].q[0],DDR_Reg_pos[i][0].q[0]);
+-- Защелкивание битов в определенной последовательности.
+	InData_Reg[i].data[11..0] = (!InData_RegMix[i].q[7],InData_RegMix[i].q[6],InData_RegMix[i].q[9],InData_RegMix[i].q[8],InData_RegMix[i].q[11],InData_RegMix[i].q[10],
+								 InData_RegMix[i].q[0],InData_RegMix[i].q[3],InData_RegMix[i].q[2],InData_RegMix[i].q[5],InData_RegMix[i].q[4],InData_RegMix[i].q[1]);
+END GENERATE;
 
 FOR i IN 0 TO (NUM_CH-1) GENERATE
 
@@ -1759,74 +1769,134 @@ CASE ChannelCount_Eth.q[] IS
 					CASE DataCount_Eth.q[] is
 						When 0 => WriteDATA.data[15..0] = (ChannelCount_Eth.q[],b"000000",Eth_Reg_LinkOpCode.q[7..0]);
 						When 1 => WriteDATA.data[15..0] = Eth_Reg_LinkEvNumber.q[];
+						When 255 => WriteDATA.data[15..0] = (b"0000",TA12Channel[0].CalcPed[]);
 						When others => WriteDATA.data[11..0] = TA12Channel[0].DAQDataBusOut_Eth[11..0];
 									   WriteDATA.data[15..12] = GND;
 					End case;
-					TA12Channel[0].DAQAddrBus_Eth_In[7..0] = DataCount_Eth.q[];
-					TA12Channel[0].DAQAddrBus_Eth_In[8] = GND;
+					TA12Channel[0].DAQAddrBus_Eth_In[7..0]	= DataCount_Eth.q[];
+					TA12Channel[0].DAQAddrBus_Eth_In[8]		= GND;
 					TA12Channel[0].ReadWFhist_Eth			= TxWFhist_Eth.q;
 	When b"01" => -- Channel 2
 					CASE DataCount_Eth.q[] is
 						When 0 => WriteDATA.data[15..0] = (ChannelCount_Eth.q[],b"000000",Eth_Reg_LinkOpCode.q[7..0]);
 						When 1 => WriteDATA.data[15..0] = Eth_Reg_LinkEvNumber.q[];
+						When 255 => WriteDATA.data[15..0] = (b"0000",TA12Channel[1].CalcPed[]);
 						When others => WriteDATA.data[11..0] = TA12Channel[1].DAQDataBusOut_Eth[11..0];
 									   WriteDATA.data[15..12] = GND;
 					End case;
-					TA12Channel[1].DAQAddrBus_Eth_In[7..0] = DataCount_Eth.q[];
-					TA12Channel[1].DAQAddrBus_Eth_In[8] = GND;
+					TA12Channel[1].DAQAddrBus_Eth_In[7..0]	= DataCount_Eth.q[];
+					TA12Channel[1].DAQAddrBus_Eth_In[8]		= GND;
 					TA12Channel[1].ReadWFhist_Eth			= TxWFhist_Eth.q;
 	When b"10" => -- Channel 3
 					CASE DataCount_Eth.q[] is
 						When 0 => WriteDATA.data[15..0] = (ChannelCount_Eth.q[],b"000000",Eth_Reg_LinkOpCode.q[7..0]);
 						When 1 => WriteDATA.data[15..0] = Eth_Reg_LinkEvNumber.q[];
+						When 255 => WriteDATA.data[15..0] = (b"0000",TA12Channel[2].CalcPed[]);
 						When others => WriteDATA.data[11..0] = TA12Channel[2].DAQDataBusOut_Eth[11..0];
 									   WriteDATA.data[15..12] = GND;
 					End case;
-					TA12Channel[2].DAQAddrBus_Eth_In[7..0] = DataCount_Eth.q[];
-					TA12Channel[2].DAQAddrBus_Eth_In[8] = GND;
+					TA12Channel[2].DAQAddrBus_Eth_In[7..0]	= DataCount_Eth.q[];
+					TA12Channel[2].DAQAddrBus_Eth_In[8]		= GND;
 					TA12Channel[2].ReadWFhist_Eth			= TxWFhist_Eth.q;
 	When b"11" => -- Channel 4
 					CASE DataCount_Eth.q[] is
 						When 0 => WriteDATA.data[15..0] = (ChannelCount_Eth.q[],b"000000",Eth_Reg_LinkOpCode.q[7..0]);
 						When 1 => WriteDATA.data[15..0] = Eth_Reg_LinkEvNumber.q[];
+						When 255 => WriteDATA.data[15..0] = (b"0000",TA12Channel[3].CalcPed[]);
 						When others => WriteDATA.data[11..0] = TA12Channel[3].DAQDataBusOut_Eth[11..0];
 									   WriteDATA.data[15..12] = GND;
 					End case;
-					TA12Channel[3].DAQAddrBus_Eth_In[7..0] = DataCount_Eth.q[];
-					TA12Channel[3].DAQAddrBus_Eth_In[8] = GND;
+					TA12Channel[3].DAQAddrBus_Eth_In[7..0]	= DataCount_Eth.q[];
+					TA12Channel[3].DAQAddrBus_Eth_In[8]		= GND;
 					TA12Channel[3].ReadWFhist_Eth			= TxWFhist_Eth.q;
---	When b"0100" => TA12Channel[4].DAQAddrBus_Eth_In[7..0] = DataCount_Eth.q[];
---					TA12Channel[4].DAQAddrBus_Eth_In[8] = GND;
+--	When b"0100" => 
+--					CASE DataCount_Eth.q[] is
+--						When 0 => WriteDATA.data[15..0] = (ChannelCount_Eth.q[],b"000000",Eth_Reg_LinkOpCode.q[7..0]);
+--						When 1 => WriteDATA.data[15..0] = Eth_Reg_LinkEvNumber.q[];
+--						When 255 => WriteDATA.data[15..0] = (b"0000",TA12Channel[4].CalcPed[]);
+--						When others => WriteDATA.data[11..0] = TA12Channel[4].DAQDataBusOut_Eth[11..0];
+--									   WriteDATA.data[15..12] = GND;
+--					End case;
+--					TA12Channel[4].DAQAddrBus_Eth_In[7..0]	= DataCount_Eth.q[];
+--					TA12Channel[4].DAQAddrBus_Eth_In[8]		= GND;
 --					TA12Channel[4].ReadWFhist_Eth			= TxWFhist_Eth.q;
---					TAWF_HistRAM.data_a[11..0] = TA12Channel[4].DAQDataBusOut_Eth[11..0];
---	When b"0101" => TA12Channel[5].DAQAddrBus_Eth_In[7..0] = DataCount_Eth.q[];
---					TA12Channel[5].DAQAddrBus_Eth_In[8] = GND;
+--	When b"0101" => 
+--					CASE DataCount_Eth.q[] is
+--						When 0 => WriteDATA.data[15..0] = (ChannelCount_Eth.q[],b"000000",Eth_Reg_LinkOpCode.q[7..0]);
+--						When 1 => WriteDATA.data[15..0] = Eth_Reg_LinkEvNumber.q[];
+--						When 255 => WriteDATA.data[15..0] = (b"0000",TA12Channel[5].CalcPed[]);
+--						When others => WriteDATA.data[11..0] = TA12Channel[5].DAQDataBusOut_Eth[11..0];
+--									   WriteDATA.data[15..12] = GND;
+--					End case;
+--					TA12Channel[5].DAQAddrBus_Eth_In[7..0]	= DataCount_Eth.q[];
+--					TA12Channel[5].DAQAddrBus_Eth_In[8]		= GND;
 --					TA12Channel[5].ReadWFhist_Eth			= TxWFhist_Eth.q;
---					TAWF_HistRAM.data_a[11..0] = TA12Channel[5].DAQDataBusOut_Eth[11..0];
---	When b"0110" => TA12Channel[6].DAQAddrBus_Eth_In[7..0] = DataCount_Eth.q[];
---					TA12Channel[6].DAQAddrBus_Eth_In[8] = GND;
---					TA12Channel[6].ReadWFhist_Eth		  = TxWFhist_Eth.q;
---					TAWF_HistRAM.data_a[11..0] = TA12Channel[6].DAQDataBusOut_Eth[11..0];
---	When b"0111" => TA12Channel[7].DAQAddrBus_Eth_In[7..0] = DataCount_Eth.q[];
---					TA12Channel[7].DAQAddrBus_Eth_In[8] = GND;
---					TA12Channel[7].ReadWFhist_Eth		  = TxWFhist_Eth.q;
---					TAWF_HistRAM.data_a[11..0] = TA12Channel[7].DAQDataBusOut_Eth[11..0];
---	When b"1000" => TA12Channel[8].DAQAddrBus_Eth_In[7..0] = DataCount_Eth.q[];
---					TA12Channel[8].DAQAddrBus_Eth_In[8] = GND;
---					TA12Channel[8].ReadWFhist_Eth		  = TxWFhist_Eth.q;
---					TAWF_HistRAM.data_a[11..0] = TA12Channel[8].DAQDataBusOut_Eth[11..0];
---	When b"1001" => TA12Channel[9].DAQAddrBus_Eth_In[7..0] = DataCount_Eth.q[];
---					TA12Channel[9].DAQAddrBus_Eth_In[8] = GND;
---					TA12Channel[9].ReadWFhist_Eth		  = TxWFhist_Eth.q;
---					TAWF_HistRAM.data_a[11..0] = TA12Channel[9].DAQDataBusOut_Eth[11..0];
---	When b"1010" => TA12Channel[10].DAQAddrBus_Eth_In[7..0] = DataCount_Eth.q[];
---					TA12Channel[10].DAQAddrBus_Eth_In[8] = GND;
---					TA12Channel[10].ReadWFhist_Eth		  = TxWFhist_Eth.q;
---					TAWF_HistRAM.data_a[11..0] = TA12Channel[10].DAQDataBusOut_Eth[11..0];
---	When b"1011" => TA12Channel[11].DAQAddrBus_Eth_In[7..0] = DataCount_Eth.q[];
---					TA12Channel[11].DAQAddrBus_Eth_In[8] = GND;
---					TA12Channel[11].ReadWFhist_Eth		  = TxWFhist_Eth.q;
---					TAWF_HistRAM.data_a[11..0] = TA12Channel[11].DAQDataBusOut_Eth[11..0];
+--	When b"0110" => 
+--					CASE DataCount_Eth.q[] is
+--						When 0 => WriteDATA.data[15..0] = (ChannelCount_Eth.q[],b"000000",Eth_Reg_LinkOpCode.q[7..0]);
+--						When 1 => WriteDATA.data[15..0] = Eth_Reg_LinkEvNumber.q[];
+--						When 255 => WriteDATA.data[15..0] = (b"0000",TA12Channel[6].CalcPed[]);
+--						When others => WriteDATA.data[11..0] = TA12Channel[6].DAQDataBusOut_Eth[11..0];
+--									   WriteDATA.data[15..12] = GND;
+--					End case;
+--					TA12Channel[6].DAQAddrBus_Eth_In[7..0]	= DataCount_Eth.q[];
+--					TA12Channel[6].DAQAddrBus_Eth_In[8]		= GND;
+--					TA12Channel[6].ReadWFhist_Eth			= TxWFhist_Eth.q;
+--	When b"0111" => 
+--					CASE DataCount_Eth.q[] is
+--						When 0 => WriteDATA.data[15..0] = (ChannelCount_Eth.q[],b"000000",Eth_Reg_LinkOpCode.q[7..0]);
+--						When 1 => WriteDATA.data[15..0] = Eth_Reg_LinkEvNumber.q[];
+--						When 255 => WriteDATA.data[15..0] = (b"0000",TA12Channel[7].CalcPed[]);
+--						When others => WriteDATA.data[11..0] = TA12Channel[7].DAQDataBusOut_Eth[11..0];
+--									   WriteDATA.data[15..12] = GND;
+--					End case;
+--					TA12Channel[7].DAQAddrBus_Eth_In[7..0]	= DataCount_Eth.q[];
+--					TA12Channel[7].DAQAddrBus_Eth_In[8]		= GND;
+--					TA12Channel[7].ReadWFhist_Eth			= TxWFhist_Eth.q;
+--	When b"1000" => 
+--					CASE DataCount_Eth.q[] is
+--						When 0 => WriteDATA.data[15..0] = (ChannelCount_Eth.q[],b"000000",Eth_Reg_LinkOpCode.q[7..0]);
+--						When 1 => WriteDATA.data[15..0] = Eth_Reg_LinkEvNumber.q[];
+--						When 255 => WriteDATA.data[15..0] = (b"0000",TA12Channel[8].CalcPed[]);
+--						When others => WriteDATA.data[11..0] = TA12Channel[8].DAQDataBusOut_Eth[11..0];
+--									   WriteDATA.data[15..12] = GND;
+--					End case;
+--					TA12Channel[8].DAQAddrBus_Eth_In[7..0]	= DataCount_Eth.q[];
+--					TA12Channel[8].DAQAddrBus_Eth_In[8]		= GND;
+--					TA12Channel[8].ReadWFhist_Eth			= TxWFhist_Eth.q;
+--	When b"1001" => 
+--					CASE DataCount_Eth.q[] is
+--						When 0 => WriteDATA.data[15..0] = (ChannelCount_Eth.q[],b"000000",Eth_Reg_LinkOpCode.q[7..0]);
+--						When 1 => WriteDATA.data[15..0] = Eth_Reg_LinkEvNumber.q[];
+--						When 255 => WriteDATA.data[15..0] = (b"0000",TA12Channel[9].CalcPed[]);
+--						When others => WriteDATA.data[11..0] = TA12Channel[9].DAQDataBusOut_Eth[11..0];
+--									   WriteDATA.data[15..12] = GND;
+--					End case;
+--					TA12Channel[9].DAQAddrBus_Eth_In[7..0]	= DataCount_Eth.q[];
+--					TA12Channel[9].DAQAddrBus_Eth_In[8]		= GND;
+--					TA12Channel[9].ReadWFhist_Eth			= TxWFhist_Eth.q;
+--	When b"1010" => 
+--					CASE DataCount_Eth.q[] is
+--						When 0 => WriteDATA.data[15..0] = (ChannelCount_Eth.q[],b"000000",Eth_Reg_LinkOpCode.q[7..0]);
+--						When 1 => WriteDATA.data[15..0] = Eth_Reg_LinkEvNumber.q[];
+--						When 255 => WriteDATA.data[15..0] = (b"0000",TA12Channel[10].CalcPed[]);
+--						When others => WriteDATA.data[11..0] = TA12Channel[10].DAQDataBusOut_Eth[11..0];
+--									   WriteDATA.data[15..12] = GND;
+--					End case;
+--					TA12Channel[10].DAQAddrBus_Eth_In[7..0]	= DataCount_Eth.q[];
+--					TA12Channel[10].DAQAddrBus_Eth_In[8]		= GND;
+--					TA12Channel[10].ReadWFhist_Eth			= TxWFhist_Eth.q;
+--	When b"1011" => 
+--					CASE DataCount_Eth.q[] is
+--						When 0 => WriteDATA.data[15..0] = (ChannelCount_Eth.q[],b"000000",Eth_Reg_LinkOpCode.q[7..0]);
+--						When 1 => WriteDATA.data[15..0] = Eth_Reg_LinkEvNumber.q[];
+--						When 255 => WriteDATA.data[15..0] = (b"0000",TA12Channel[11].CalcPed[]);
+--						When others => WriteDATA.data[11..0] = TA12Channel[11].DAQDataBusOut_Eth[11..0];
+--									   WriteDATA.data[15..12] = GND;
+--					End case;
+--					TA12Channel[11].DAQAddrBus_Eth_In[7..0]	= DataCount_Eth.q[];
+--					TA12Channel[11].DAQAddrBus_Eth_In[8]		= GND;
+--					TA12Channel[11].ReadWFhist_Eth			= TxWFhist_Eth.q;
 	When others =>
 					FOR i IN 0 TO (NUM_CH-1) GENERATE 
 						TA12Channel[i].ReadWFhist_Eth = GND; 
@@ -3009,11 +3079,11 @@ DevSel[10].d    = Servo_cs ;    -- added just to prevent Quartus from deleting D
 FOR i IN 0 TO (NUM_CH-1) GENERATE
 	DevSel[11+i].d  = TA12Channel_cs[i];	-- ADC channel data
 END GENERATE;
-DevSel[15].d	= ErrorCounters_IFace_CS;	-- Error Counters
-DevSel[16].d	= TestRAM_cs;				-- Test RAM
-DevSel[17].d	= ZERO_cs;					-- ZERO word
+DevSel[23].d	= ErrorCounters_IFace_CS;	-- Error Counters
+DevSel[24].d	= TestRAM_cs;				-- Test RAM
+DevSel[25].d	= ZERO_cs;					-- ZERO word
 
-FOR i in 1 to 17 % with ErCount must be 28 % GENERATE
+FOR i in 1 to 25 % with ErCount must be 28 % GENERATE
 	DevSel[i].clrn = AddrSettled;   -- DevSel[] are enabled while Addr. is settled
 	DevSel[i].clk  = Clk100;
 END GENERATE; 
@@ -3029,10 +3099,10 @@ AddrValid = DevSel[ 1].q OR  -- MainRAM
             DevSel[ 9].q OR  -- EtherRAM
 --            DevSel[10].q OR  -- Reg_EthOpCode
             DevSel[11].q OR DevSel[12].q OR DevSel[13].q OR DevSel[14].q OR DevSel[15].q OR DevSel[16].q OR --\ [1-6] ADC channels
-            DevSel[17].q %OR DevSel[18].q OR DevSel[19].q OR DevSel[20].q OR DevSel[21].q OR DevSel[22].q OR --/ [7-12] ADC channels
+            DevSel[17].q OR DevSel[18].q OR DevSel[19].q OR DevSel[20].q OR DevSel[21].q OR DevSel[22].q OR --/ [7-12] ADC channels
             DevSel[23].q OR
             DevSel[24].q OR
-            DevSel[25].q%;   -- Something?? :  ZERO word
+            DevSel[25].q;   -- Something?? :  ZERO word
 
 --AddrSettled = Bus_Arbiter.AddressSettled; --In 1clock after "AccessGranted"..
 	-- ..address is expected to be set on the Addr.bus, and Arbiter produces 
@@ -3057,39 +3127,39 @@ IF (RW == VCC) Then		-- Master will write to
 	DataBus[] = CPU.DataOut[] ;
 Else					-- Master will read from
 	CASE DevSel[].q IS     -- DataBus' MUX for Target drivers
-        WHEN b"00000000000000001" => DataBus[]		= MainRAM.q[];
-        WHEN b"00000000000000010" => DataBus[]		= CPU.ProgRAM_q[];
-        WHEN b"00000000000000100" => DataBus[]		= CommandRAM.q[];
-        WHEN b"00000000000001000" => CASE  AddrBus[1..0] is
+        WHEN b"0000000000000000000000001" => DataBus[]		= MainRAM.q[];
+        WHEN b"0000000000000000000000010" => DataBus[]		= CPU.ProgRAM_q[];
+        WHEN b"0000000000000000000000100" => DataBus[]		= CommandRAM.q[];
+        WHEN b"0000000000000000000001000" => CASE  AddrBus[1..0] is
             When 0 => DataBus[]    = Link_IFace.InData_out[];
             When 1 => DataBus[]    = Link_IFace.DataBus_out[];
             When 2 => DataBus[7..0]= Link_IFace.OpCode_out[];
             End CASE;
-        WHEN b"00000000000010000" => DataBus[ 7..0] = OpCode1_bit[ 8..1].q;-- FIFO Cell#1' OpCode
-        WHEN b"00000000000100000" => DataBus[15..0] = InData1_bit[16..1].q;-- FIFO Cell#1' InData
-        WHEN b"00000000001000000" => DataBus[ 7..0] = SetupRAM.q_b[];
-        WHEN b"00000001010000000" => DataBus[]      = Servo_Mux[16..1];     -- various Reg-s
+        WHEN b"0000000000000000000010000" => DataBus[ 7..0] = OpCode1_bit[ 8..1].q;-- FIFO Cell#1' OpCode
+        WHEN b"0000000000000000000100000" => DataBus[15..0] = InData1_bit[16..1].q;-- FIFO Cell#1' InData
+        WHEN b"0000000000000000001000000" => DataBus[ 7..0] = SetupRAM.q_b[];
+        WHEN b"0000000000000001010000000" => DataBus[]      = Servo_Mux[16..1];     -- various Reg-s
                   -- ^^^^- DevSel[10] is made SAME as DevSel[8] !
-		WHEN b"00000000100000000" => DataBus[]      = EtherRAM.q_b[];       --MainProj <- EtherRAM 
+		WHEN b"0000000000000000100000000" => DataBus[]      = EtherRAM.q_b[];       --MainProj <- EtherRAM 
 --		WHEN b"0000000000000001000000000" => DataBus[7..0]	= Reg_EthOpCode[8..1];				--Ether's OpCode
-		WHEN b"00000010000000000" => DataBus[]		= TA12Channel[0].DataBusOut[];
-		WHEN b"00000100000000000" => DataBus[]		= TA12Channel[1].DataBusOut[];
-		WHEN b"00001000000000000" => DataBus[]		= TA12Channel[2].DataBusOut[];
-		WHEN b"00010000000000000" => DataBus[]		= TA12Channel[3].DataBusOut[];
-		WHEN b"00100000000000000" => DataBus[]		= ErrorCounters_IFace.DataBusOut[];
-		WHEN b"01000000000000000" => DataBus[]		= TestRAM.q[];						-- MainProj <- TestRAM 
-		WHEN b"10000000000000000" => DataBus[]		= 0; 								-- ZERO word temporary ?
---		WHEN b"0000000000100000000000000" => DataBus[]		= TA12Channel[4].DataBusOut[];
---		WHEN b"0000000001000000000000000" => DataBus[]		= TA12Channel[5].DataBusOut[];
---		WHEN b"0000000010000000000000000" => DataBus[]		= TA12Channel[6].DataBusOut[];
---		WHEN b"0000000100000000000000000" => DataBus[]		= TA12Channel[7].DataBusOut[];
---		WHEN b"0000001000000000000000000" => DataBus[]		= TA12Channel[8].DataBusOut[];
---		WHEN b"0000010000000000000000000" => DataBus[]		= TA12Channel[9].DataBusOut[];
---		WHEN b"0000100000000000000000000" => DataBus[]		= TA12Channel[10].DataBusOut[];
---		WHEN b"0001000000000000000000000" => DataBus[]		= TA12Channel[11].DataBusOut[];
---		WHEN b"0010000000000000000000000" => DataBus[]		= ErrorCounters_IFace.DataBusOut[];	--
---		WHEN b"0100000000000000000000000" => DataBus[]		= TestRAM.q[];						-- MainProj <- TestRAM 
---		WHEN b"1000000000000000000000000" => DataBus[]		= 0; 								-- ZERO word temporary ?
+		WHEN b"0000000000000010000000000" => DataBus[]		= TA12Channel[0].DataBusOut[];
+		WHEN b"0000000000000100000000000" => DataBus[]		= TA12Channel[1].DataBusOut[];
+		WHEN b"0000000000001000000000000" => DataBus[]		= TA12Channel[2].DataBusOut[];
+		WHEN b"0000000000010000000000000" => DataBus[]		= TA12Channel[3].DataBusOut[];
+		WHEN b"0000000000100000000000000" => DataBus[]		= ErrorCounters_IFace.DataBusOut[];
+		WHEN b"0000000001000000000000000" => DataBus[]		= TestRAM.q[];						-- MainProj <- TestRAM 
+		WHEN b"0000000010000000000000000" => DataBus[]		= 0; 								-- ZERO word temporary ?
+		WHEN b"0000000000100000000000000" => DataBus[]		= TA12Channel[4].DataBusOut[];
+		WHEN b"0000000001000000000000000" => DataBus[]		= TA12Channel[5].DataBusOut[];
+		WHEN b"0000000010000000000000000" => DataBus[]		= TA12Channel[6].DataBusOut[];
+		WHEN b"0000000100000000000000000" => DataBus[]		= TA12Channel[7].DataBusOut[];
+		WHEN b"0000001000000000000000000" => DataBus[]		= TA12Channel[8].DataBusOut[];
+		WHEN b"0000010000000000000000000" => DataBus[]		= TA12Channel[9].DataBusOut[];
+		WHEN b"0000100000000000000000000" => DataBus[]		= TA12Channel[10].DataBusOut[];
+		WHEN b"0001000000000000000000000" => DataBus[]		= TA12Channel[11].DataBusOut[];
+		WHEN b"0010000000000000000000000" => DataBus[]		= ErrorCounters_IFace.DataBusOut[];	--
+		WHEN b"0100000000000000000000000" => DataBus[]		= TestRAM.q[];						-- MainProj <- TestRAM 
+		WHEN b"1000000000000000000000000" => DataBus[]		= 0; 								-- ZERO word temporary ?
 		WHEN OTHERS => DataBus[] = 0;
 	End CASE;
 End IF;

@@ -16,7 +16,7 @@ INCLUDE "EdgeSensing.inc";
 INCLUDE "DelayLine.inc" ;
 
 CONSTANT	ADC_WIDTH	= 12;	-- Кол-во битов АЦП
-Constant	PedCalc		= 32;	-- Number of data for measuring 
+Constant	WFhistDelayTime = 200;	-- Number of data for measuring 
 CONSTANT	PedDelayTime= 32;	-- Время задержки в разностном сигнале
 CONSTANT	REG_SUM		= 8;	-- Кол-во регистров для суммирования
 CONSTANT	MaxTime		= 250;  -- Maximal Valid time (2.5mks)
@@ -33,45 +33,47 @@ Constant	Threshold_def = 350;
 SUBDESIGN Digitizer_TA6
 (
 -- General Signals
-			DigitInit				: input; -- initiates a Cycle of data processing (Temporary!)
-			RegInit					: input;
-			ADC_Clock				: input; -- Global FPGA Clock, assumed 100MHz for project 
-			Bus_Clock				: input; -- Global FPGA Clock, assumed 100MHz for project 
-			Reset					: input; -- Common FPGA Reset
-			ADCdata[11..0]			: input; -- Входные данные с АЦП
-			DataBus_In[15..0]		: input; -- отправляемые с Внутренней Шины в Линк данные
-			DataBusOut[15..0]		: output; -- выдаваемые на Внутреннюю Шину из памяти данные
-			Working					: output;
-			LinkMessage				: input;
-			WriteRAM				: input;
---			Event					: input; -- такт конвеера
---			LinkMsg					: input; -- сигнал о работе линка (общий стоп)
---			Start_read				: output;
-			EventFound				: OUTPUT; -- сигнал об обнаружении нужного события		
+	DigitInit				: input; -- initiates a Cycle of data processing (Temporary!)
+	RegInit					: input;
+	ADC_Clock				: input; -- Global FPGA Clock, assumed 100MHz for project 
+	Bus_Clock				: input; -- Global FPGA Clock, assumed 100MHz for project 
+	Reset					: input; -- Common FPGA Reset
+	ADCdata[11..0]			: input; -- Входные данные с АЦП
+	DataBus_In[15..0]		: input; -- отправляемые с Внутренней Шины в Линк данные
+	DataBusOut[15..0]		: output; -- выдаваемые на Внутреннюю Шину из памяти данные
+	Working					: output;
+	LinkMessage				: input;
+	WriteRAM				: input;
+--	Event					: input; -- такт конвеера
+--	LinkMsg					: input; -- сигнал о работе линка (общий стоп)
+--	Start_read				: output;
+	EventFound				: OUTPUT; -- сигнал об обнаружении нужного события		
 
-			Error                   : output; -- сигнал ошибки (неверная команда)
+	Error                   : output; -- сигнал ошибки (неверная команда)
 %	-- Master Mode Signals -- используется при работе данного Модуля в режиме Master)
 	AccessRequest           : output; -- запрос к Арбитру на доступ к шине для чтения/записи данных Пользователя в режиме Master	
 	AccessGranted			: input;  -- Разрешение Арбитра выставить Адрес и направление обмена (захват шины)
 	DirectOut				: output; -- направление передачи данных, на внутреннюю шину или с нее, по умолчанию =GND, передача от внутренних ресурсов платы Модуль,
 	AddrBusOut[15..0]       : output; -- адрес при операциях доступа ко внутренним ресурсам Оцифровщика (чтения/записи по Командному Листу).
-%		-- Slave Mode Signals	-- используется при работе данного Модуля в режиме Slave
-		Select					: input;  -- Выбор Модуля для работы с памятью Командного Листа в режиме Slave (с КАМАК-ом)
-		DirectIn				: input;  -- направление передачи данных, Если =GND, то данный Модуль читается, если =VCC, то пишется.
-		AddrBus_In[9..0]		: input;  -- адрес при операциях доступа чтения/записи Командного Листа с КАМАК-а
-		DataBusStrobe           : input;  -- строб приема/передачи данных наружу (высокий уровень, используя его как Enable, "защелкиваем" по заднему фронту
+%	-- Slave Mode Signals	-- используется при работе данного Модуля в режиме Slave
+	Select					: input;  -- Выбор Модуля для работы с памятью Командного Листа в режиме Slave (с КАМАК-ом)
+	DirectIn				: input;  -- направление передачи данных, Если =GND, то данный Модуль читается, если =VCC, то пишется.
+	AddrBus_In[9..0]		: input;  -- адрес при операциях доступа чтения/записи Командного Листа с КАМАК-а
+	DataBusStrobe           : input;  -- строб приема/передачи данных наружу (высокий уровень, используя его как Enable, "защелкиваем" по заднему фронту
 
-		Flink_clock				: input; -- частота передачи слов по линку в ИПТ-LXe
-		ReadWFhist				: input; -- сигнал на чтение форм сигналов
-		WriteWFhist				: input; -- сигнал, что запись формы разрешена
-		DAQAddrBus_In[8..0]		: input; -- адрес данных для передачи по быстрому линку, когда пришла команда чтения
-		DAQDataBusOut[11..0]	: output; -- данные для передачи по быстрому линку, когда пришла команда чтения
-
-		WriteWFEnd				: output; -- сигнал оканчания записи памяти с формой сиганала
-		ReadWFhist_Eth			: input; -- сигнал на чтение форм сигналов
-		WriteWFhist_Eth			: input; -- сигнал, что запись формы разрешена
-		DAQAddrBus_Eth_In[8..0]		: input; -- адрес данных для передачи по быстрому линку, когда пришла команда чтения
-		DAQDataBusOut_Eth[11..0]	: output; -- данные для передачи по быстрому линку, когда пришла команда чтения
+	Flink_clock				: input; -- частота передачи слов по линку в ИПТ-LXe
+	ReadWFhist				: input; -- сигнал на чтение форм сигналов
+	WriteWFhist				: input; -- сигнал, что запись формы разрешена
+	DAQAddrBus_In[8..0]		: input; -- адрес данных для передачи по быстрому линку, когда пришла команда чтения
+	DAQDataBusOut[11..0]	: output; -- данные для передачи по быстрому линку, когда пришла команда чтения
+	
+	CalcPed[11..0]			: output;
+	
+	WriteWFEnd				: output; -- сигнал оканчания записи памяти с формой сиганала
+	ReadWFhist_Eth			: input; -- сигнал на чтение форм сигналов
+	WriteWFhist_Eth			: input; -- сигнал, что запись формы разрешена
+	DAQAddrBus_Eth_In[8..0]		: input; -- адрес данных для передачи по быстрому линку, когда пришла команда чтения
+	DAQDataBusOut_Eth[11..0]	: output; -- данные для передачи по быстрому линку, когда пришла команда чтения
 
 	Sample[13..0]				: output;
 	Summ[13..0]					: output;
@@ -116,9 +118,15 @@ VARIABLE
 	Sub_Ped				:	lpm_add_sub with (lpm_width = ADC_WIDTH, lpm_direction="sub", LPM_REPRESENTATION = "UNSIGNED",
 												  Lpm_pipeline = 1 );
 -- Calc pedistal
-	CalcPedSum			:	lpm_add_sub with (lpm_width = ADC_WIDTH, lpm_direction="add", LPM_REPRESENTATION = "UNSIGNED",
+
+	WFhist				:	WFhist_ram;
+	WFhist_ADCCt1		:	LPM_COUNTER with (lpm_width = 9, lpm_direction="up" ); -- n?ao?ee 
+	WFhist_ADCCt2		:	LPM_COUNTER with (lpm_width = 9, lpm_direction="up" ); -- n?ao?ee 
+	WFhistDelayTime_Reg	:	lpm_shiftreg with (LPM_WIDTH = 9, LPM_DIRECTION="unused", LPM_SVALUE = WFhistDelayTime); -- ?aaeno? cia?aiey caaa??ee
+
+	CalcPedSum			:	lpm_add_sub with (lpm_width = 17, lpm_direction="add", LPM_REPRESENTATION = "UNSIGNED",
 											  Lpm_pipeline = 1 );
-	CalcPedSub			:	lpm_add_sub with (lpm_width = ADC_WIDTH, lpm_direction="sub", LPM_REPRESENTATION = "UNSIGNED",
+	CalcPedSub			:	lpm_add_sub with (lpm_width = 17, lpm_direction="sub", LPM_REPRESENTATION = "UNSIGNED",
 											  Lpm_pipeline = 1 );
 
 	RawDataRAM			:	RAM_digit;												-- память имитирующая линию задержки сэмплов
@@ -127,7 +135,7 @@ VARIABLE
 
 	PedDelayTime_Reg	:	lpm_shiftreg with (LPM_WIDTH = 8, LPM_DIRECTION="unused", LPM_SVALUE = PedDelayTime); -- регистр значения задержки
 	SavePCReg			:	node;
-	PiedCalc_Reg		:	lpm_shiftreg with (LPM_WIDTH = ADC_WIDTH, LPM_DIRECTION="unused",LPM_SVALUE = Piedistal_def); -- ?aaeno? o?iaiy ii?iaa
+	PedCalc_Reg			:	lpm_shiftreg with (LPM_WIDTH = ADC_WIDTH, LPM_DIRECTION="unused",LPM_SVALUE = Piedistal_def); -- ?aaeno? o?iaiy ii?iaa
 --
 	RegSum[REG_SUM-1..0]:	lpm_shiftreg with (LPM_WIDTH = ADC_WIDTH, LPM_DIRECTION="unused"); -- регистр входных данных 
 	SUMMATOR			:	SUM_4;	 -- Сумматор на 4 слагаемых
@@ -198,6 +206,7 @@ VARIABLE
 --	SUMPed[REG_SUM-5..0]:	node;
 
 	Max_Reg				:	lpm_shiftreg with (LPM_WIDTH = 14, LPM_DIRECTION="unused"); -- регистр данных (амплитуда)
+	Amp_Reg				:	lpm_shiftreg with (LPM_WIDTH = 14, LPM_DIRECTION="unused"); -- регистр данных (амплитуда)
 	Read_Amp			:	node;
 
 	Thr_Trig			:	SRFF; -- флаг определения порога
@@ -234,14 +243,6 @@ VARIABLE
 	StopWrite			:	DelayLine with (DelayCode = 200);
 	StopWrite_trig		:	SRFF;
 --	SaveRam				:	node;
-
-	WFhist				:	WFhist_ram;
-	WFhist_ADCCt		:	LPM_COUNTER with (lpm_width = 9, lpm_direction="up" ); -- n?ao?ee 
-	DelayReadWFhist,
-	EndTxWF				:	DFFE;
-	WFSampleCt			:	lpm_counter with (LPM_WIDTH = 9, LPM_DIRECTION="up"); -- n?ao?ee n iiiaio ia?ana?aiey ii?iaa ai i?eoiaa eiiaiau ?oaiey.
-	WFhist_RAMAddrBus	:	lpm_shiftreg with (LPM_WIDTH = 9, LPM_DIRECTION="unused");
-	WFhist_RAMAddr[9..0]:	node;
 
 	WFhist_Eth				:	WFhist_ram;
 	WFhist_ADCCt_Eth		:	LPM_COUNTER with (lpm_width = 9, lpm_direction="up" ); -- n?ao?ee 
@@ -367,36 +368,65 @@ END IF;
 	Piedistal_Reg.(data[], clock, enable, load) = ((GND,GND,GND,GND,SampleRAM.q_b[13..4]), ADC_Clock, Value_Th, VCC);
 %
 -----------------------------------------------------------
+-- Service memory for calculating the pedestal, etc.
 
-	RawDataRAM.data_a[11..0] = ADCdata[11..0];
+	WFhist.data[11..0] = ADCdata[11..0];--Hist_ADCCt.q[];--ADCdata[11..0];--SUMMATOR.result[14..0];--SampleRAM.q_b[13..0];--(GND,GND,Div1.result[13..2]);--Sub.result[13..0];--
+	WFhist.(wraddress[], wrclock, wren) = (WFhist_ADCCt1.q[8..0], ADC_clock, !LinkMessage);--AND SaveRam));
+
+	WFhist.(rdaddress[], rdclock, rden)= (WFhist_ADCCt2.q[8..0], Bus_clock, LinkMessage);
+
+	WFhistDelayTime_Reg.(clock, enable, sset) = (ADC_Clock, VCC, VCC);
+
+	WFhist_ADCCt1.data[] = WFhistDelayTime_Reg.q[];  -- AddrCt1 runs by "Delay" steps in forward of AddrCt2
+	WFhist_ADCCt1.clock = ADC_Clock;
+	WFhist_ADCCt1.sload = InitSet;
+	WFhist_ADCCt1.clk_en = VCC;
+	WFhist_ADCCt1.cnt_en = !LinkMessage;
+
+	WFhist_ADCCt2.clock = ADC_Clock;
+	WFhist_ADCCt2.sclr = InitSet;
+	WFhist_ADCCt2.clk_en = VCC;
+	WFhist_ADCCt2.cnt_en = !LinkMessage;
+
+-----------------------------------------------------------
+
+	RawDataRAM.data_a[11..0] = WFhist.q[11..0];
 	RawDataRAM.data_a[15..12]= GND;
-	RawDataRAM.address_a[7..0] = RawDataRAMRAM_AddrCnt1.q[];
+	RawDataRAM.address_a[7..0] = RawDataRAM_AddrCnt1.q[];
 	RawDataRAM.data_b[15..0]	= GND;
 	RawDataRAM.(wren_a, wren_b, clock) = (VCC , GND , ADC_Clock);
 	RawDataRAM.address_b[7..0] = RawDataRAM_AddrCnt2.q[];
+--	RawDataRAM.aclr0 = LinkMessage;
 
+	PedDelayTime_Reg.(clock, enable, sset) = (ADC_Clock, VCC, VCC);
+
+	RawDataRAM_AddrCnt1.data[] = PedDelayTime_Reg.q[];  -- AddrCt1 runs by "Delay" steps in forward of AddrCt2
 	RawDataRAM_AddrCnt1.(clock, clk_en, cnt_en) = (ADC_Clock, VCC, VCC );
 	RawDataRAM_AddrCnt1.sload = InitSet;
-	RawDataRAM_AddrCnt1.data[] = PedDelayTime_Reg.q[];  -- AddrCt1 runs by "Delay" steps in forward of AddrCt2
---	SampleRAM_AddrCnt1.sclr = !Working;
 
 	RawDataRAM_AddrCnt2.(clock, clk_en, cnt_en) = (ADC_Clock, VCC, VCC);
---	SampleRAM_AddrCnt2.sload = Working;
-	RawDataRAM_AddrCnt2.sclr = InitSet;--!Working;
+	RawDataRAM_AddrCnt2.sclr = InitSet;
 
-	CalcPedSum.(dataa[ADC_WIDTH-1..0], datab[ADC_WIDTH-1..0]) = ((b"00000",ADCdata[11..0]), CalcPedSub.result[11..0]);
-	CalcPedSub.(dataa[ADC_WIDTH-1..0], datab[ADC_WIDTH-1..0]) = (CalcPedSum.result[16..0], RawDataRAM.q_b[11..0]);
+	CalcPedSum.(dataa[16..0], datab[16..0]) = ((b"00000",ADCdata[11..0]), CalcPedSub.result[16..0]);
+	CalcPedSum.aclr = LinkMessage;--!Working;
+	CalcPedSum.(clock, clken) = (ADC_Clock, VCC);
 
-	PiedCalc_Reg.sset = RegInit;
-	PiedCalc_Reg.(data[], clock, enable, load) = (DataBus_In[ADC_WIDTH-1..0], ADC_Clock, RegInit OR SavePCReg, VCC);
+	CalcPedSub.(dataa[16..0], datab[16..0]) = (CalcPedSum.result[16..0], (b"00000",RawDataRAM.q_b[11..0]));
+	CalcPedSub.aclr = LinkMessage;--!Working;
+	CalcPedSub.(clock, clken) = (ADC_Clock, VCC);
 
+	PedCalc_Reg.sset = RegInit;
+	PedCalc_Reg.(data[], clock, enable, load) = (DataBus_In[ADC_WIDTH-1..0], ADC_Clock, RegInit OR !LinkMessage OR SavePCReg, VCC);
+	
+	CalcPed = PedCalc_Reg.q[];
+	
 -- 4868 адрес регистра вычисленного пъедистала
 IF(AddrBus_In[] == 772)  THEN SavePCReg					= DataBusStrobe and  DirectIn AND Select;
-                              DataBusOut[ADC_WIDTH-1..0]= PiedCalc_Reg.q[];
+                              DataBusOut[ADC_WIDTH-1..0]= PedCalc_Reg.q[];
 							  DataBusOut[15..12] 		= GND;
                          ELSE SavePCReg					= GND; 
-
-------------
+END IF;
+-----------------------------------------------------------
 
 --	SUB_Ped.(dataa[ADC_WIDTH-1..0], datab[ADC_WIDTH-1..0]) = (Multiplex.result[], (Piedistal_Reg.q[11..0]));
 	SUB_Ped.(dataa[ADC_WIDTH-1..0], datab[ADC_WIDTH-1..0]) = (ADCdata[11..0], Piedistal_Reg.q[11..0]);
@@ -595,6 +625,10 @@ END IF;
 	Max_Trig.(S,clk,R,clrn) = (Value_Max_Done, ADC_Clock, Reset,!AllReset.q); -- флаг определения максимума
 	Max_Reg.(data[],clock,enable,load,aclr) = (DelayAver_Reg[7].q[],ADC_Clock,!Max_Trig.q AND Thr_Trig.q,VCC, !Thr_Trig.q);
 
+	Amp_Reg.(data[],clock,enable,load,aclr) = (DelayAver_Reg[7].q[],ADC_Clock,!Max_Trig.q AND Thr_Trig.q,VCC, !Thr_Trig.q);
+
+	DAQDataBusOut[] = Amp_Reg.q[11..0];
+
 IF ((Value_Th == VCC) AND (Value_Max_Done == VCC) AND (ZeroFound == VCC))
 		THEN EventFound = VCC;
 		ELSE EventFound = GND;
@@ -675,27 +709,6 @@ END IF;
 	Hist_RAMAddrBus.(data[], clock, load, enable) = (Hist_ADCCt.q[], ADC_Clock, VCC, EdgeSensing(.D=WriteRAM, .clk=ADC_Clock, .reset=RESET));
 	Hist_RAMAddr[8..0] = Hist_RAMAddrBus.q[8..0] + 1 + AddrBus_In[8..0]; -- выставление адреса в 0 для текущего значения счетчика адресса
 
------------------------------------------------------------
--- Service memory for calculating the pedestal, etc.
-
-	WFhist.data_a[11..0] = ADCdata[11..0].q[];--Hist_ADCCt.q[];--ADCdata[11..0];--SUMMATOR.result[14..0];--SampleRAM.q_b[13..0];--(GND,GND,Div1.result[13..2]);--Sub.result[13..0];--
-	WFhist.data_a[15..12] = GND;
-	WFhist.(address_a[], clock_a, wren_a) = (Hist_ADCCt.q[8..0], ADC_clock, !LinkMessage);--AND SaveRam));
-
-	StopWrite.(d,clk,reset) = (WriteRam, ADC_Clock, Reset);
-	StopWrite_trig.(s,r,clk) = (StopWrite.q, !WriteRAM, ADC_Clock);
-
-	WFhist.(data_b[],address_b[], clock_b)= (DataBus_In[],WFhist_RAMAddr[8..0], Bus_clock);
-	WFhist.wren_b = DataBusStrobe and  DirectIn AND Select AND Ram_Sel;
-
-	WFhist.clock = ADC_Clock;
-	WFhist.sclr = EdgeSensing(.D= LinkMessage, .clk=ADC_clock, .reset=RESET);
-	WFhist.clk_en = VCC;
-	WFhist.cnt_en = !LinkMessage;
-
-	WFhist_RAMAddrBus.(data[], clock, load, enable) = (WFhist_ADCCt.q[], ADC_Clock, VCC, EdgeSensing(.D=WriteRAM, .clk=ADC_Clock, .reset=RESET));
-	WFhist_RAMAddr[8..0] = WFhist_RAMAddrBus.q[8..0] + 1 + AddrBus_In[8..0]; -- выставление адреса в 0 для текущего значения счетчика адресса
-	
 -----------------------------------------------------------
 
 	WriteWFCt.(clock,cnt_en,clk_en,sclr) = (ADC_Clock, Thr_Trig.q AND WriteWFhist_Eth, VCC, AllReset.q); -- счетчик тактов от момента пересечения порога до Общео стопа
