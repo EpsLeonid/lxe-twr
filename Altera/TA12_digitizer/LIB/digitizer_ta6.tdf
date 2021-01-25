@@ -5,6 +5,7 @@ INCLUDE "lpm_counter.inc" ;
 INCLUDE	"lpm_add_sub.inc";
 INCLUDE "lpm_divide.inc";
 INCLUDE "lpm_mux.inc";
+INCLUDE "altsyncram.inc";
 --INCLUDE	"Edge_Sensing_Sync.inc";+
 INCLUDE	"SUM_4.inc";
 INCLUDE	"RAM_digit.inc";
@@ -120,22 +121,23 @@ VARIABLE
 -- Calc pedistal
 
 	WFhist				:	WFhist_ram;
-	WFhist_ADCCt1		:	LPM_COUNTER with (lpm_width = 9, lpm_direction="up" ); -- n?ao?ee 
-	WFhist_ADCCt2		:	LPM_COUNTER with (lpm_width = 9, lpm_direction="up" ); -- n?ao?ee 
-	WFhistDelayTime_Reg	:	lpm_shiftreg with (LPM_WIDTH = 9, LPM_DIRECTION="unused", LPM_SVALUE = WFhistDelayTime); -- ?aaeno? cia?aiey caaa??ee
+	WFhist_ADCCt1		:	LPM_COUNTER with (lpm_width = 9, lpm_direction="up" ); -- счетчик
+	WFhist_ADCCt2		:	LPM_COUNTER with (lpm_width = 9, lpm_direction="up" ); -- счетчик "отстающий" на Delay
+	WFhistDelayTime_Reg	:	lpm_shiftreg with (LPM_WIDTH = 9, LPM_DIRECTION="unused", LPM_SVALUE = WFhistDelayTime); -- регистр значения задержки
 
 	CalcPedSum			:	lpm_add_sub with (lpm_width = 17, lpm_direction="add", LPM_REPRESENTATION = "UNSIGNED",
 											  Lpm_pipeline = 1 );
 	CalcPedSub			:	lpm_add_sub with (lpm_width = 17, lpm_direction="sub", LPM_REPRESENTATION = "UNSIGNED",
 											  Lpm_pipeline = 1 );
 
-	RawDataRAM			:	RAM_digit;												-- память имитирующая линию задержки сэмплов
-	RawDataRAM_AddrCnt1	:	LPM_COUNTER with (lpm_width = 8, lpm_direction="up" );	-- счетчик 
-	RawDataRAM_AddrCnt2	:	LPM_COUNTER with (lpm_width = 8, lpm_direction="up" );	-- счетчик "отстающий" на Delay
+--	RawDataRAM			:	RAM_digit;												-- память имитирующая линию задержки сэмплов
+	RawDataRAM			:	altsyncram with (OPERATION_MODE = "DUAL_PORT", WIDTH_A = 12, WIDTHAD_A = 6, WIDTH_B = 12, WIDTHAD_B = 6);
+	RawDataRAM_AddrCnt1	:	LPM_COUNTER with (lpm_width = 6, lpm_direction="up" );	-- счетчик 
+	RawDataRAM_AddrCnt2	:	LPM_COUNTER with (lpm_width = 6, lpm_direction="up" );	-- счетчик "отстающий" на Delay
 
-	PedDelayTime_Reg	:	lpm_shiftreg with (LPM_WIDTH = 8, LPM_DIRECTION="unused", LPM_SVALUE = PedDelayTime); -- регистр значения задержки
+	PedDelayTime_Reg	:	lpm_shiftreg with (LPM_WIDTH = 6, LPM_DIRECTION="unused", LPM_SVALUE = PedDelayTime); -- регистр значения задержки
 	SavePCReg			:	node;
-	PedCalc_Reg			:	lpm_shiftreg with (LPM_WIDTH = ADC_WIDTH, LPM_DIRECTION="unused",LPM_SVALUE = Piedistal_def); -- ?aaeno? o?iaiy ii?iaa
+	PedCalc_Reg			:	lpm_shiftreg with (LPM_WIDTH = ADC_WIDTH, LPM_DIRECTION="unused",LPM_SVALUE = Piedistal_def); -- регистр подсчитанного пьедистала
 --
 	RegSum[REG_SUM-1..0]:	lpm_shiftreg with (LPM_WIDTH = ADC_WIDTH, LPM_DIRECTION="unused"); -- регистр входных данных 
 	SUMMATOR			:	SUM_4;	 -- Сумматор на 4 слагаемых
@@ -391,11 +393,10 @@ END IF;
 -----------------------------------------------------------
 
 	RawDataRAM.data_a[11..0] = WFhist.q[11..0];
-	RawDataRAM.data_a[15..12]= GND;
-	RawDataRAM.address_a[7..0] = RawDataRAM_AddrCnt1.q[];
-	RawDataRAM.data_b[15..0]	= GND;
-	RawDataRAM.(wren_a, wren_b, clock) = (VCC , GND , ADC_Clock);
-	RawDataRAM.address_b[7..0] = RawDataRAM_AddrCnt2.q[];
+	RawDataRAM.address_a[5..0] = RawDataRAM_AddrCnt1.q[];
+--	RawDataRAM.data_b[11..0]	= GND;
+	RawDataRAM.address_b[5..0] = RawDataRAM_AddrCnt2.q[];
+	RawDataRAM.(wren_a, wren_b, clock0, clock1) = (VCC, GND, ADC_Clock, ADC_Clock);
 --	RawDataRAM.aclr0 = LinkMessage;
 
 	PedDelayTime_Reg.(clock, enable, sset) = (ADC_Clock, VCC, VCC);
@@ -415,14 +416,16 @@ END IF;
 	CalcPedSub.aclr = LinkMessage;--!Working;
 	CalcPedSub.(clock, clken) = (ADC_Clock, VCC);
 
-	PedCalc_Reg.sset = RegInit;
-	PedCalc_Reg.(data[], clock, enable, load) = (DataBus_In[ADC_WIDTH-1..0], ADC_Clock, RegInit OR !LinkMessage OR SavePCReg, VCC);
+--	PedCalc_Reg.sset = RegInit;
+	PedCalc_Reg.(data[], clock, enable, load) = (CalcPedSub.result[16..5], ADC_Clock, !LinkMessage, VCC);
+	
+	SavePCReg = EdgeSensing(.D= LinkMessage, .clk=ADC_clock, .reset=RESET);
 	
 	CalcPed = PedCalc_Reg.q[];
 	
 -- 4868 адрес регистра вычисленного пъедистала
 IF(AddrBus_In[] == 772)  THEN SavePCReg					= DataBusStrobe and  DirectIn AND Select;
-                              DataBusOut[ADC_WIDTH-1..0]= PedCalc_Reg.q[];
+                              DataBusOut[ADC_WIDTH-1..0]= PedCalc_Reg.q[11..0];
 							  DataBusOut[15..12] 		= GND;
                          ELSE SavePCReg					= GND; 
 END IF;

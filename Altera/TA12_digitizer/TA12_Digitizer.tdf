@@ -107,7 +107,7 @@ Constant TestRAM_Size			= 256;		-- 256words * 16bits
 -- Parameters of the TA12 Module
 
 Constant ADC_Bits				= 12;	-- Number of ADC bits
-Constant NUM_CH					= 12;	-- Number of channels on the board
+Constant NUM_CH					= 6;	-- Number of channels on the board
 Constant TA_Bits				= 10;	-- Number of transfered bits to IPT_LXe
 Constant WriteWFDelayTime		= 65;	-- Delay of WForm_copying_to_ExternalRAM after LinkMessage (1mks), чтобы Линк успел распознать номер события.
 
@@ -506,7 +506,7 @@ BusOper2,
 BusOper3		: node; -- delay by 3 clocks 
 DataStrobe		: node; --Strobe: latch data into the destination object, and finish the Bus Oper-n
 --  signals of Address Comparators
-DevSel[25..1]	: DFF ; -- Registered Addr_Comparator outputs for Selection
+DevSel[19..1]	: DFF ; -- Registered Addr_Comparator outputs for Selection
 
 MainRAM_cs		: node; -- select for Rd/Wr from/to MainRAM
 ProgRAM_cs		: node; -- ProgRAM is declared in Processor module 
@@ -3079,11 +3079,11 @@ DevSel[10].d    = Servo_cs ;    -- added just to prevent Quartus from deleting D
 FOR i IN 0 TO (NUM_CH-1) GENERATE
 	DevSel[11+i].d  = TA12Channel_cs[i];	-- ADC channel data
 END GENERATE;
-DevSel[23].d	= ErrorCounters_IFace_CS;	-- Error Counters
-DevSel[24].d	= TestRAM_cs;				-- Test RAM
-DevSel[25].d	= ZERO_cs;					-- ZERO word
+DevSel[17].d	= ErrorCounters_IFace_CS;	-- Error Counters
+DevSel[18].d	= TestRAM_cs;				-- Test RAM
+DevSel[19].d	= ZERO_cs;					-- ZERO word
 
-FOR i in 1 to 25 % with ErCount must be 28 % GENERATE
+FOR i in 1 to 19 % with ErCount must be 28 % GENERATE
 	DevSel[i].clrn = AddrSettled;   -- DevSel[] are enabled while Addr. is settled
 	DevSel[i].clk  = Clk100;
 END GENERATE; 
@@ -3099,10 +3099,10 @@ AddrValid = DevSel[ 1].q OR  -- MainRAM
             DevSel[ 9].q OR  -- EtherRAM
 --            DevSel[10].q OR  -- Reg_EthOpCode
             DevSel[11].q OR DevSel[12].q OR DevSel[13].q OR DevSel[14].q OR DevSel[15].q OR DevSel[16].q OR --\ [1-6] ADC channels
-            DevSel[17].q OR DevSel[18].q OR DevSel[19].q OR DevSel[20].q OR DevSel[21].q OR DevSel[22].q OR --/ [7-12] ADC channels
-            DevSel[23].q OR
-            DevSel[24].q OR
-            DevSel[25].q;   -- Something?? :  ZERO word
+--            DevSel[17].q OR DevSel[18].q OR DevSel[19].q OR DevSel[20].q OR DevSel[21].q OR DevSel[22].q OR --/ [7-12] ADC channels
+            DevSel[17].q OR
+            DevSel[18].q OR
+            DevSel[19].q;   -- Something?? :  ZERO word
 
 --AddrSettled = Bus_Arbiter.AddressSettled; --In 1clock after "AccessGranted"..
 	-- ..address is expected to be set on the Addr.bus, and Arbiter produces 
@@ -3127,39 +3127,36 @@ IF (RW == VCC) Then		-- Master will write to
 	DataBus[] = CPU.DataOut[] ;
 Else					-- Master will read from
 	CASE DevSel[].q IS     -- DataBus' MUX for Target drivers
-        WHEN b"0000000000000000000000001" => DataBus[]		= MainRAM.q[];
-        WHEN b"0000000000000000000000010" => DataBus[]		= CPU.ProgRAM_q[];
-        WHEN b"0000000000000000000000100" => DataBus[]		= CommandRAM.q[];
-        WHEN b"0000000000000000000001000" => CASE  AddrBus[1..0] is
+        WHEN b"0000000000000000001" => DataBus[]		= MainRAM.q[];
+        WHEN b"0000000000000000010" => DataBus[]		= CPU.ProgRAM_q[];
+        WHEN b"0000000000000000100" => DataBus[]		= CommandRAM.q[];
+        WHEN b"0000000000000001000" => CASE  AddrBus[1..0] is
             When 0 => DataBus[]    = Link_IFace.InData_out[];
             When 1 => DataBus[]    = Link_IFace.DataBus_out[];
             When 2 => DataBus[7..0]= Link_IFace.OpCode_out[];
             End CASE;
-        WHEN b"0000000000000000000010000" => DataBus[ 7..0] = OpCode1_bit[ 8..1].q;-- FIFO Cell#1' OpCode
-        WHEN b"0000000000000000000100000" => DataBus[15..0] = InData1_bit[16..1].q;-- FIFO Cell#1' InData
-        WHEN b"0000000000000000001000000" => DataBus[ 7..0] = SetupRAM.q_b[];
-        WHEN b"0000000000000001010000000" => DataBus[]      = Servo_Mux[16..1];     -- various Reg-s
+        WHEN b"0000000000000010000" => DataBus[ 7..0] = OpCode1_bit[ 8..1].q;-- FIFO Cell#1' OpCode
+        WHEN b"0000000000000100000" => DataBus[15..0] = InData1_bit[16..1].q;-- FIFO Cell#1' InData
+        WHEN b"0000000000001000000" => DataBus[ 7..0] = SetupRAM.q_b[];
+        WHEN b"0000000001010000000" => DataBus[]      = Servo_Mux[16..1];     -- various Reg-s
                   -- ^^^^- DevSel[10] is made SAME as DevSel[8] !
-		WHEN b"0000000000000000100000000" => DataBus[]      = EtherRAM.q_b[];       --MainProj <- EtherRAM 
---		WHEN b"0000000000000001000000000" => DataBus[7..0]	= Reg_EthOpCode[8..1];				--Ether's OpCode
-		WHEN b"0000000000000010000000000" => DataBus[]		= TA12Channel[0].DataBusOut[];
-		WHEN b"0000000000000100000000000" => DataBus[]		= TA12Channel[1].DataBusOut[];
-		WHEN b"0000000000001000000000000" => DataBus[]		= TA12Channel[2].DataBusOut[];
-		WHEN b"0000000000010000000000000" => DataBus[]		= TA12Channel[3].DataBusOut[];
-		WHEN b"0000000000100000000000000" => DataBus[]		= ErrorCounters_IFace.DataBusOut[];
-		WHEN b"0000000001000000000000000" => DataBus[]		= TestRAM.q[];						-- MainProj <- TestRAM 
-		WHEN b"0000000010000000000000000" => DataBus[]		= 0; 								-- ZERO word temporary ?
-		WHEN b"0000000000100000000000000" => DataBus[]		= TA12Channel[4].DataBusOut[];
-		WHEN b"0000000001000000000000000" => DataBus[]		= TA12Channel[5].DataBusOut[];
-		WHEN b"0000000010000000000000000" => DataBus[]		= TA12Channel[6].DataBusOut[];
-		WHEN b"0000000100000000000000000" => DataBus[]		= TA12Channel[7].DataBusOut[];
-		WHEN b"0000001000000000000000000" => DataBus[]		= TA12Channel[8].DataBusOut[];
-		WHEN b"0000010000000000000000000" => DataBus[]		= TA12Channel[9].DataBusOut[];
-		WHEN b"0000100000000000000000000" => DataBus[]		= TA12Channel[10].DataBusOut[];
-		WHEN b"0001000000000000000000000" => DataBus[]		= TA12Channel[11].DataBusOut[];
-		WHEN b"0010000000000000000000000" => DataBus[]		= ErrorCounters_IFace.DataBusOut[];	--
-		WHEN b"0100000000000000000000000" => DataBus[]		= TestRAM.q[];						-- MainProj <- TestRAM 
-		WHEN b"1000000000000000000000000" => DataBus[]		= 0; 								-- ZERO word temporary ?
+		WHEN b"0000000000100000000" => DataBus[]      = EtherRAM.q_b[];       --MainProj <- EtherRAM 
+--		WHEN b"0000000001000000000" => DataBus[7..0]	= Reg_EthOpCode[8..1];				--Ether's OpCode
+		WHEN b"0000000010000000000" => DataBus[]		= TA12Channel[0].DataBusOut[];
+		WHEN b"0000000100000000000" => DataBus[]		= TA12Channel[1].DataBusOut[];
+		WHEN b"0000001000000000000" => DataBus[]		= TA12Channel[2].DataBusOut[];
+		WHEN b"0000010000000000000" => DataBus[]		= TA12Channel[3].DataBusOut[];
+		WHEN b"0000100000000000000" => DataBus[]		= ErrorCounters_IFace.DataBusOut[];
+		WHEN b"0001000000000000000" => DataBus[]		= TestRAM.q[];						-- MainProj <- TestRAM 
+		WHEN b"0010000000000000000" => DataBus[]		= 0; 								-- ZERO word temporary ?
+		WHEN b"0100000000000000000" => DataBus[]		= TA12Channel[4].DataBusOut[];
+		WHEN b"1000000000000000000" => DataBus[]		= TA12Channel[5].DataBusOut[];
+--		WHEN b"0000000010000000000000000" => DataBus[]		= TA12Channel[6].DataBusOut[];
+--		WHEN b"0000000100000000000000000" => DataBus[]		= TA12Channel[7].DataBusOut[];
+--		WHEN b"0000001000000000000000000" => DataBus[]		= TA12Channel[8].DataBusOut[];
+--		WHEN b"0000010000000000000000000" => DataBus[]		= TA12Channel[9].DataBusOut[];
+--		WHEN b"0000100000000000000000000" => DataBus[]		= TA12Channel[10].DataBusOut[];
+--		WHEN b"0001000000000000000000000" => DataBus[]		= TA12Channel[11].DataBusOut[];
 		WHEN OTHERS => DataBus[] = 0;
 	End CASE;
 End IF;
