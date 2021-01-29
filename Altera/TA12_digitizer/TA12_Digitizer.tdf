@@ -1769,7 +1769,7 @@ CASE ChannelCount_Eth.q[] IS
 					CASE DataCount_Eth.q[] is
 						When 0 => WriteDATA.data[15..0] = (ChannelCount_Eth.q[],b"000000",Eth_Reg_LinkOpCode.q[7..0]);
 						When 1 => WriteDATA.data[15..0] = Eth_Reg_LinkEvNumber.q[];
-						When 255 => WriteDATA.data[15..0] = (b"0000",TA12Channel[0].CalcPed[]);
+						When 255 => WriteDATA.data[15..0] = (b"00",TA12Channel[0].CalcPed[]);
 						When others => WriteDATA.data[11..0] = TA12Channel[0].DAQDataBusOut_Eth[11..0];
 									   WriteDATA.data[15..12] = GND;
 					End case;
@@ -1780,7 +1780,7 @@ CASE ChannelCount_Eth.q[] IS
 					CASE DataCount_Eth.q[] is
 						When 0 => WriteDATA.data[15..0] = (ChannelCount_Eth.q[],b"000000",Eth_Reg_LinkOpCode.q[7..0]);
 						When 1 => WriteDATA.data[15..0] = Eth_Reg_LinkEvNumber.q[];
-						When 255 => WriteDATA.data[15..0] = (b"0000",TA12Channel[1].CalcPed[]);
+						When 255 => WriteDATA.data[15..0] = (b"00",TA12Channel[1].CalcPed[]);
 						When others => WriteDATA.data[11..0] = TA12Channel[1].DAQDataBusOut_Eth[11..0];
 									   WriteDATA.data[15..12] = GND;
 					End case;
@@ -1791,7 +1791,7 @@ CASE ChannelCount_Eth.q[] IS
 					CASE DataCount_Eth.q[] is
 						When 0 => WriteDATA.data[15..0] = (ChannelCount_Eth.q[],b"000000",Eth_Reg_LinkOpCode.q[7..0]);
 						When 1 => WriteDATA.data[15..0] = Eth_Reg_LinkEvNumber.q[];
-						When 255 => WriteDATA.data[15..0] = (b"0000",TA12Channel[2].CalcPed[]);
+						When 255 => WriteDATA.data[15..0] = (b"00",TA12Channel[2].CalcPed[]);
 						When others => WriteDATA.data[11..0] = TA12Channel[2].DAQDataBusOut_Eth[11..0];
 									   WriteDATA.data[15..12] = GND;
 					End case;
@@ -1802,7 +1802,7 @@ CASE ChannelCount_Eth.q[] IS
 					CASE DataCount_Eth.q[] is
 						When 0 => WriteDATA.data[15..0] = (ChannelCount_Eth.q[],b"000000",Eth_Reg_LinkOpCode.q[7..0]);
 						When 1 => WriteDATA.data[15..0] = Eth_Reg_LinkEvNumber.q[];
-						When 255 => WriteDATA.data[15..0] = (b"0000",TA12Channel[3].CalcPed[]);
+						When 255 => WriteDATA.data[15..0] = (b"00",TA12Channel[3].CalcPed[]);
 						When others => WriteDATA.data[11..0] = TA12Channel[3].DAQDataBusOut_Eth[11..0];
 									   WriteDATA.data[15..12] = GND;
 					End case;
