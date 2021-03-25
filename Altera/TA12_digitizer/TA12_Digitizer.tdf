@@ -3179,14 +3179,14 @@ TestRAM.(address[7..0], data[],    clock,    wren                     ) =
 --                    & (EtherAdrCt.q[9..0] > 8)), .clk=RxClk);
 
 --Test1 = TxPreamble;                                                                   -- Pin236
-Test2 = StartADC_Link;          --InData_Reg[3].q[3];   --StartProc;        --Ether.test[1];    -- Pin238
-Test3 = OutData_rdy.q;          --InData_Reg[3].q[4];   --Link_IFace.IOrq;  --Ether.RxSourAddr; -- Pin239
-Test4 = CommdPut_ld;            --InData_Reg[3].q[5];   --CPU.AccessReq;    --Ether.RxPkLenTyp; -- Pin240
-Test5 = Contin1;                --InData_Reg[3].q[6];   --DevSel[ 1].q;     --EtherBusy;        -- Pin__4
-Test6 = Tx_Rq_StReg.q;          --InData_Reg[3].q[7];   --DevSel[ 4].q;     --EtherPauseCt.eq0; -- Pin__5
-Test7 = Ether_TxUDPcycle;       --InData_Reg[3].q[8];  --ADCfeed_Beg2;     --EthBusyEnd;       -- Pin__6
-Test8 = Read_time.q;            --InData_Reg[3].q[9];   --ADCfeed_Cycle1;   --Ether.test[6];    
-Test9 = CommdPkt_en;            --InData_Reg[3].q[10];  --ADCfeed_NextB;    --Ether.test[7];    -- Pin__9
-Test10= CommdMov_en;            --InData_Reg[3].q[11];  --ADCfeed_WordEnd;  --Ether.test[8];    -- Pin
+Test2 = Link_IFace.TxRx;	--StartADC_Link;		--InData_Reg[3].q[3];	--StartProc;	--Ether.test[1];    -- Pin238
+Test3 = Link_IFace.LinkData_out;	--OutData_rdy.q;		--InData_Reg[3].q[4];	--Link_IFace.IOrq;  --Ether.RxSourAddr; -- Pin239
+Test4 = CommdPut_ld;		--InData_Reg[3].q[5];	--CPU.AccessReq;    --Ether.RxPkLenTyp; -- Pin240
+Test5 = Contin1;			--InData_Reg[3].q[6];	--DevSel[ 1].q;     --EtherBusy;        -- Pin__4
+Test6 = Tx_Rq_StReg.q;		--InData_Reg[3].q[7];	--DevSel[ 4].q;     --EtherPauseCt.eq0; -- Pin__5
+Test7 = Ether_TxUDPcycle;	--InData_Reg[3].q[8];	--ADCfeed_Beg2;     --EthBusyEnd;       -- Pin__6
+Test8 = Read_time.q;		--InData_Reg[3].q[9];	--ADCfeed_Cycle1;   --Ether.test[6];    
+Test9 = CommdPkt_en;		--InData_Reg[3].q[10];	--ADCfeed_NextB;    --Ether.test[7];    -- Pin__9
+Test10= CommdMov_en;		--InData_Reg[3].q[11];	--ADCfeed_WordEnd;  --Ether.test[8];    -- Pin
 
 END;

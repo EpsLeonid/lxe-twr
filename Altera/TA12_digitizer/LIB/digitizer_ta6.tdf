@@ -18,7 +18,7 @@ INCLUDE "EdgeSensing.inc";
 INCLUDE "DelayLine.inc" ;
 
 CONSTANT	ADC_WIDTH	= 12;	-- Кол-во битов АЦП
-Constant	WFhistDelayTime = 200;	-- Задержка от Общего стопа для расчета пьедистала 
+Constant	WFhistDelayTime = 50;	-- Задержка от Общего стопа для расчета пьедистала 
 CONSTANT	PedDelayTime= 32;	-- Время задержки в разностном сигнале
 CONSTANT	REG_SUM		= 4;	-- Кол-во регистров для суммирования
 CONSTANT	MaxTime		= 250;  -- Maximal Valid time (2.5mks)
@@ -28,7 +28,7 @@ CONSTANT	DelayTime	= 30;	-- Время задержки в разностном сигнале
 --CONSTANT	PopravDelTime = 52; -- Время задержки = DelayTime - 22 (момент вычитывания значения амплитуды для поиска поправки)
 								-- **нужно протестировать на симуляторе и подобрать время задержки!!!
 -- Only test --
-Constant	Piedistal_def = 200;
+Constant	Piedistal_def = 180;
 Constant	Threshold_def = 350;
 ---------------
 
@@ -430,7 +430,7 @@ END IF;
 		RegPedCalc[i+1].(data[11..0],clock,load,enable) = (RegPedCalc[i].q[], ADC_Clock, VCC, VCC );
 	end generate;
 
-	CalcPedSum.clock = ADC_Clock;
+	CalcPedSum.clock = ADC_Clock and WFhist_ADCCtEn.q[2];
 	CalcPedSum.aclr = GND;
 	CalcPedSum.(data0x[], data1x[], data2x[], data3x[],
 				data4x[], data5x[], data6x[], data7x[],
@@ -465,7 +465,12 @@ END IF;
 -----------------------------------------------------------
 
 --	SUB_Ped.(dataa[ADC_WIDTH-1..0], datab[ADC_WIDTH-1..0]) = (Multiplex.result[], (Piedistal_Reg.q[11..0]));
-	SUB_Ped.(dataa[ADC_WIDTH-1..0], datab[ADC_WIDTH-1..0]) = (ADCdata[11..0], Piedistal_Reg.q[11..0]);
+--	SUB_Ped.(dataa[ADC_WIDTH-1..0], datab[ADC_WIDTH-1..0]) = (ADCdata[11..0], Piedistal_Reg.q[11..0]);
+IF (ADCdata[11..0] > PedCalc_Reg.q[13..2]) THEN 
+		SUB_Ped.(dataa[ADC_WIDTH-1..0], datab[ADC_WIDTH-1..0]) = (ADCdata[11..0], PedCalc_Reg.q[13..2]);
+										   ELSE 
+		SUB_Ped.(dataa[ADC_WIDTH-1..0], datab[ADC_WIDTH-1..0]) = (ADCdata[11..0], ADCdata[11..0]);
+END IF;
 	SUB_Ped.aclr = AllReset.q;--!Working;
 	SUB_ped.(clock, clken) = (ADC_Clock, VCC);
 
@@ -725,7 +730,7 @@ DelayReg[9].(d, clk) = (DelayReg[8].q, ADC_Clock);
 						ELSE Hist_ADC.data_a[9..0] = Zero_div1.quotient[9..0];
 							 Hist_ADC.data_a[15..10] = GND;
 END IF;
-%	Hist_ADC.data_a[11..0] = RegSum[0].q[];--Hist_ADCCt.q[];--ADCdata[11..0];--SUMMATOR.result[14..0];--SampleRAM.q_b[13..0];--(GND,GND,Div1.result[13..2]);--Sub.result[13..0];--
+%	Hist_ADC.data_a[11..0] = RegPedCalc[0].q;--RegSum[0].q[];--Hist_ADCCt.q[];--ADCdata[11..0];--SUMMATOR.result[14..0];--SampleRAM.q_b[13..0];--(GND,GND,Div1.result[13..2]);--Sub.result[13..0];--
 	Hist_ADC.data_a[15..12] = GND;
 --	Hist_ADC.data_a[15] = SUB_ped.cout;
 	Hist_ADC.(address_a[], clock_a, wren_a) = (Hist_ADCCt.q[8..0], ADC_clock, !LinkMessage);--AND SaveRam));
@@ -740,7 +745,8 @@ END IF;
 	Hist_ADCCt.clock = ADC_Clock;
 	Hist_ADCCt.sclr = EdgeSensing(.D= LinkMessage, .clk=ADC_clock, .reset=RESET);
 	Hist_ADCCt.clk_en = VCC;
-	Hist_ADCCt.cnt_en = !LinkMessage;
+--	Hist_ADCCt.cnt_en = !LinkMessage;
+	Hist_ADCCt.cnt_en = !LinkMessage and WFhist_ADCCtEn.q[2];
 
 	Hist_RAMAddrBus.(data[], clock, load, enable) = (Hist_ADCCt.q[], ADC_Clock, VCC, EdgeSensing(.D=WriteRAM, .clk=ADC_Clock, .reset=RESET));
 	Hist_RAMAddr[8..0] = Hist_RAMAddrBus.q[8..0] + 1 + AddrBus_In[8..0]; -- выставление адреса в 0 для текущего значения счетчика адресса
