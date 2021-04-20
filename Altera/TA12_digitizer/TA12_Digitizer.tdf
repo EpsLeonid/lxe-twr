@@ -1725,8 +1725,8 @@ FOR i IN 0 TO (NUM_CH-1) GENERATE
 END GENERATE;
 
 --DelayWriteWFhist_Eth.(D,clk,reset) = (!EnWriteWFHist.q, Clk100, Reset);
-Delay_EthMessage.(D,clk) = (!EnWriteWFHist.q%DelayWriteWFhist_Eth.q%, Clk100);
-TxWFhist_Eth.(S, clk, R, clrn) = (!EnWriteWFHist.q%DelayWriteWFhist_Eth.q% AND !Delay_EthMessage.q, Clk100, GND, !StopCount_Eth);
+Delay_EthMessage.(D,clk) = (EnWriteWFHist.q%DelayWriteWFhist_Eth.q%, Clk100);
+TxWFhist_Eth.(S, clk, R, clrn) = (!EnWriteWFHist.q%DelayWriteWFhist_Eth.q% AND Delay_EthMessage.q, Clk100, GND, !StopCount_Eth);
 
 DataCount_Eth.(clock, cnt_en, sclr) = (Clk100, TxWFhist_Eth.q, OutData_rdy.q%!EnWriteWFHist.q AND !Delay_EthMessage.q%%!DelayWriteWFhist_Eth.q%);
 ChannelCount_Eth.(clock, cnt_en, sclr) = (Clk100, DataCount_Eth.cout AND !StopCount_Eth, OutData_rdy.q%!EnWriteWFHist.q AND !Delay_EthMessage.q% %DelayWriteWFhist_Eth.q%);
