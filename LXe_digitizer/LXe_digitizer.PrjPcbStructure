@@ -1,6 +1,6 @@
-Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=Digit_1|SchDesignator=Digit_1|FileName=Digit.SchDoc|SymbolType=Normal|RawFileName=Digit.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
-Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=Digit_2|SchDesignator=Digit_2|FileName=Digit.SchDoc|SymbolType=Normal|RawFileName=Digit.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
-Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=Digit_3|SchDesignator=Digit_3|FileName=Digit.SchDoc|SymbolType=Normal|RawFileName=Digit.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=Digit_1|SchDesignator=Digit_1|FileName=Digit_2.SchDoc|SymbolType=Normal|RawFileName=Digit_2.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=Digit_2|SchDesignator=Digit_2|FileName=Digit_2.SchDoc|SymbolType=Normal|RawFileName=Digit_2.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=Digit_3|SchDesignator=Digit_3|FileName=Digit_2.SchDoc|SymbolType=Normal|RawFileName=Digit_2.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
 Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=Ethernet|SchDesignator=Ethernet|FileName=Ethernet.SchDoc|SymbolType=Normal|RawFileName=Ethernet.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
 Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=FPGA|SchDesignator=FPGA|FileName=Processing Unit.SchDoc|SymbolType=Normal|RawFileName=Processing Unit.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
 Record=SheetSymbol|SourceDocument=Main schem.SchDoc|Designator=In-Out|SchDesignator=In-Out|FileName=In-Out.SchDoc|SymbolType=Normal|RawFileName=In-Out.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
@@ -11,6 +11,10 @@ Record=SubProject|ProjectPath=R
 Record=SubProject|ProjectPath=R
 Record=SubProject|ProjectPath=R
 Record=SubProject|ProjectPath=R
+Record=SheetSymbol|SourceDocument=Digit_2.SchDoc|Designator=Analog_input|SchDesignator=Analog_input|FileName=Analog.SchDoc|SymbolType=Normal|RawFileName=Analog.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Digit_2.SchDoc|Designator=Analog_input|SchDesignator=Analog_input|FileName=Analog.SchDoc|SymbolType=Normal|RawFileName=Analog.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Digit_2.SchDoc|Designator=Analog_input|SchDesignator=Analog_input|FileName=Analog.SchDoc|SymbolType=Normal|RawFileName=Analog.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
+Record=SheetSymbol|SourceDocument=Digit_2.SchDoc|Designator=Analog_input|SchDesignator=Analog_input|FileName=Analog.SchDoc|SymbolType=Normal|RawFileName=Analog.SchDoc|DesignItemId= |SourceLibraryName= |ObjectKind=Sheet Symbol|RevisionGUID= |ItemGUID= |VaultGUID= 
 Record=SubProject|ProjectPath=R
 Record=SubProject|ProjectPath=R
 Record=SubProject|ProjectPath=X
