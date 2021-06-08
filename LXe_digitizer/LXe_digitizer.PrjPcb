@@ -239,34 +239,50 @@ DocumentPath=Project Outputs for LXe_digitizer\New_LXe_twr.GBL
 DItemRevisionGUID=
 
 [GeneratedDocument9]
-DocumentPath=Project Outputs for LXe_digitizer\New_LXe_twr.GBS
+DocumentPath=Project Outputs for LXe_digitizer\New_LXe_twr.GBO
 DItemRevisionGUID=
 
 [GeneratedDocument10]
-DocumentPath=Project Outputs for LXe_digitizer\New_LXe_twr.GP1
+DocumentPath=Project Outputs for LXe_digitizer\New_LXe_twr.GBP
 DItemRevisionGUID=
 
 [GeneratedDocument11]
-DocumentPath=Project Outputs for LXe_digitizer\New_LXe_twr.GP2
+DocumentPath=Project Outputs for LXe_digitizer\New_LXe_twr.GBS
 DItemRevisionGUID=
 
 [GeneratedDocument12]
-DocumentPath=Project Outputs for LXe_digitizer\New_LXe_twr.GTL
+DocumentPath=Project Outputs for LXe_digitizer\New_LXe_twr.GP1
 DItemRevisionGUID=
 
 [GeneratedDocument13]
-DocumentPath=Project Outputs for LXe_digitizer\New_LXe_twr.GTS
+DocumentPath=Project Outputs for LXe_digitizer\New_LXe_twr.GP2
 DItemRevisionGUID=
 
 [GeneratedDocument14]
-DocumentPath=Project Outputs for LXe_digitizer\New_LXe_twr.LDP
+DocumentPath=Project Outputs for LXe_digitizer\New_LXe_twr.GTL
 DItemRevisionGUID=
 
 [GeneratedDocument15]
-DocumentPath=Project Outputs for LXe_digitizer\New_LXe_twr.REP
+DocumentPath=Project Outputs for LXe_digitizer\New_LXe_twr.GTO
 DItemRevisionGUID=
 
 [GeneratedDocument16]
+DocumentPath=Project Outputs for LXe_digitizer\New_LXe_twr.GTP
+DItemRevisionGUID=
+
+[GeneratedDocument17]
+DocumentPath=Project Outputs for LXe_digitizer\New_LXe_twr.GTS
+DItemRevisionGUID=
+
+[GeneratedDocument18]
+DocumentPath=Project Outputs for LXe_digitizer\New_LXe_twr.LDP
+DItemRevisionGUID=
+
+[GeneratedDocument19]
+DocumentPath=Project Outputs for LXe_digitizer\New_LXe_twr.REP
+DItemRevisionGUID=
+
+[GeneratedDocument20]
 DocumentPath=Project Outputs for LXe_digitizer\New_LXe_twr.TXT
 DItemRevisionGUID=
 
@@ -678,7 +694,7 @@ OutputDocumentPath9=
 OutputVariantName9=[No Variations]
 OutputDefault9=0
 Configuration9_Name1=OutputConfigurationParameter1
-Configuration9_Item1=AddToAllPlots.Set=SerializeLayerHash.Version~2,ClassName~TLayerToBoolean|CentrePlots=False|DrillDrawingSymbol=GraphicsSymbol|DrillDrawingSymbolSize=200000|EmbeddedApertures=True|FilmBorderSize=10000000|FilmXSize=200000000|FilmYSize=150000000|FlashAllFills=False|FlashPadShapes=False|G54OnApertureChange=True|GenerateDRCRulesFile=False|GenerateReliefShapes=True|GerberUnit=Metric|IncludeUnconnectedMidLayerPads=False|LeadingAndTrailingZeroesMode=KeepLeadingAndTrailingZeroes|MaxApertureSize=2500000|MinusApertureTolerance=39|Mirror.Set=SerializeLayerHash.Version~2,ClassName~TLayerToBoolean|MirrorDrillDrawingPlots=False|MirrorDrillGuidePlots=False|NumberOfDecimals=3|OptimizeChangeLocationCommands=False|OriginPosition=Absolute|Panelize=False|Plot.Set=SerializeLayerHash.Version~2,ClassName~TLayerToBoolean,16973834~1,16777217~1,16842753~1,16777218~1,16777219~1,16777220~1,16777221~1,16842754~1,16842751~1,16973835~1|PlotPositivePlaneLayers=False|PlotUsedDrillDrawingLayerPairs=False|PlotUsedDrillGuideLayerPairs=False|PlusApertureTolerance=39|Record=GerberView|SoftwareArcs=True|Sorted=False
+Configuration9_Item1=AddToAllPlots.Set=SerializeLayerHash.Version~2,ClassName~TLayerToBoolean|CentrePlots=False|DrillDrawingSymbol=GraphicsSymbol|DrillDrawingSymbolSize=200000|EmbeddedApertures=True|FilmBorderSize=10000000|FilmXSize=200000000|FilmYSize=150000000|FlashAllFills=False|FlashPadShapes=False|G54OnApertureChange=True|GenerateDRCRulesFile=False|GenerateReliefShapes=True|GerberUnit=Metric|IncludeUnconnectedMidLayerPads=False|LeadingAndTrailingZeroesMode=KeepLeadingAndTrailingZeroes|MaxApertureSize=2500000|MinusApertureTolerance=39|Mirror.Set=SerializeLayerHash.Version~2,ClassName~TLayerToBoolean|MirrorDrillDrawingPlots=False|MirrorDrillGuidePlots=False|NumberOfDecimals=3|OptimizeChangeLocationCommands=True|OriginPosition=Absolute|Panelize=False|Plot.Set=SerializeLayerHash.Version~2,ClassName~TLayerToBoolean,16973830~1,16973832~1,16973834~1,16777217~1,16842753~1,16777218~1,16777219~1,16777220~1,16777221~1,16842754~1,16842751~1,16973835~1,16973833~1,16973831~1|PlotPositivePlaneLayers=False|PlotUsedDrillDrawingLayerPairs=False|PlotUsedDrillGuideLayerPairs=False|PlusApertureTolerance=39|Record=GerberView|SoftwareArcs=True|Sorted=False
 
 [OutputGroup6]
 Name=Report Outputs
