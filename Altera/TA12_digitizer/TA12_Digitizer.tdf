@@ -2716,9 +2716,11 @@ DBlkLengthRg[11..1].clk = Clk100;
 --DBlkLengthRg[ 1].clrn   = !(RESET);-- # Reset2);    --/  ..of Frame is 64B (MIN)
 
 DBlkLengthRg[11].prn	 = !(RESET);-- # Reset2);    --\  For Mode = "CMD3" :
---DBlkLengthRg[11].clrn = !(RESET);-- # Reset2);    -- \  Default value = 46, ..
+--DBlkLengthRg[11].clrn	 = !(RESET);-- # Reset2);    -- \  Value = 514, 2+256+256 (OpCode+#Event+1ChannelWF+2ChannelWF)..
 --DBlkLengthRg[10].prn	 = !(RESET);-- # Reset2);    --  > .. so that ..
-DBlkLengthRg[10..1].clrn = !(RESET);-- # Reset2);    -- / ..the total length .. 
+DBlkLengthRg[10..3].clrn = !(RESET);-- # Reset2);    --  > ..the total length .. 
+DBlkLengthRg[ 2].prn	 = !(RESET);-- # Reset2);    -- /
+DBlkLengthRg[ 1].clrn	 = !(RESET);-- # Reset2);    --/ 
 
 --Adder which calculates and holds the Length of IP DataBlock to be transmitted :
 IPlength.dataa[10..0]   = DBlkLengthRg[11..1].q;
