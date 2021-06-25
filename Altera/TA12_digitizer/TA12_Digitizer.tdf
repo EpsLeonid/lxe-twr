@@ -453,24 +453,32 @@ CommdPut_en     : node; --initial strobe for loading of Link-Command'_Attrib-s i
 CommdPut_init   : node; -- sets the FIFO' registers in loading mode
 CommdPut_wait   : node; -- =1 if the loading of a new Commd'_Attrib-s is postponed
 CommdPut_ld,            --handles loading of Link-Command'_Attributes into FIFO
-Commd_ld[4..1]  : node; --strobes for loading Commd'Attrib-s into correspondent cell of FIFO
+Commd_ld[8..1]  : node; --strobes for loading Commd'Attrib-s into correspondent cell of FIFO
 
 CommdPkt_End    : node; -- 4*Clk100 "protection interval" before MOVing the FIFO
 CommdPkt_en     : node; -- strobe for operation of Contin1 trigger
 CommdMov_en     : node; -- strobe for MOVing data in FIFO (from Cell#4 to Cell#1)
 
 --Counter which handles input and output of Link-Command'_Attributes into FIFO
-StackCt         : LPM_COUNTER with (lpm_width=2%, lpm_direction="up"%);
+StackCt         : LPM_COUNTER with (lpm_width=3%, lpm_direction="up"%);
 
 OpCode1_bit[ 8..1]  : DFFE; --  8-bit "register" - Cell#1 of FIFO, for OpCode
 OpCode2_bit[ 8..1]  : DFFE; --  8-bit "register" - Cell#2 of FIFO, for OpCode
 OpCode3_bit[ 8..1]  : DFFE; --  8-bit "register" - Cell#3 of FIFO, for OpCode
-OpCode4_bit[ 8..1]  : DFFE; --  8-bit "register" - Cell#4 of FIFO, for OpCode
+OpCode4_bit[ 8..1]  : DFFE; --  8-bit "register" - Cell#3 of FIFO, for OpCode
+OpCode5_bit[ 8..1]  : DFFE; --  8-bit "register" - Cell#3 of FIFO, for OpCode
+OpCode6_bit[ 8..1]  : DFFE; --  8-bit "register" - Cell#3 of FIFO, for OpCode
+OpCode7_bit[ 8..1]  : DFFE; --  8-bit "register" - Cell#3 of FIFO, for OpCode
+OpCode8_bit[ 8..1]  : DFFE; --  8-bit "register" - Cell#4 of FIFO, for OpCode
 InData1_bit[16..1]  : DFFE; -- 16-bit "register" - Cell#1 of FIFO, for InData
 InData2_bit[16..1]  : DFFE; -- 16-bit "register" - Cell#2 of FIFO, for InData
 InData3_bit[16..1]  : DFFE; -- 16-bit "register" - Cell#3 of FIFO, for InData
-InData4_bit[16..1]  : DFFE; -- 16-bit "register" - Cell#4 of FIFO, for InData
-Contin[4..1]        : DFFE; -- "Continue to send Packets" when executing "StartRegular" Link-Command
+InData4_bit[16..1]  : DFFE; -- 16-bit "register" - Cell#2 of FIFO, for InData
+InData5_bit[16..1]  : DFFE; -- 16-bit "register" - Cell#3 of FIFO, for InData
+InData6_bit[16..1]  : DFFE; -- 16-bit "register" - Cell#2 of FIFO, for InData
+InData7_bit[16..1]  : DFFE; -- 16-bit "register" - Cell#3 of FIFO, for InData
+InData8_bit[16..1]  : DFFE; -- 16-bit "register" - Cell#4 of FIFO, for InData
+Contin[8..1]        : DFFE; -- "Continue to send Packets" when executing "StartRegular" Link-Command
 
 EtherTxRq_Link  : node; --(request for) Start of an Ether' Tx cycle (UDP or CMD3) by Link
 
@@ -2280,7 +2288,7 @@ StartADC_Link   = DFF(.D=(St_ADC_Link & !Start_Link4), .clk=Clk100);--4*Clk100 _
 CommdStReg_Ini  = SRFF(.S= StartADC_Link,
 --!!!!For the SERIES-SENDING_TEST, comment the statement above and uncomment the statement below ;  
 --CommdStReg_Ini  = SRFF(.S=(StartADC_Link AND UDPtstSeries),
-                       .R=OutData_rdy.q,
+                       .R=CommdPut_ld,
   --For NORMAL operation, remove ".q"^^
                        .clrn=!(RESET # Reset2), .clk=Clk100);
 CommdOther_Ini  = SRFF(.S=(StartProc_Link & !StartADC_Link),--set by any Commd except "StartRegul"
@@ -2319,6 +2327,10 @@ Commd_ld1 = DFF(.D=((CommdPut_init & StackCt.eq0)& !CommdPut_ld), .clk=Clk100);
 Commd_ld2 = DFF(.D=((CommdPut_init & StackCt.eq1)& !CommdPut_ld), .clk=Clk100);
 Commd_ld3 = DFF(.D=((CommdPut_init & StackCt.eq2)& !CommdPut_ld), .clk=Clk100);
 Commd_ld4 = DFF(.D=((CommdPut_init & StackCt.eq3)& !CommdPut_ld), .clk=Clk100);
+Commd_ld5 = DFF(.D=((CommdPut_init & StackCt.eq4)& !CommdPut_ld), .clk=Clk100);
+Commd_ld6 = DFF(.D=((CommdPut_init & StackCt.eq5)& !CommdPut_ld), .clk=Clk100);
+Commd_ld7 = DFF(.D=((CommdPut_init & StackCt.eq6)& !CommdPut_ld), .clk=Clk100);
+Commd_ld8 = DFF(.D=((CommdPut_init & StackCt.eq7)& !CommdPut_ld), .clk=Clk100);
 
 --Stack Counter :  points to the nearest free cell of FIFO
 StackCt.(clock, clk_en) = (Clk100, VCC);
@@ -2346,9 +2358,29 @@ FOR i in 1 to 8 GENERATE
     OpCode3_bit[i].ena  = Commd_ld3 # CommdMov_en ;
     OpCode3_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
 
-    OpCode4_bit[i].D= ( CommdPut_init & Link_IFace.OpCode_out[i-1]);-- get a new Command
+    OpCode4_bit[i].D= ( CommdPut_init & Link_IFace.OpCode_out[i-1]) -- get a new Command
+                    OR(!CommdPut_init & OpCode5_bit[i] ) ;          -- shift previous Command
     OpCode4_bit[i].ena  = Commd_ld4 # CommdMov_en ;
     OpCode4_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+
+    OpCode5_bit[i].D= ( CommdPut_init & Link_IFace.OpCode_out[i-1]) -- get a new Command
+                    OR(!CommdPut_init & OpCode6_bit[i] ) ;          -- shift previous Command
+    OpCode5_bit[i].ena  = Commd_ld5 # CommdMov_en ;
+    OpCode5_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+
+    OpCode6_bit[i].D= ( CommdPut_init & Link_IFace.OpCode_out[i-1]) -- get a new Command
+                    OR(!CommdPut_init & OpCode7_bit[i] ) ;          -- shift previous Command
+    OpCode6_bit[i].ena  = Commd_ld6 # CommdMov_en ;
+    OpCode6_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+
+    OpCode7_bit[i].D= ( CommdPut_init & Link_IFace.OpCode_out[i-1]) -- get a new Command
+                    OR(!CommdPut_init & OpCode8_bit[i] ) ;          -- shift previous Command
+    OpCode7_bit[i].ena  = Commd_ld7 # CommdMov_en ;
+    OpCode7_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+
+    OpCode8_bit[i].D= ( CommdPut_init & Link_IFace.OpCode_out[i-1]);-- get a new Command
+    OpCode8_bit[i].ena  = Commd_ld8 # CommdMov_en ;
+    OpCode8_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
 End GENERATE;
 
 FOR i in 1 to 16 GENERATE
@@ -2367,9 +2399,29 @@ FOR i in 1 to 16 GENERATE
     InData3_bit[i].ena  = Commd_ld3 # CommdMov_en ;
     InData3_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
 
-    InData4_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]);-- get a new Command
+    InData4_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]) -- get a new Command
+                    OR(!CommdPut_init & InData5_bit[i] ) ;          -- shift Commands sequence
     InData4_bit[i].ena  = Commd_ld4 # CommdMov_en ;
     InData4_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+
+    InData5_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]) -- get a new Command
+                    OR(!CommdPut_init & InData6_bit[i] ) ;          -- shift Commands sequence
+    InData5_bit[i].ena  = Commd_ld5 # CommdMov_en ;
+    InData5_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+
+    InData6_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]) -- get a new Command
+                    OR(!CommdPut_init & InData7_bit[i] ) ;          -- shift Commands sequence
+    InData6_bit[i].ena  = Commd_ld6 # CommdMov_en ;
+    InData6_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+
+    InData7_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]) -- get a new Command
+                    OR(!CommdPut_init & InData8_bit[i] ) ;          -- shift Commands sequence
+    InData7_bit[i].ena  = Commd_ld7 # CommdMov_en ;
+    InData7_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+
+    InData8_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]);-- get a new Command
+    InData8_bit[i].ena  = Commd_ld8 # CommdMov_en ;
+    InData8_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
 End GENERATE;
 
 --Triggers: =1 => Continue to send Packets, when executing "StartRegular" Command.
@@ -2387,10 +2439,26 @@ End GENERATE;
                OR(!CommdPut_init & Contin4 ) ;          --Shift the "Contin" sequence
     Contin3.ena= Commd_ld3 # CommdMov_en ;              --enables Getting "=1" / "=0"
 
-    Contin4.D  = ( CommdPut_init & St_ADC_Link) ;       --Get "=1" @"StartRegular" / "=0" @ Others
+    Contin4.D  = ( CommdPut_init & St_ADC_Link)         --Get "=1" @"StartRegular" / "=0" @ Others
+               OR(!CommdPut_init & Contin5 ) ;          --Shift the "Contin" sequence
     Contin4.ena= Commd_ld4 # CommdMov_en ;              --enables Getting "=1" / "=0"
 
-    Contin[4..1].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+    Contin5.D  = ( CommdPut_init & St_ADC_Link)         --Get "=1" @"StartRegular" / "=0" @ Others
+               OR(!CommdPut_init & Contin6 ) ;          --Shift the "Contin" sequence
+    Contin5.ena= Commd_ld5 # CommdMov_en ;              --enables Getting "=1" / "=0"
+
+    Contin6.D  = ( CommdPut_init & St_ADC_Link)         --Get "=1" @"StartRegular" / "=0" @ Others
+               OR(!CommdPut_init & Contin7 ) ;          --Shift the "Contin" sequence
+    Contin6.ena= Commd_ld6 # CommdMov_en ;              --enables Getting "=1" / "=0"
+
+    Contin7.D  = ( CommdPut_init & St_ADC_Link)         --Get "=1" @"StartRegular" / "=0" @ Others
+               OR(!CommdPut_init & Contin8 ) ;          --Shift the "Contin" sequence
+    Contin7.ena= Commd_ld7 # CommdMov_en ;              --enables Getting "=1" / "=0"
+
+    Contin8.D  = ( CommdPut_init & St_ADC_Link) ;       --Get "=1" @"StartRegular" / "=0" @ Others
+    Contin8.ena= Commd_ld8 # CommdMov_en ;              --enables Getting "=1" / "=0"
+
+    Contin[8..1].(clk, clrn) = (Clk100, !(RESET # Reset2) );
 
 --**** Request for initializing a Tx_cycle correspondent to the Link-Command.. 
 --..which is currently asserted at the outputs of FIFO' cell#1 :
