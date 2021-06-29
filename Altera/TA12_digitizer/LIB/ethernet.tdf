@@ -1,7 +1,7 @@
 TITLE "ETHERNET";
 -- Ver. 2  : Rx/Tx of the "Raw_Ethernet" implemented, 
 --             EthernetRx and EthernetTx are separate sub-modules. 
--- Ver.4b  : Rx/Tx of the "Raw_Ethernet" implemented in ONE module.
+-- Ver.4b  : Rx/Tx of the "Raw_Ethernet" implemented in ONE module. 
 -- Ver.4d  : Rx/Tx of the "Raw_Ethernet" separated more clearly ; 
 --             Rx_cycle break upon Reset is implemented.
 -- Ver.4e  : Circuit which initializes Tx_cycle improved.
@@ -38,14 +38,14 @@ Saddr[48..1]    : input;  --This_Device' address (to be sent at "SourceAddr" fie
 RxWaitSFD       : output;   -- flag: Waiting for "StartFrameDelimiter"
 RxDestAddr      : output;   -- flag: "DestinationAddr" is being received
 RxSourAddr      : output;   -- flag: "SourceAddr" is being received
-RxPkLenTyp      : output;   -- flag: "PkLength/Type" is being received
+RxPkLenTyp      : output;   -- flag: "Pk_Length/Type" is being received
 RxDataBlck      : output;   -- flag: receiving of Data_Block is ongoing
 RxFrameCRC      : output;   -- flag: "FrameCheckSequence" is being received
 RxEndFrame      : output;   -- flag: End-of-Received_Frame
 RxStagCt[ 3..0] : output;   -- Main Receiving_Cycle Counter
 RxDataCt[11..0] : output;   -- Counter which counts the received DWords of DataBlock
 
-RxLenTyp[16..1] : output;   -- value of the "PkLength/Type" field (MSbit always =0 !)
+RxLenTyp[16..1] : output;   -- value of the "Pk_Length/Type" field (MSbit always =0 !)
 RxLengIn[12..1] : input;    -- for other packets - total Length(bytes) of the DataBlock
 RxLength[12..1] : output;   -- resulting Length(Bytes) of the DataBlock (for "Raw" L=RxLenTyp[] )
 TypeRaw         : output;   -- flag: Type = Raw 
@@ -66,14 +66,14 @@ StTransmit      : input ; -- старт передачи пакета
 TxPreamble      : output;   -- flag: "Preamble" is being transmitted
 TxStFrmDel      : output;   -- flag: "StartFrameDelimiter" is being transmitted
 TxDestAddr      : OUTPUT;   -- flag: "DestinationAddr" is being transmitted
-TxSourAddr      : OUTPUT;   -- flag: "SourceAddr is being transmitted
-TxPkLenTyp      : output;   -- flag: "Packet Length/Type" is being transmitted
+TxSourAddr      : OUTPUT;   -- flag: "SourceAddr" is being transmitted
+TxPkLenTyp      : output;   -- flag: "Pk_Length/Type" is being transmitted
 TxDataBlck      : output;   -- flag: Data_Block is being transmitted
 TxFrameCRC      : output;   -- flag: "FrameCheckSequence" is being transmitted
 TxEndFrame      : output;   -- flag: End-of-TxFrame
 TxCount[11..0]  : OUTPUT;   -- Cycle Counter's outputs, for test
 
-TxLenTyp[16..1] : input ;   -- value of the "PacketLength/Type" to be transmitted
+TxLenTyp[16..1] : input ;   -- value of the "Pk_Length/Type" to be transmitted
 TxLength[12..1] : input ;   -- length of the DataBlock (MSbit always =0 ! )
 
 TxError             : output;   
@@ -183,12 +183,6 @@ TxDataBlck      : DFF;
 TxFrameCRC      : DFF; 
 TxEndFrame      : DFF;      
 
---TxLenTyp[16..1] : node; -- value of the "PkLength/Type" field for TxFrame
---Register which latches the "PacketLength/Type" and converts it into half-Bytes
-TxLenTyp_Reg[4..1]  : LPM_SHIFTREG with (lpm_width=12, 
-                                lpm_direction="left"); --shift: q0 -> q[MSB]
-TxLenTyp_ld     : node; -- strobe for loading PkLenTyp value into TxLngTyp_Reg
-
 TxLength_Reg[12..1] : DFFE; --"register" which latches the length of DataBlock
 
 TxCRC           : CRC32;-- function which calculates the CRC of the TxFrame
@@ -220,16 +214,16 @@ Saddr_Reg4      : LPM_SHIFTREG with (lpm_width=12, -- contains 4th bits (LSB) of
                                 lpm_direction="left"); --shift: q0 -> q[MSB]
 Saddr_ld        : node;     -- strobe for loading Saddr_Reg-s
 
--- Registers for Conversion of 16-bit TxLength into 4 consecutive half-Bytes :
-TxLng_Reg1      : LPM_SHIFTREG with (lpm_width= 4, -- contains 1st bits (LSB) of 4 consecutive half-Bytes
+--Reg-s for latching the 16-bit "Pk_Length/Type" and converting it into 4 consecutive half-Bytes :
+TxLenTyp_Reg1   : LPM_SHIFTREG with (lpm_width=4, -- contains 1st bits (LSB) of 4 consecutive half-Bytes
                                 lpm_direction="left"); --shift: q0 -> q[MSB]
-TxLng_Reg2      : LPM_SHIFTREG with (lpm_width= 4, -- contains 2nd bits (LSB) of 4 consecutive half-Bytes
+TxLenTyp_Reg2   : LPM_SHIFTREG with (lpm_width=4, -- contains 2nd bits       of 4 consecutive half-Bytes
                                 lpm_direction="left"); --shift: q0 -> q[MSB]
-TxLng_Reg3      : LPM_SHIFTREG with (lpm_width= 4, -- contains 3rd bits (LSB) of 4 consecutive half-Bytes
+TxLenTyp_Reg3   : LPM_SHIFTREG with (lpm_width=4, -- contains 3rd bits       of 4 consecutive half-Bytes
                                 lpm_direction="left"); --shift: q0 -> q[MSB]
-TxLng_Reg4      : LPM_SHIFTREG with (lpm_width= 4, -- contains 4th bits (LSB) of 4 consecutive half-Bytes
+TxLenTyp_Reg4   : LPM_SHIFTREG with (lpm_width=4, -- contains 4th bits (MSB) of 4 consecutive half-Bytes
                                 lpm_direction="left"); --shift: q0 -> q[MSB]
-TxLng_ld        : node;     -- strobe for loading TxLng_Reg-s
+--TxLenTyp_ld     : node; -- strobe for loading PkLenTyp value into TxLenTyp_Reg
 
 -- Registers for Conversion of each 16-bit Word into 4 consecutive half-Bytes :
 TxShifter1      : LPM_SHIFTREG with (lpm_width=4, -- contains 1st bits (LSB) of 4 consecutive half-Bytes
@@ -289,7 +283,7 @@ RxWord  = GND;  TxWord  = GND;
 
 TxLineIdle.D  = GND;
 CtTransm_sclr = GND;    TxCRC.clk_en = GND;
-Daddr_ld = GND;     Saddr_ld = GND;     TxLng_ld = GND;
+Daddr_ld = GND;     Saddr_ld = GND;     --TxLenTyp_ld = GND;
 
 END DEFAULTS;
 
@@ -1010,7 +1004,7 @@ End IF;
 Test1 = enTransmit;     --RX_DV_FF;         --enTransmit;
 Test2 = TxCycle;        --RxLineIdle;       --Daddr_ld;     
 Test3 = TxInit;         --RxChkPream;       --Saddr_ld;
-Test4 = TxShift_ld;     --CtReceiv_sclr;    --TxLng_ld;
+Test4 = TxShift_ld;     --CtReceiv_sclr;    --TxLenTyp_ld;
 Test5 = RxD_Reg[1];     --ChkDaddr_ena;     --TxWord_ld;      --RxD_Reg[1];
 Test6 = RxD_Reg[2];     --ChkDaddr.q;       --TxShift_ld;     --RxD_Reg[2];
 Test7 = RxD_Reg[3];     --RxWordConv;       --TxCRC_ld;       --RxD_Reg[3];
