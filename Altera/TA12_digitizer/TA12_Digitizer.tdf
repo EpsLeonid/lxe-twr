@@ -220,6 +220,7 @@ Clk25			: node; -- This is Global Node
 --Clk37_5			: node; -- This is Global Node 
 --Clk75			: node; -- This is Global Node
 Clk100			: node; -- This is Global Node
+Clk100_15		: node; -- This is Global Node
 Clk300_adc		: node; -- This is Global Node
 
 -- Automatic Clock Switch: if External_Clock frequency (kHz) is in specified 
@@ -384,19 +385,20 @@ EnWriteWFHist		: SRFF;
 WriteExtRAM_En		: node;
 ReadExtRAM_En		: node;
 WriteDATA			: lpm_shiftreg with (lpm_width = 16, lpm_direction="unused");
+WriteDATA_del		: lpm_shiftreg with (lpm_width = 16, lpm_direction="unused");
 WrRdExtRAMAddr		: lpm_shiftreg with (lpm_width = 16, lpm_direction="unused");
 Write_ExtRamCt		: lpm_counter with (lpm_width = 16, lpm_direction="up" ); -- 
 StopWrite			: node;
 
 Read_time			: SRFF;
-DelayReadTime[1..0]	: DFF;
+DelayReadTime[4..0]	: DFF;
 Read_TimeCt			: lpm_counter with (lpm_width = 12, lpm_direction="up" ); -- 
 Read_Ram			: ReadRam;
 Read_ExtRamCt		: lpm_counter with (lpm_width = 9, lpm_direction="up" ); -- 
 EnRead_ExtRamCt		: lpm_counter with (lpm_width = 16, lpm_direction="up" ); -- 
 Addr_Ram			: AddrRam;
 WrRdAddr_Reg		: lpm_shiftreg with (lpm_width = 16, lpm_direction="unused");
-DelayWorkTime[1..0]	: DFF;
+DelayWorkTime[4..0]	: DFF;
 WrAddrCnt			: lpm_counter with (lpm_width = 6, lpm_direction="up" ); -- 
 ReadAddrCnt			: lpm_counter with (lpm_width = 6, lpm_direction="up" ); -- 
 
@@ -453,32 +455,51 @@ CommdPut_en     : node; --initial strobe for loading of Link-Command'_Attrib-s i
 CommdPut_init   : node; -- sets the FIFO' registers in loading mode
 CommdPut_wait   : node; -- =1 if the loading of a new Commd'_Attrib-s is postponed
 CommdPut_ld,            --handles loading of Link-Command'_Attributes into FIFO
-Commd_ld[8..1]  : node; --strobes for loading Commd'Attrib-s into correspondent cell of FIFO
+Commd_ld[16..1]  : node; --strobes for loading Commd'Attrib-s into correspondent cell of FIFO
 
 CommdPkt_End    : node; -- 4*Clk100 "protection interval" before MOVing the FIFO
 CommdPkt_en     : node; -- strobe for operation of Contin1 trigger
 CommdMov_en     : node; -- strobe for MOVing data in FIFO (from Cell#4 to Cell#1)
 
 --Counter which handles input and output of Link-Command'_Attributes into FIFO
-StackCt         : LPM_COUNTER with (lpm_width=3%, lpm_direction="up"%);
+StackCt         : LPM_COUNTER with (lpm_width=4%, lpm_direction="up"%);
+Dispatch_Error	: node; -- Error: Stack Overflow
 
-OpCode1_bit[ 8..1]  : DFFE; --  8-bit "register" - Cell#1 of FIFO, for OpCode
-OpCode2_bit[ 8..1]  : DFFE; --  8-bit "register" - Cell#2 of FIFO, for OpCode
-OpCode3_bit[ 8..1]  : DFFE; --  8-bit "register" - Cell#3 of FIFO, for OpCode
-OpCode4_bit[ 8..1]  : DFFE; --  8-bit "register" - Cell#3 of FIFO, for OpCode
-OpCode5_bit[ 8..1]  : DFFE; --  8-bit "register" - Cell#3 of FIFO, for OpCode
-OpCode6_bit[ 8..1]  : DFFE; --  8-bit "register" - Cell#3 of FIFO, for OpCode
-OpCode7_bit[ 8..1]  : DFFE; --  8-bit "register" - Cell#3 of FIFO, for OpCode
-OpCode8_bit[ 8..1]  : DFFE; --  8-bit "register" - Cell#4 of FIFO, for OpCode
-InData1_bit[16..1]  : DFFE; -- 16-bit "register" - Cell#1 of FIFO, for InData
-InData2_bit[16..1]  : DFFE; -- 16-bit "register" - Cell#2 of FIFO, for InData
-InData3_bit[16..1]  : DFFE; -- 16-bit "register" - Cell#3 of FIFO, for InData
-InData4_bit[16..1]  : DFFE; -- 16-bit "register" - Cell#2 of FIFO, for InData
-InData5_bit[16..1]  : DFFE; -- 16-bit "register" - Cell#3 of FIFO, for InData
-InData6_bit[16..1]  : DFFE; -- 16-bit "register" - Cell#2 of FIFO, for InData
-InData7_bit[16..1]  : DFFE; -- 16-bit "register" - Cell#3 of FIFO, for InData
-InData8_bit[16..1]  : DFFE; -- 16-bit "register" - Cell#4 of FIFO, for InData
-Contin[8..1]        : DFFE; -- "Continue to send Packets" when executing "StartRegular" Link-Command
+OpCode1_bit[ 8..1]	: DFFE; --  8-bit "register" - Cell#1 of FIFO, for OpCode
+OpCode2_bit[ 8..1]	: DFFE; --  8-bit "register" - Cell#2 of FIFO, for OpCode
+OpCode3_bit[ 8..1]	: DFFE; --  8-bit "register" - Cell#3 of FIFO, for OpCode
+OpCode4_bit[ 8..1]	: DFFE; --  8-bit "register" - Cell#4 of FIFO, for OpCode
+OpCode5_bit[ 8..1]	: DFFE; --  8-bit "register" - Cell#5 of FIFO, for OpCode
+OpCode6_bit[ 8..1]	: DFFE; --  8-bit "register" - Cell#6 of FIFO, for OpCode
+OpCode7_bit[ 8..1]	: DFFE; --  8-bit "register" - Cell#7 of FIFO, for OpCode
+OpCode8_bit[ 8..1]	: DFFE; --  8-bit "register" - Cell#8 of FIFO, for OpCode
+OpCode9_bit[ 8..1]	: DFFE; --  8-bit "register" - Cell#1 of FIFO, for OpCode
+OpCode10_bit[ 8..1]	: DFFE; --  8-bit "register" - Cell#2 of FIFO, for OpCode
+OpCode11_bit[ 8..1]	: DFFE; --  8-bit "register" - Cell#3 of FIFO, for OpCode
+OpCode12_bit[ 8..1]	: DFFE; --  8-bit "register" - Cell#4 of FIFO, for OpCode
+OpCode13_bit[ 8..1]	: DFFE; --  8-bit "register" - Cell#5 of FIFO, for OpCode
+OpCode14_bit[ 8..1]	: DFFE; --  8-bit "register" - Cell#6 of FIFO, for OpCode
+OpCode15_bit[ 8..1]	: DFFE; --  8-bit "register" - Cell#7 of FIFO, for OpCode
+OpCode16_bit[ 8..1]	: DFFE; --  8-bit "register" - Cell#8 of FIFO, for OpCode
+
+InData1_bit[16..1]	: DFFE; -- 16-bit "register" - Cell#1 of FIFO, for InData
+InData2_bit[16..1]	: DFFE; -- 16-bit "register" - Cell#2 of FIFO, for InData
+InData3_bit[16..1]	: DFFE; -- 16-bit "register" - Cell#3 of FIFO, for InData
+InData4_bit[16..1]	: DFFE; -- 16-bit "register" - Cell#4 of FIFO, for InData
+InData5_bit[16..1]	: DFFE; -- 16-bit "register" - Cell#5 of FIFO, for InData
+InData6_bit[16..1]	: DFFE; -- 16-bit "register" - Cell#6 of FIFO, for InData
+InData7_bit[16..1]	: DFFE; -- 16-bit "register" - Cell#7 of FIFO, for InData
+InData8_bit[16..1]	: DFFE; -- 16-bit "register" - Cell#8 of FIFO, for InData
+InData9_bit[16..1]	: DFFE; -- 16-bit "register" - Cell#1 of FIFO, for InData
+InData10_bit[16..1]	: DFFE; -- 16-bit "register" - Cell#2 of FIFO, for InData
+InData11_bit[16..1]	: DFFE; -- 16-bit "register" - Cell#3 of FIFO, for InData
+InData12_bit[16..1]	: DFFE; -- 16-bit "register" - Cell#4 of FIFO, for InData
+InData13_bit[16..1]	: DFFE; -- 16-bit "register" - Cell#5 of FIFO, for InData
+InData14_bit[16..1]	: DFFE; -- 16-bit "register" - Cell#6 of FIFO, for InData
+InData15_bit[16..1]	: DFFE; -- 16-bit "register" - Cell#7 of FIFO, for InData
+InData16_bit[16..1]	: DFFE; -- 16-bit "register" - Cell#8 of FIFO, for InData
+
+Contin[16..1]		: DFFE; -- "Continue to send Packets" when executing "StartRegular" Link-Command
 
 EtherTxRq_Link  : node; --(request for) Start of an Ether' Tx cycle (UDP or CMD3) by Link
 
@@ -493,7 +514,7 @@ RSTdel          : node; -- delay for forming RESET and Reset2 pulses
 
 --============================================================================
 --******** 10. Error counter
-ErrorCounters_IFace			: ErrorCounters with (Width = 7);
+ErrorCounters_IFace			: ErrorCounters with (Width = 8);
 ErrorCounters_IFace_CS		: node;
 
 --============================================================================
@@ -803,6 +824,7 @@ ADC_SDATA[2..0]	= GND;
 ADC_SCLK		= GND;
 
 WriteDATA.data[] = GND;
+WriteDATA_del.data[] = GND;
 
 ExtRAM_Addr[15..0]		= GND;
 ExtRAM_OutEn			= VCC;
@@ -883,9 +905,9 @@ END IF;
 --**************** PLL section ***********************************************
 PLL.inclk0	= PLL_in;           -- ~25MHz from Link -> Input of PLL
 Clk25		= PLL.c0;           --  25MHz = (Fin x 1)    from PLL.c0
-Clk100		= GLOBAL(PLL.c1);   -- 100MHz = (Fin x 4)    from PLL.c1
-Clk12_5		= GLOBAL(PLL.c2);   -- 150MHz = (Fin x 2)    from PLL.c1
---Clk75		= GLOBAL(PLL.c4);   -- 75MHz = (Fin x 3)    from PLL.c1
+Clk100		= GLOBAL(PLL.c1);   -- 100MHz = (Fin x 4)	from PLL.c0
+Clk12_5		= GLOBAL(PLL.c2);   -- 150MHz = (Fin x 1/2)	from PLL.c0
+Clk100_15	= GLOBAL(PLL.c3);   -- 100MHz = (Fin x 4 with shift 1.5ns)	from PLL.c0
 Clk300_adc	= GLOBAL(PLL.c4);
 PLL_ExtOut	= PLL.c0; --PLL.c3;           --  25MHz -> outside of Altera
 --PLL1.pfdena = VCC;--!Reset;
@@ -1734,7 +1756,7 @@ END GENERATE;
 
 --DelayWriteWFhist_Eth.(D,clk,reset) = (!EnWriteWFHist.q, Clk100, Reset);
 Delay_EthMessage.(D,clk) = (EnWriteWFHist.q%DelayWriteWFhist_Eth.q%, Clk100);
-TxWFhist_Eth.(S, clk, R, clrn) = (!EnWriteWFHist.q%DelayWriteWFhist_Eth.q% AND Delay_EthMessage.q, Clk100, GND, !StopCount_Eth);
+TxWFhist_Eth.(S, clk, R, clrn) = (!EnWriteWFHist.q%DelayWriteWFhist_Eth.q% AND Delay_EthMessage.q AND !StackCt.eq15, Clk100, GND, !StopCount_Eth);
 
 DataCount_Eth.(clock, cnt_en, sclr) = (Clk100, TxWFhist_Eth.q, OutData_rdy.q%!EnWriteWFHist.q AND !Delay_EthMessage.q%%!DelayWriteWFhist_Eth.q%);
 ChannelCount_Eth.(clock, cnt_en, sclr) = (Clk100, DataCount_Eth.cout AND !StopCount_Eth, OutData_rdy.q%!EnWriteWFHist.q AND !Delay_EthMessage.q% %DelayWriteWFhist_Eth.q%);
@@ -1742,9 +1764,8 @@ IF (ChannelCount_Eth.q[] == b"11" AND DataCount_Eth.q[] == VCC)
 	THEN StopCount_Eth = VCC;
 	ELSE StopCount_Eth = GND;
 END IF;
-
-WriteDATA.(clock, enable, load) = (Clk100, VCC, VCC);
 %
+Test RAM
 CASE ChannelCount_Eth.q[] IS
 	When b"00" =>	Im_Ram[0].address[] = DataCount_Eth.q[];--Compres.buffer_ADDR[7..0];
 					WriteDATA.data[11..0] = Im_Ram[0].q[11..0];
@@ -1817,6 +1838,7 @@ CASE ChannelCount_Eth.q[] IS
 					TA12Channel[3].DAQAddrBus_Eth_In[7..0]	= DataCount_Eth.q[];
 					TA12Channel[3].DAQAddrBus_Eth_In[8]		= GND;
 					TA12Channel[3].ReadWFhist_Eth			= TxWFhist_Eth.q;
+-- Other channels
 --	When b"0100" => 
 --					CASE DataCount_Eth.q[] is
 --						When 0 => WriteDATA.data[15..0] = (ChannelCount_Eth.q[],b"000000",Eth_Reg_LinkOpCode.q[7..0]);
@@ -1912,9 +1934,11 @@ CASE ChannelCount_Eth.q[] IS
 					end generate; 
 END Case;
 
-DelayWorkTime[1..0].(clk) = Clk100;
+DelayWorkTime[4..0].(clk) = Clk100;
 DelayWorkTime0.d = TxWFhist_Eth.q;
-DelayWorkTime1.d = DelayWorkTime0.q;
+FOR i IN 1 TO 4 GENERATE 
+	DelayWorkTime[i].d = DelayWorkTime[i-1].q;
+end generate; 
 
 OutData_rdy.(d,clk) = ((DelayWorkTime1.q AND !DelayWorkTime0.q), Clk100);
 
@@ -1957,7 +1981,10 @@ Elsif (ReadExtRAM_En %and !WriteExtRAM_En%) Then -- „тение внешней пам€ти
 End IF;
 
 	ExtRAM_Addr[] = WrRdExtRAMAddr.q[];
+	WriteDATA.(clock, enable, load) = (Clk100, VCC, VCC);
+	WriteDATA_del.(clock, enable, load) = (Clk100, VCC, VCC);
 For i in 0 to 15 generate
+	WriteDATA_del.data[i] = WriteDATA.q[i];
 	ExtRAM_Data[i] = TRI (WriteDATA.q[i],TxWFhist_Eth.q);
 End generate;
 
@@ -1967,9 +1994,11 @@ Read_time.(S, clk, R) = (Tx_Rq_StReg.q, Clk100, !ReadExtMem); -- чтение внешней 
 --ReadExtMem_Rq.(S, clk, R) = (Tx_Rq_StReg.q, Clk100, !ReadExtMem); -- ?oaiea aiaoiae iaiyoe ii eiiaiaa aioiaiinoe ia?aaa?e a eca?iao
 --Read_time.(S, clk, R) = ((ReadExtMem_Rq.q AND !(TxWFhist_Eth.q OR DelayWorkTime0.q)), Clk100, !ReadExtMem); -- ?oaiea aiaoiae iaiyoe ii eiiaiaa aioiaiinoe ia?aaa?e a eca?iao
 
-DelayReadTime[1..0].(clk) = Clk100;
+DelayReadTime[4..0].(clk) = Clk100;
 DelayReadTime0.d = Read_time.q;
-DelayReadTime1.d = DelayReadTime0.q;
+FOR i IN 1 TO 4 GENERATE 
+	DelayReadTime[i].d = DelayReadTime[i-1].q;
+end generate; 
 
 Read_ExtRamCt.clock = Clk100;
 Read_ExtRamCt.clk_en  = VCC;
@@ -2073,6 +2102,7 @@ Else
 						TA12Channel[3].ReadWFhist		  = TxWFhist.q;
 						SerDataOut[9..0] = TA12Channel[3].DAQDataBusOut[9..0];
 						NWordFLink[] = TA12Channel[3].DAQDataBusOut[11..10];
+-- Other channels
 --		 When b"0100" => TA12Channel[4].DAQAddrBus_In[7..0] = DataCount.q[];
 --						TA12Channel[4].DAQAddrBus_In[8] = GND;
 --						TA12Channel[4].ReadWFhist		  = TxWFhist.q;
@@ -2331,14 +2361,23 @@ Commd_ld5 = DFF(.D=((CommdPut_init & StackCt.eq4)& !CommdPut_ld), .clk=Clk100);
 Commd_ld6 = DFF(.D=((CommdPut_init & StackCt.eq5)& !CommdPut_ld), .clk=Clk100);
 Commd_ld7 = DFF(.D=((CommdPut_init & StackCt.eq6)& !CommdPut_ld), .clk=Clk100);
 Commd_ld8 = DFF(.D=((CommdPut_init & StackCt.eq7)& !CommdPut_ld), .clk=Clk100);
+Commd_ld9 = DFF(.D=((CommdPut_init & StackCt.eq8)& !CommdPut_ld), .clk=Clk100);
+Commd_ld10 = DFF(.D=((CommdPut_init & StackCt.eq9)& !CommdPut_ld), .clk=Clk100);
+Commd_ld11 = DFF(.D=((CommdPut_init & StackCt.eq10)& !CommdPut_ld), .clk=Clk100);
+Commd_ld12 = DFF(.D=((CommdPut_init & StackCt.eq11)& !CommdPut_ld), .clk=Clk100);
+Commd_ld13 = DFF(.D=((CommdPut_init & StackCt.eq12)& !CommdPut_ld), .clk=Clk100);
+Commd_ld14 = DFF(.D=((CommdPut_init & StackCt.eq13)& !CommdPut_ld), .clk=Clk100);
+Commd_ld15 = DFF(.D=((CommdPut_init & StackCt.eq14)& !CommdPut_ld), .clk=Clk100);
+Commd_ld16 = DFF(.D=((CommdPut_init & StackCt.eq15)& !CommdPut_ld), .clk=Clk100);
 
 --Stack Counter :  points to the nearest free cell of FIFO
 StackCt.(clock, clk_en) = (Clk100, VCC);
 StackCt.updown  = CommdPut_init;        -- if a new Commd is entered into Stack => UP
-StackCt.cnt_en  = CommdPut_ld OR (CommdMov_en & !StackCt.eq0);
---StackCt.cnt_en  = ((CommdPut_ld & !StackCt.eq3)  --to count above =3 is forbidden!
---                OR (CommdMov_en & !StackCt.eq0));
+StackCt.cnt_en  = ((CommdPut_ld & !StackCt.eq15)    -- to count above =15 is forbidden!
+                OR (CommdMov_en & !StackCt.eq0 ));  -- to count below =0  is forbidden!
 StackCt.sclr    = RESET # Reset2;
+
+Dispatch_Error  = CommdPut_ld & StackCt.eq15;       -- Error: Stack Overflow
 
 -- FIFO of length=4 : each "cell" consists of 
 --  8-bit "reg" for "OpCode", 16-bit "reg" for "InData", + 1 trigger for sending 2 packets per "StartNorm"
@@ -2378,50 +2417,130 @@ FOR i in 1 to 8 GENERATE
     OpCode7_bit[i].ena  = Commd_ld7 # CommdMov_en ;
     OpCode7_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
 
-    OpCode8_bit[i].D= ( CommdPut_init & Link_IFace.OpCode_out[i-1]);-- get a new Command
+    OpCode8_bit[i].D= ( CommdPut_init & Link_IFace.OpCode_out[i-1]) -- get a new Command
+                    OR(!CommdPut_init & OpCode9_bit[i] ) ;          -- shift previous Command
     OpCode8_bit[i].ena  = Commd_ld8 # CommdMov_en ;
     OpCode8_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+
+    OpCode9_bit[i].D= ( CommdPut_init & Link_IFace.OpCode_out[i-1]) -- get a new Command
+                    OR(!CommdPut_init & OpCode10_bit[i] ) ;          -- shift previous Command
+    OpCode9_bit[i].ena  = Commd_ld9 # CommdMov_en ;
+    OpCode9_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+
+    OpCode10_bit[i].D= ( CommdPut_init & Link_IFace.OpCode_out[i-1]) -- get a new Command
+                    OR(!CommdPut_init & OpCode11_bit[i] ) ;          -- shift previous Command
+    OpCode10_bit[i].ena  = Commd_ld10 # CommdMov_en ;
+    OpCode10_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+
+    OpCode11_bit[i].D= ( CommdPut_init & Link_IFace.OpCode_out[i-1]) -- get a new Command
+                    OR(!CommdPut_init & OpCode12_bit[i] ) ;          -- shift previous Command
+    OpCode11_bit[i].ena  = Commd_ld11 # CommdMov_en ;
+    OpCode11_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+
+    OpCode12_bit[i].D= ( CommdPut_init & Link_IFace.OpCode_out[i-1]) -- get a new Command
+                    OR(!CommdPut_init & OpCode13_bit[i] ) ;          -- shift previous Command
+    OpCode12_bit[i].ena  = Commd_ld12 # CommdMov_en ;
+    OpCode12_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+
+    OpCode13_bit[i].D= ( CommdPut_init & Link_IFace.OpCode_out[i-1]) -- get a new Command
+                    OR(!CommdPut_init & OpCode14_bit[i] ) ;          -- shift previous Command
+    OpCode13_bit[i].ena  = Commd_ld13 # CommdMov_en ;
+    OpCode13_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+
+    OpCode14_bit[i].D= ( CommdPut_init & Link_IFace.OpCode_out[i-1]) -- get a new Command
+                    OR(!CommdPut_init & OpCode15_bit[i] ) ;          -- shift previous Command
+    OpCode14_bit[i].ena  = Commd_ld14 # CommdMov_en ;
+    OpCode14_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+
+    OpCode15_bit[i].D= ( CommdPut_init & Link_IFace.OpCode_out[i-1]) -- get a new Command
+                    OR(!CommdPut_init & OpCode16_bit[i] ) ;          -- shift previous Command
+    OpCode15_bit[i].ena  = Commd_ld15 # CommdMov_en ;
+    OpCode15_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+
+    OpCode16_bit[i].D= ( CommdPut_init & Link_IFace.OpCode_out[i-1]);-- get a new Command
+    OpCode16_bit[i].ena  = Commd_ld16 # CommdMov_en ;
+    OpCode16_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
 End GENERATE;
 
 FOR i in 1 to 16 GENERATE
     InData1_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]) -- get a new Command
-                    OR(!CommdPut_init & InData2_bit[i] ) ;          -- shift Commands sequence 
+                    OR(!CommdPut_init & InData2_bit[i] ) ;          -- shift previous Command
     InData1_bit[i].ena  = Commd_ld1 # CommdMov_en ;
     InData1_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
 
     InData2_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]) -- get a new Command
-                    OR(!CommdPut_init & InData3_bit[i] ) ;          -- shift Commands sequence
+                    OR(!CommdPut_init & InData3_bit[i] ) ;          -- shift previous Command
     InData2_bit[i].ena  = Commd_ld2 # CommdMov_en ;
     InData2_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
 
     InData3_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]) -- get a new Command
-                    OR(!CommdPut_init & InData4_bit[i] ) ;          -- shift Commands sequence
+                    OR(!CommdPut_init & InData4_bit[i] ) ;          -- shift previous Command
     InData3_bit[i].ena  = Commd_ld3 # CommdMov_en ;
     InData3_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
 
     InData4_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]) -- get a new Command
-                    OR(!CommdPut_init & InData5_bit[i] ) ;          -- shift Commands sequence
+                    OR(!CommdPut_init & InData5_bit[i] ) ;          -- shift previous Command
     InData4_bit[i].ena  = Commd_ld4 # CommdMov_en ;
     InData4_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
 
     InData5_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]) -- get a new Command
-                    OR(!CommdPut_init & InData6_bit[i] ) ;          -- shift Commands sequence
+                    OR(!CommdPut_init & InData6_bit[i] ) ;          -- shift previous Command
     InData5_bit[i].ena  = Commd_ld5 # CommdMov_en ;
     InData5_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
 
     InData6_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]) -- get a new Command
-                    OR(!CommdPut_init & InData7_bit[i] ) ;          -- shift Commands sequence
+                    OR(!CommdPut_init & InData7_bit[i] ) ;          -- shift previous Command
     InData6_bit[i].ena  = Commd_ld6 # CommdMov_en ;
     InData6_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
 
     InData7_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]) -- get a new Command
-                    OR(!CommdPut_init & InData8_bit[i] ) ;          -- shift Commands sequence
+                    OR(!CommdPut_init & InData8_bit[i] ) ;          -- shift previous Command
     InData7_bit[i].ena  = Commd_ld7 # CommdMov_en ;
     InData7_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
 
-    InData8_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]);-- get a new Command
+    InData8_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]) -- get a new Command
+                    OR(!CommdPut_init & InData9_bit[i] ) ;          -- shift previous Command
     InData8_bit[i].ena  = Commd_ld8 # CommdMov_en ;
     InData8_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+
+    InData9_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]) -- get a new Command
+                    OR(!CommdPut_init & InData10_bit[i] ) ;          -- shift previous Command
+    InData9_bit[i].ena  = Commd_ld9 # CommdMov_en ;
+    InData9_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+
+    InData10_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]) -- get a new Command
+                    OR(!CommdPut_init & InData11_bit[i] ) ;          -- shift previous Command
+    InData10_bit[i].ena  = Commd_ld10 # CommdMov_en ;
+    InData10_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+
+    InData11_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]) -- get a new Command
+                    OR(!CommdPut_init & InData12_bit[i] ) ;          -- shift previous Command
+    InData11_bit[i].ena  = Commd_ld11 # CommdMov_en ;
+    InData11_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+
+    InData12_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]) -- get a new Command
+                    OR(!CommdPut_init & InData13_bit[i] ) ;          -- shift previous Command
+    InData12_bit[i].ena  = Commd_ld12 # CommdMov_en ;
+    InData12_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+
+    InData13_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]) -- get a new Command
+                    OR(!CommdPut_init & InData14_bit[i] ) ;          -- shift previous Command
+    InData13_bit[i].ena  = Commd_ld13 # CommdMov_en ;
+    InData13_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+
+    InData14_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]) -- get a new Command
+                    OR(!CommdPut_init & InData15_bit[i] ) ;          -- shift previous Command
+    InData14_bit[i].ena  = Commd_ld14 # CommdMov_en ;
+    InData14_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+
+    InData15_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]) -- get a new Command
+                    OR(!CommdPut_init & InData16_bit[i] ) ;          -- shift previous Command
+    InData15_bit[i].ena  = Commd_ld15 # CommdMov_en ;
+    InData15_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
+
+    InData16_bit[i].D= ( CommdPut_init & Link_IFace.InData_out[i-1]);-- get a new Command
+    InData16_bit[i].ena  = Commd_ld16 # CommdMov_en ;
+    InData16_bit[i].(clk, clrn) = (Clk100, !(RESET # Reset2) );
 End GENERATE;
 
 --Triggers: =1 => Continue to send Packets, when executing "StartRegular" Command.
@@ -2455,8 +2574,40 @@ End GENERATE;
                OR(!CommdPut_init & Contin8 ) ;          --Shift the "Contin" sequence
     Contin7.ena= Commd_ld7 # CommdMov_en ;              --enables Getting "=1" / "=0"
 
-    Contin8.D  = ( CommdPut_init & St_ADC_Link) ;       --Get "=1" @"StartRegular" / "=0" @ Others
-    Contin8.ena= Commd_ld8 # CommdMov_en ;              --enables Getting "=1" / "=0"
+    Contin8.D  = ( CommdPut_init & St_ADC_Link)         --Get "=1" @"StartRegular" / "=0" @ Others
+               OR(!CommdPut_init & Contin9 ) ;          --Shift the "Contin" sequence
+    Contin8.ena= Commd_ld2 # CommdMov_en ;              --enables Getting "=1" / "=0"
+
+    Contin9.D  = ( CommdPut_init & St_ADC_Link)         --Get "=1" @"StartRegular" / "=0" @ Others
+               OR(!CommdPut_init & Contin10 ) ;          --Shift the "Contin" sequence
+    Contin9.ena= Commd_ld9 # CommdMov_en ;              --enables Getting "=1" / "=0"
+
+    Contin10.D  = ( CommdPut_init & St_ADC_Link)         --Get "=1" @"StartRegular" / "=0" @ Others
+               OR(!CommdPut_init & Contin11 ) ;          --Shift the "Contin" sequence
+    Contin10.ena= Commd_ld10 # CommdMov_en ;              --enables Getting "=1" / "=0"
+
+    Contin11.D  = ( CommdPut_init & St_ADC_Link)         --Get "=1" @"StartRegular" / "=0" @ Others
+               OR(!CommdPut_init & Contin12 ) ;          --Shift the "Contin" sequence
+    Contin11.ena= Commd_ld11 # CommdMov_en ;              --enables Getting "=1" / "=0"
+
+    Contin12.D  = ( CommdPut_init & St_ADC_Link)         --Get "=1" @"StartRegular" / "=0" @ Others
+               OR(!CommdPut_init & Contin13 ) ;          --Shift the "Contin" sequence
+    Contin12.ena= Commd_ld12 # CommdMov_en ;              --enables Getting "=1" / "=0"
+
+    Contin13.D  = ( CommdPut_init & St_ADC_Link)         --Get "=1" @"StartRegular" / "=0" @ Others
+               OR(!CommdPut_init & Contin14 ) ;          --Shift the "Contin" sequence
+    Contin13.ena= Commd_ld13 # CommdMov_en ;              --enables Getting "=1" / "=0"
+
+    Contin14.D  = ( CommdPut_init & St_ADC_Link)         --Get "=1" @"StartRegular" / "=0" @ Others
+               OR(!CommdPut_init & Contin15 ) ;          --Shift the "Contin" sequence
+    Contin14.ena= Commd_ld14 # CommdMov_en ;              --enables Getting "=1" / "=0"
+
+    Contin15.D  = ( CommdPut_init & St_ADC_Link)         --Get "=1" @"StartRegular" / "=0" @ Others
+               OR(!CommdPut_init & Contin16 ) ;          --Shift the "Contin" sequence
+    Contin15.ena= Commd_ld15 # CommdMov_en ;              --enables Getting "=1" / "=0"
+
+    Contin16.D  = ( CommdPut_init & St_ADC_Link) ;       --Get "=1" @"StartRegular" / "=0" @ Others
+    Contin16.ena= Commd_ld16 # CommdMov_en ;              --enables Getting "=1" / "=0"
 
     Contin[8..1].(clk, clrn) = (Clk100, !(RESET # Reset2) );
 
@@ -2784,7 +2935,7 @@ DBlkLengthRg[11..1].clk = Clk100;
 --DBlkLengthRg[ 1].clrn   = !(RESET);-- # Reset2);    --/  ..of Frame is 64B (MIN)
 
 DBlkLengthRg[11].prn	 = !(RESET);-- # Reset2);    --\  For Mode = "CMD3" :
---DBlkLengthRg[11].clrn	 = !(RESET);-- # Reset2);    -- \  Value = 516, 2+256+256 (OpCode+#Event+1ChannelWF+2ChannelWF)..
+--DBlkLengthRg[11].clrn	 = !(RESET);-- # Reset2);    -- \  Value = 514 word, 2+256+256 (OpCode+#Event+1ChannelWF+2ChannelWF)..
 --DBlkLengthRg[10].prn	 = !(RESET);-- # Reset2);    --  > .. so that ..
 DBlkLengthRg[10..4].clrn = !(RESET);-- # Reset2);    --  > ..the total length .. 
 DBlkLengthRg[ 3].prn	 = !(RESET);-- # Reset2);    -- /
@@ -3016,7 +3167,7 @@ RESET	= DFF(.D=(PwrUpReset OR ExtReset), .clk=Clk100) ;
 
 -- Project Bus Port, common
 	ErrorCounters_IFace.clock 			=	CLK100;
-	ErrorCounters_IFace.AddrBusIn[2..0]	=	AddrBus[2..0];
+	ErrorCounters_IFace.AddrBusIn[3..0]	=	AddrBus[3..0];
 	ErrorCounters_IFace.DataBusStrobe	=	DataStrobe ;
 -- Project Bus Port, Slave
 	--ErrorCounters_IFace.DirectIn		= 	RW;
@@ -3028,8 +3179,8 @@ RESET	= DFF(.D=(PwrUpReset OR ExtReset), .clk=Clk100) ;
 	ErrorCounters_IFace.ErrorInputs[3]	=	Link_IFace.Error;
     ErrorCounters_IFace.ErrorInputs[4]	=	Ether.TxError;
     ErrorCounters_IFace.ErrorInputs[5]	=	Ether.RxError;
---    ErrorCounters_IFace.ErrorInputs[6]  =   Ether.Error;--Sync_ES.q;
-    ErrorCounters_IFace.ErrorInputs[6]	=   Error;--Sync_ES.q;
+    ErrorCounters_IFace.ErrorInputs[6]  =   Dispatch_Error;
+    ErrorCounters_IFace.ErrorInputs[7]	=   Error;--Sync_ES.q;
 
 --============================================================================
 -- 11. Internal Bus of Project & Data transfer control ************************
