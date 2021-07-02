@@ -594,6 +594,7 @@ DelayWriteWFhist_Eth	: DelayLine with (DelayCode = 90,  -- to delay the real END
 DataCount_Eth			: lpm_counter with (lpm_width = 8, lpm_direction="up"); -- n?ao?ee aaiiuo ec iaiyoe eaiaea aey ia?aaa?e ii eeieo a EIO
 ChannelCount_Eth		: lpm_counter with (lpm_width = 2, lpm_direction="up"); -- n?ao?ee eaiaeia aey ia?aaa?e ii eeieo a EIO
 StopCount_Eth			: node;
+StopCount_Eth_Strob		: DFF;
 
 -- Circuitry which latches the 1st Byte received, as it is a COMMAND
 RxDBlkDel[4..1]	: node; --delay of the "RxDataBlck" by 2 RxClocks and a little more
@@ -1756,14 +1757,16 @@ END GENERATE;
 
 --DelayWriteWFhist_Eth.(D,clk,reset) = (!EnWriteWFHist.q, Clk100, Reset);
 Delay_EthMessage.(D,clk) = (EnWriteWFHist.q%DelayWriteWFhist_Eth.q%, Clk100);
-TxWFhist_Eth.(S, clk, R, clrn) = (!EnWriteWFHist.q%DelayWriteWFhist_Eth.q% AND Delay_EthMessage.q AND !StackCt.eq15, Clk100, GND, !StopCount_Eth);
+TxWFhist_Eth.(S, clk, R, clrn) = (!EnWriteWFHist.q%DelayWriteWFhist_Eth.q% AND Delay_EthMessage.q AND !StackCt.eq15, Clk100, GND, !StopCount_Eth_Strob.q);
 
 DataCount_Eth.(clock, cnt_en, sclr) = (Clk100, TxWFhist_Eth.q, OutData_rdy.q%!EnWriteWFHist.q AND !Delay_EthMessage.q%%!DelayWriteWFhist_Eth.q%);
-ChannelCount_Eth.(clock, cnt_en, sclr) = (Clk100, DataCount_Eth.cout AND !StopCount_Eth, OutData_rdy.q%!EnWriteWFHist.q AND !Delay_EthMessage.q% %DelayWriteWFhist_Eth.q%);
+ChannelCount_Eth.(clock, cnt_en, sclr) = (Clk100, DataCount_Eth.cout AND !StopCount_Eth_Strob.q, OutData_rdy.q%!EnWriteWFHist.q AND !Delay_EthMessage.q% %DelayWriteWFhist_Eth.q%);
 IF (ChannelCount_Eth.q[] == b"11" AND DataCount_Eth.q[] == VCC)
 	THEN StopCount_Eth = VCC;
 	ELSE StopCount_Eth = GND;
 END IF;
+StopCount_Eth_Strob.(D,clk) = (StopCount_Eth, Clk100);
+
 %
 Test RAM
 CASE ChannelCount_Eth.q[] IS
